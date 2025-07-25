@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { MatchWithTeams } from '@/lib/storage';
+import { resolveTeamSource } from '@/lib/team-source-resolver';
 
 interface CourtStatus {
   courtNumber: number;
@@ -15,12 +16,52 @@ interface CourtStatus {
 
 interface CourtStatusHeaderProps {
   totalCourts: number;
-  matches: MatchWithTeams[];
+  matches: any[];
+  teams: any[];
+  template: any;
+  randomAssignments: any;
   onCourtClick?: (courtNumber: number) => void;
 }
 
-export function CourtStatusHeader({ totalCourts, matches, onCourtClick }: CourtStatusHeaderProps) {
+export function CourtStatusHeader({ totalCourts, matches, teams, template, randomAssignments, onCourtClick }: CourtStatusHeaderProps) {
   const [courtStatuses, setCourtStatuses] = useState<CourtStatus[]>([]);
+
+  // Helper pour reconstruire les résultats de match (pour W_X/L_X)
+  function buildMatchResults(): any[] {
+    const allMatches: any[] = [];
+    for (const rotation of template.rotations) {
+      for (const phase of rotation.phases) {
+        for (const match of phase.matches) {
+          allMatches.push(match);
+        }
+      }
+    }
+    allMatches.sort((a, b) => a.ordre_match - b.ordre_match);
+    const results: any[] = [];
+    for (const match of allMatches) {
+      let winner_team_id = '';
+      let looser_team_id = '';
+      if (match.winner === '1') {
+        const team1 = resolveTeamSource(match.source_team_1, teams, results, randomAssignments);
+        winner_team_id = team1?.id || '';
+        const team2 = resolveTeamSource(match.source_team_2, teams, results, randomAssignments);
+        looser_team_id = team2?.id || '';
+      } else if (match.winner === '2') {
+        const team2 = resolveTeamSource(match.source_team_2, teams, results, randomAssignments);
+        winner_team_id = team2?.id || '';
+        const team1 = resolveTeamSource(match.source_team_1, teams, results, randomAssignments);
+        looser_team_id = team1?.id || '';
+      }
+      results.push({
+        id: match.id,
+        winner_team_id: winner_team_id || undefined,
+        looser_team_id: looser_team_id || undefined,
+        winner_team: match.winner_team,
+        looser_team: match.looser_team,
+      });
+    }
+    return results;
+  }
 
   // Update court statuses when matches change
   useEffect(() => {
@@ -38,15 +79,19 @@ export function CourtStatusHeader({ totalCourts, matches, onCourtClick }: CourtS
     setCourtStatuses(statuses);
   }, [matches, totalCourts]);
 
-  const getMatchDisplayName = (match: MatchWithTeams) => {
+  const getMatchDisplayName = (match: any) => {
     if (match.stage) return match.stage;
     if (match.round) return match.round;
-    return `Match #${match.json_match_id || match.order_index}`;
+    const m = match as any;
+    return `Match #${m.ordre_match || m.json_match_id || m.order_index || m.id}`;
   };
 
-  const getTeamNames = (match: MatchWithTeams) => {
-    const team1Name = match.team_1?.name || 'TBD';
-    const team2Name = match.team_2?.name || 'TBD';
+  const getTeamNames = (match: any) => {
+    const matchResults = buildMatchResults();
+    const team1 = resolveTeamSource(match.source_team_1, teams, matchResults, randomAssignments);
+    const team2 = resolveTeamSource(match.source_team_2, teams, matchResults, randomAssignments);
+    const team1Name = team1 ? (team1.players?.map((p: any) => p.last_name).join(' - ') + (team1.seed_number ? ` (TS${team1.seed_number})` : '')) : match.source_team_1;
+    const team2Name = team2 ? (team2.players?.map((p: any) => p.last_name).join(' - ') + (team2.seed_number ? ` (TS${team2.seed_number})` : '')) : match.source_team_2;
     return `${team1Name} vs ${team2Name}`;
   };
 
