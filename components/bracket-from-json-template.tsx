@@ -40,10 +40,14 @@ interface BracketFromJsonTemplateProps {
 }
 
 // Helper pour afficher le nom d'équipe formaté
-function getTeamDisplay(team?: TeamWithPlayers) {
-  if (!team) return 'TBD';
+function getTeamDisplay(team?: TeamWithPlayers, fallbackSource?: string) {
+  if (!team) return fallbackSource || '';
   const players = team.players?.map(p => p.last_name).join(' - ');
   const ts = team.seed_number ? ` (TS${team.seed_number})` : '';
+  // Si c'est une équipe factice (pas de joueurs, pas de seed), on affiche le nom brut
+  if ((!team.players || team.players.length === 0) && !team.seed_number) {
+    return team.name;
+  }
   return `${players || team.name}${ts}`;
 }
 
@@ -118,12 +122,42 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                 {phase.matches
                   .sort((a, b) => a.ordre_match - b.ordre_match)
                   .map((match, matchIdx) => {
-                    const team1 = resolveTeamSource(match.source_team_1, teams, matchResults, randomAssignments);
-                    const team2 = resolveTeamSource(match.source_team_2, teams, matchResults, randomAssignments);
+                    // Déterminer l'index d'occurrence pour chaque random_X_Y
+                    function getRandomKeyWithIndex(source: string) {
+                      if (!source || !/^random_\d+_\d+$/.test(source)) return source;
+                      // Compter le nombre d'occurrences précédentes de ce random dans tous les matches déjà parcourus
+                      let count = 0;
+                      for (let i = 0; i < rotIdx; i++) {
+                        const r = localTemplate.rotations[i];
+                        for (const p of r.phases) {
+                          for (const m of p.matches) {
+                            if (m.source_team_1 === source || m.source_team_2 === source) count++;
+                          }
+                        }
+                      }
+                      for (let j = 0; j < phaseIdx; j++) {
+                        const p = rotation.phases[j];
+                        for (const m of p.matches) {
+                          if (m.source_team_1 === source || m.source_team_2 === source) count++;
+                        }
+                      }
+                      for (let k = 0; k < matchIdx; k++) {
+                        const m = phase.matches[k];
+                        if (m.source_team_1 === source || m.source_team_2 === source) count++;
+                      }
+                      return `${source}_${count+1}`;
+                    }
+                    const team1Source = getRandomKeyWithIndex(match.source_team_1);
+                    const team2Source = getRandomKeyWithIndex(match.source_team_2);
+                    const team1 = resolveTeamSource(team1Source, teams, matchResults, randomAssignments);
+                    const team2 = resolveTeamSource(team2Source, teams, matchResults, randomAssignments);
                     const isWinner1 = match.winner === '1';
                     const isWinner2 = match.winner === '2';
                     const isLooser1 = match.looser === '1';
                     const isLooser2 = match.looser === '2';
+                    // Correction linter : préparer l'affichage des noms d'équipe
+                    const team1Display = getTeamDisplay(team1 === null ? undefined : team1, match.source_team_1);
+                    const team2Display = getTeamDisplay(team2 === null ? undefined : team2, match.source_team_2);
                     return (
                       <div key={match.id} style={{ marginBottom: 12, padding: 8, background: '#fafbfc', borderRadius: 6, border: isWinner1 || isWinner2 ? '2px solid #059669' : '1px solid #ddd', boxShadow: isWinner1 || isWinner2 ? '0 0 8px #05966933' : undefined }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -137,16 +171,13 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                               padding: '2px 6px',
                               cursor: 'pointer',
                               position: 'relative',
-                              minWidth: 120,
-                              display: 'inline-block',
-                              textAlign: 'center'
                             }}
                             onMouseEnter={() => setEditing({ matchId: match.id, field: 'score1' })}
                             onMouseLeave={() => setEditing({ matchId: -1, field: null })}
                             onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
                             title="Cliquez pour sélectionner comme vainqueur"
                           >
-                            <b>{editing.matchId === match.id && editing.field === 'score1' ? <span style={{ color: '#059669' }}>Winner</span> : getTeamDisplay(team1 || undefined)}</b>
+                            <b>{editing.matchId === match.id && editing.field === 'score1' ? <span style={{ color: '#059669' }}>Winner</span> : team1Display}</b>
                           </span>
                           <span style={{ fontWeight: 'bold', color: '#888' }}>VS</span>
                           {/* Team 2 */}
@@ -159,16 +190,13 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                               padding: '2px 6px',
                               cursor: 'pointer',
                               position: 'relative',
-                              minWidth: 120,
-                              display: 'inline-block',
-                              textAlign: 'center'
                             }}
                             onMouseEnter={() => setEditing({ matchId: match.id, field: 'score2' })}
                             onMouseLeave={() => setEditing({ matchId: -1, field: null })}
                             onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
                             title="Cliquez pour sélectionner comme vainqueur"
                           >
-                            <b>{editing.matchId === match.id && editing.field === 'score2' ? <span style={{ color: '#059669' }}>Winner</span> : getTeamDisplay(team2 || undefined)}</b>
+                            <b>{editing.matchId === match.id && editing.field === 'score2' ? <span style={{ color: '#059669' }}>Winner</span> : team2Display}</b>
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
@@ -212,7 +240,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                  {getTeamDisplay(resolveTeamSource(scoreDialog.match.source_team_1, teams, matchResults, randomAssignments) || undefined)}
+                  {(() => { const t = resolveTeamSource(scoreDialog.match.source_team_1, teams, matchResults, randomAssignments); return getTeamDisplay(t === null ? undefined : t, scoreDialog.match.source_team_1); })()}
                 </div>
                 <input
                   type="number"
@@ -225,7 +253,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
               <div style={{ alignSelf: 'center', fontWeight: 'bold', fontSize: 18 }}>-</div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                  {getTeamDisplay(resolveTeamSource(scoreDialog.match.source_team_2, teams, matchResults, randomAssignments) || undefined)}
+                  {(() => { const t = resolveTeamSource(scoreDialog.match.source_team_2, teams, matchResults, randomAssignments); return getTeamDisplay(t === null ? undefined : t, scoreDialog.match.source_team_2); })()}
                 </div>
                 <input
                   type="number"

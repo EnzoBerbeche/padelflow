@@ -29,11 +29,21 @@ export function resolveTeamSource(
     return teams.find(t => t.seed_number === num) || null;
   }
 
-  // Cas: random (ex: 'random_5_8')
+  // Cas: random (ex: 'random_5_8' ou 'random_5_8_1')
   if (source.startsWith('random_')) {
-    const teamId = randomAssignments[source];
-    if (!teamId) return null;
-    return teams.find(t => t.id === teamId) || null;
+    // Cherche d'abord une version indexée (random_5_8_1)
+    if (randomAssignments[source]) {
+      const teamId = randomAssignments[source];
+      return teams.find(t => t.id === teamId) || null;
+    }
+    // Sinon, fallback sur la version simple (random_5_8)
+    // (pour compatibilité descendante)
+    const base = source.replace(/_\d+$/, '');
+    if (randomAssignments[base]) {
+      const teamId = randomAssignments[base];
+      return teams.find(t => t.id === teamId) || null;
+    }
+    return null;
   }
 
   // Cas: Winner ou Looser d'un match (ex: 'W_5', 'L_3')

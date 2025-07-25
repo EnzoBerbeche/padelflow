@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getAvailableJsonFormats, getFormatByKey, TournamentFormatConfig } from '@/lib/tournament-formats-json';
 import { JsonBracketGenerator, RandomAssignments, generate8TeamBracketTree } from '@/lib/json-bracket-generator';
 import { resolveTeamSource } from '@/lib/team-source-resolver';
+import { RandomDrawDialog } from './random-draw-dialog';
 
 interface TournamentFormatsProps {
   tournament: Tournament;
@@ -23,6 +24,8 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
   const [loading, setLoading] = useState(false);
   const [showRandomDraw, setShowRandomDraw] = useState(false);
   const [pendingFormatKey, setPendingFormatKey] = useState<string | null>(null);
+  const [pendingRandomSources, setPendingRandomSources] = useState<string[]>([]);
+  const [pendingRandomOccurrences, setPendingRandomOccurrences] = useState<{key: string, base: string, index: number}[]>([]);
   const [availableFormats, setAvailableFormats] = useState<TournamentFormatConfig[]>([]);
   const [formatsLoading, setFormatsLoading] = useState(true);
   const [currentFormat, setCurrentFormat] = useState<TournamentFormatConfig | null>(null);
@@ -69,22 +72,28 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
     const format = await getFormatByKey(formatKey);
     if (!format) return;
 
-    // Correction : parcourir toutes les matches dans rotations/phases/matches
-    const rotations = (format.format_data as any).rotations || [];
-    const allMatches = rotations
-      .flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || [];
-    const hasRandomAssignments = allMatches.some((match: any) =>
-      (match.source_team_1 && match.source_team_1.includes('random')) ||
-      (match.source_team_2 && match.source_team_2.includes('random'))
-    );
-
-    if (hasRandomAssignments) {
+    // Détecter tous les groupes random_X_Y dans le format
+    const formatJson = format.format_data;
+    const rotations = (formatJson.rotations || []) as any[];
+    const allMatches = rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || [];
+    // Générer la liste complète des occurrences random_X_Y (avec index)
+    const occurrences: {key: string, base: string, index: number}[] = [];
+    const randomCount: Record<string, number> = {};
+    for (const match of allMatches) {
+      for (const src of [match.source_team_1, match.source_team_2]) {
+        if (src && /^random_\d+_\d+$/.test(src)) {
+          randomCount[src] = (randomCount[src] || 0) + 1;
+          occurrences.push({ key: `${src}_${randomCount[src]}`, base: src, index: randomCount[src] });
+        }
+      }
+    }
+    if (occurrences.length > 0) {
       setPendingFormatKey(formatKey);
+      setPendingRandomOccurrences(occurrences);
       setShowRandomDraw(true);
       return;
     }
-
-    // For formats without random assignments, proceed normally
+    // Pas de random, on procède normalement
     proceedWithFormatSelection(formatKey);
   };
 
@@ -262,110 +271,125 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold">Tournament Format</h2>
-        <p className="text-gray-600">
-          Select a format for your {teams.length}-team tournament
-        </p>
-      </div>
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h2 className="text-2xl font-semibold">Tournament Format</h2>
+          <p className="text-gray-600">
+            Select a format for your {teams.length}-team tournament
+          </p>
+        </div>
 
-      {/* Current Format */}
-      {currentFormat && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <CardTitle className="text-green-800">{currentFormat.name}</CardTitle>
+        {/* Current Format */}
+        {currentFormat && (
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CardTitle className="text-green-800">{currentFormat.name}</CardTitle>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={unselectFormat}
+                  disabled={loading}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Unselect Format
+                </Button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={unselectFormat}
-                disabled={loading}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Unselect Format
-              </Button>
-            </div>
-            <CardDescription className="text-green-700">
-              Format selected and matches generated with all random assignments completed. You can unselect this format to choose a different one.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2 text-sm text-green-600">
-              <AlertTriangle className="h-4 w-4" />
-              <span>Unselecting this format will delete all generated matches and random assignments</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              <CardDescription className="text-green-700">
+                Format selected and matches generated with all random assignments completed. You can unselect this format to choose a different one.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2 text-sm text-green-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Unselecting this format will delete all generated matches and random assignments</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Available Formats */}
-      {!selectedFormat && (
-        <>
-          {availableFormats.length === 0 ? (
-            <Card className="text-center py-12">
-              <CardContent>
-                <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No formats available</h3>
-                <p className="text-gray-500">
-                  No tournament formats are available for {teams.length} teams. 
-                  Contact support to add formats for this team count.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {availableFormats.map((format, index) => {
-                return (
-                  <Card key={format.format_key} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="flex justify-between items-center">
-                        <div className="flex flex-col">
-                          <span className="text-lg font-bold">{format.format_data.format_name || format.name}</span>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Shuffle className="h-4 w-4 text-purple-600" />
-                            <span>{format.name}</span>
+        {/* Available Formats */}
+        {!selectedFormat && (
+          <>
+            {availableFormats.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No formats available</h3>
+                  <p className="text-gray-500">
+                    No tournament formats are available for {teams.length} teams. 
+                    Contact support to add formats for this team count.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {availableFormats.map((format, index) => {
+                  return (
+                    <Card key={format.format_key} className="hover:shadow-md transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="flex justify-between items-center">
+                          <div className="flex flex-col">
+                            <span className="text-lg font-bold">{format.format_data.format_name || format.name}</span>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Shuffle className="h-4 w-4 text-purple-600" />
+                              <span>{format.name}</span>
+                            </div>
                           </div>
+                          <Badge variant="outline">
+                            {format.min_teams}-{format.max_teams} teams
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          {format.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="text-sm text-gray-600">
+                            {Array.isArray(format.format_data.features)
+                              ? format.format_data.features.map((feature, i) => (
+                                  <p key={i}>✓ {feature}</p>
+                                ))
+                              : null}
+                          </div>
+                          <Button 
+                            onClick={() => selectFormat(format.format_key)}
+                            disabled={loading}
+                            className="w-full"
+                          >
+                            {loading ? 'Génération en cours...' : 'Choisir ce format'}
+                          </Button>
                         </div>
-                        <Badge variant="outline">
-                          {format.min_teams}-{format.max_teams} teams
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        {format.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="text-sm text-gray-600">
-                          {Array.isArray(format.format_data.features)
-                            ? format.format_data.features.map((feature, i) => (
-                                <p key={i}>✓ {feature}</p>
-                              ))
-                            : null}
-                        </div>
-                        <Button 
-                          onClick={() => selectFormat(format.format_key)}
-                          disabled={loading}
-                          className="w-full"
-                        >
-                          {loading ? 'Génération en cours...' : 'Choisir ce format'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <RandomDrawDialog
+        open={showRandomDraw}
+        onClose={() => setShowRandomDraw(false)}
+        teams={teams}
+        randomOccurrences={pendingRandomOccurrences}
+        onComplete={(assignments) => {
+          if (pendingFormatKey) {
+            proceedWithFormatSelection(pendingFormatKey, assignments as any);
+            setPendingFormatKey(null);
+            setPendingRandomOccurrences([]);
+          }
+        }}
+      />
+    </>
   );
 }
 
