@@ -21,6 +21,14 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
     setRandomAssignments(tournamentData?.random_assignments || {});
   }, [tournament.id]);
 
+  // Nouvelle fonction pour mettre à jour le template du tournoi (bracket)
+  const handleUpdateTemplate = (newTemplate: any) => {
+    storage.tournaments.update(tournament.id, { format_json: newTemplate });
+    // Relire la version à jour depuis le localStorage
+    const updated = storage.tournaments.getById(tournament.id);
+    setTemplate(updated?.format_json || null);
+  };
+
   if (!template) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -34,8 +42,8 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
       <BracketFromJsonTemplate
         template={template}
         teams={teams}
-        matchResults={[]}
         randomAssignments={randomAssignments}
+        onUpdateTemplate={handleUpdateTemplate}
       />
     </div>
   );

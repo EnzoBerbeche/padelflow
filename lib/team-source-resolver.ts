@@ -50,8 +50,15 @@ export function resolveTeamSource(
   if (/^[WL]_\d+$/.test(source)) {
     const type = source[0];
     const matchId = parseInt(source.slice(2), 10);
-    const match = matchResults.find(m => m.id === matchId);
+    const match = matchResults.find(m => m.id === matchId) as any;
     if (!match) return null;
+    // Si on a stocké l'objet équipe gagnante/perdante, on le retourne
+    if (type === 'W' && match.winner_team) {
+      return match.winner_team;
+    } else if (type === 'L' && match.looser_team) {
+      return match.looser_team;
+    }
+    // Fallback sur l'ancienne logique
     if (type === 'W') {
       return teams.find(t => t.id === match.winner_team_id) || null;
     } else {
