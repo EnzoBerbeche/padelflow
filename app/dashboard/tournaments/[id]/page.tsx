@@ -20,9 +20,7 @@ import { TournamentMatches } from '@/components/tournament-matches';
 const DEMO_USER_ID = 'demo-user-123';
 
 interface TournamentPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 // Helper to extract all matches from a bracket tree as flat objects
@@ -65,6 +63,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
   // Next.js 15 migration: params is a Promise in React 19+
   // In React 18, access params.id directly. In React 19, use: const { id } = React.use(params);
+  // @ts-expect-error: params is a Promise in React 19, but a plain object in React 18
   const { id } = params;
 
   useEffect(() => {
