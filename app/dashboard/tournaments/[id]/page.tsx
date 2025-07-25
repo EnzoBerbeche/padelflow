@@ -63,7 +63,9 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teams');
 
-  const { id } = use(params as any) as { id: string };
+  // Next.js 15 migration: params is a Promise in React 19+
+  // In React 18, access params.id directly. In React 19, use: const { id } = React.use(params);
+  const { id } = params;
 
   useEffect(() => {
     fetchTournament();
