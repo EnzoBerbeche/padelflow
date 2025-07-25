@@ -1,0 +1,222 @@
+{
+  "format_name": "Tournoi 8 équipes - A plat - Pas de random",
+  "features": [
+    "Tableau à plat",
+    "Pas de random"
+  ],
+  "rotations": [
+    {
+      "name": "Rotation 1",
+      "phases": [
+        {
+          "name": "1/4 de finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 1,
+              "ordre_match": 1,
+              "source_team_1": "2",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 2,
+              "ordre_match": 2,
+              "source_team_1": "3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "7",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 3,
+              "ordre_match": 3,
+              "source_team_1": "6",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 4,
+              "ordre_match": 4,
+              "source_team_1": "5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "1",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rotation 2",
+      "phases": [
+        {
+          "name": "1/2 finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 5,
+              "ordre_match": 5,
+              "source_team_1": "W_1",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_2",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 7,
+              "ordre_match": 7,
+              "source_team_1": "W_3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 5-8",
+          "ordre_phase": 2,
+          "matches": [
+            {
+              "id": 6,
+              "ordre_match": 6,
+              "source_team_1": "L_1",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_2",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 8,
+              "ordre_match": 8,
+              "source_team_1": "L_3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rotation 3",
+      "phases": [
+        {
+          "name": "Finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 12,
+              "ordre_match": 12,
+              "source_team_1": "W_5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_7",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Petite finale",
+          "ordre_phase": 2,
+          "matches": [
+            {
+              "id": 11,
+              "ordre_match": 11,
+              "source_team_1": "L_5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_7",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 5-6",
+          "ordre_phase": 3,
+          "matches": [
+            {
+              "id": 10,
+              "ordre_match": 10,
+              "source_team_1": "W_6",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 7-8",
+          "ordre_phase": 4,
+          "matches": [
+            {
+              "id": 9,
+              "ordre_match": 9,
+              "source_team_1": "L_6",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
