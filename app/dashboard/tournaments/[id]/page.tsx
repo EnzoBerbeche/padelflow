@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage, Tournament, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TournamentTeams } from '@/components/tournament-teams';
 import { TournamentFormats } from '@/components/tournament-formats';
 import { TournamentMatches } from '@/components/tournament-matches';
+import { ProtectedRoute } from '@/components/protected-route';
 
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
@@ -55,25 +57,36 @@ function extractMatchesFromBracketTree(node: any, matches: any[] = []): any[] {
 export default function TournamentPage({ params }: TournamentPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [teams, setTeams] = useState<TeamWithPlayers[]>([]);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teams');
 
-  // Next.js 15 migration: params is a Promise in React 19+
-  // In React 18, access params.id directly. In React 19, use: const { id } = React.use(params);
-  // @ts-expect-error: params is a Promise in React 19, but a plain object in React 18
-  const { id } = params;
+  // Next.js 15: params is a Promise, need to unwrap it
+  const { id } = use(params);
 
   useEffect(() => {
-    fetchTournament();
-  }, [id]);
+    if (currentUserId) {
+      fetchTournament();
+    }
+  }, [id, currentUserId]);
 
   const fetchTournament = () => {
     try {
       const tournamentData = storage.tournaments.getById(id);
-      if (!tournamentData || tournamentData.organizer_id !== DEMO_USER_ID) {
+      if (!tournamentData) {
+        throw new Error('Tournament not found');
+      }
+      
+      // Check if user can access this tournament
+      const canAccess = 
+        tournamentData.owner_id === currentUserId || // User owns the tournament
+        !tournamentData.owner_id || // Legacy tournament (no owner_id)
+        tournamentData.organizer_id === DEMO_USER_ID; // Demo tournament
+      
+      if (!canAccess) {
         throw new Error('Tournament not found');
       }
       
@@ -172,8 +185,9 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -278,5 +292,6 @@ export default function TournamentPage({ params }: TournamentPageProps) {
         </Tabs>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

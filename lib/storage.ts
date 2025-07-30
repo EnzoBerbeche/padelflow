@@ -7,6 +7,7 @@ export interface Tournament {
   date: string;
   location: string;
   organizer_id: string;
+  owner_id?: string; // Clerk user ID who created the tournament
   public_id: string;
   teams_locked: boolean;
   format_id?: string;
@@ -237,6 +238,7 @@ const initializeData = () => {
       date: '2024-04-15',
       location: 'Madrid Sports Center',
       organizer_id: 'demo-user-123',
+      owner_id: 'demo-user-123', // Legacy demo tournament - visible to everyone
       public_id: 'demo123',
       teams_locked: false,
       level: 'P500',
@@ -271,6 +273,18 @@ export const storage = {
     getAll: (organizer_id: string): Tournament[] => {
       return getFromStorage<Tournament>(STORAGE_KEYS.tournaments)
         .filter(t => t.organizer_id === organizer_id);
+    },
+    
+    getCurrentUserTournaments: (currentUserId: string): Tournament[] => {
+      const allTournaments = getFromStorage<Tournament>(STORAGE_KEYS.tournaments);
+      return allTournaments.filter(t => {
+        // Show tournaments owned by current user
+        if (t.owner_id === currentUserId) return true;
+        // Show legacy tournaments (without owner_id) to everyone
+        if (!t.owner_id) return true;
+        // Hide tournaments owned by other users
+        return false;
+      });
     },
     
     getById: (id: string): Tournament | null => {
@@ -309,6 +323,26 @@ export const storage = {
       };
       saveToStorage(STORAGE_KEYS.tournaments, tournaments);
       return tournaments[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const tournaments = getFromStorage<Tournament>(STORAGE_KEYS.tournaments);
+      const index = tournaments.findIndex(t => t.id === id);
+      if (index === -1) return false;
+      
+      tournaments.splice(index, 1);
+      saveToStorage(STORAGE_KEYS.tournaments, tournaments);
+      
+      // Also delete related records
+      const matches = getFromStorage<Match>(STORAGE_KEYS.matches);
+      const tournamentTeams = getFromStorage<TournamentTeam>(STORAGE_KEYS.tournament_teams);
+      
+      saveToStorage(STORAGE_KEYS.matches, 
+        matches.filter(m => m.tournament_id !== id));
+      saveToStorage(STORAGE_KEYS.tournament_teams, 
+        tournamentTeams.filter(tt => tt.tournament_id !== id));
+      
+      return true;
     },
   },
 

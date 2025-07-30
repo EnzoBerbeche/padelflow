@@ -16,14 +16,17 @@ import { storage, Tournament } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard-layout';
+import { ProtectedRoute } from '@/components/protected-route';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 
-// Demo user ID for testing
+// Demo user ID for testing (fallback)
 const DEMO_USER_ID = 'demo-user-123';
 
 export default function NewTournament() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -98,7 +101,8 @@ export default function NewTournament() {
           name: formData.name,
           location: formData.location,
           date: formData.date.toISOString().split('T')[0],
-          organizer_id: DEMO_USER_ID,
+          organizer_id: currentUserId || DEMO_USER_ID,
+          owner_id: currentUserId || DEMO_USER_ID, // Link to current user
           teams_locked: false,
           level: formData.level,
           start_time: formData.start_time,
@@ -127,8 +131,9 @@ export default function NewTournament() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
           <Link href="/dashboard">
@@ -372,5 +377,6 @@ export default function NewTournament() {
         </form>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

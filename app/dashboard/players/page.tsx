@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Users, Plus, Edit, Trash2, MoreVertical, User, Mail, Phone, Search, Filter, Award, Circle, CircleDot, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ProtectedRoute } from '@/components/protected-route';
 
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
@@ -159,12 +160,13 @@ export default function PlayersPage() {
   const uniqueClubs = Array.from(new Set(players.map(p => p.club))).sort();
 
   const filteredPlayers = players.filter(player => {
+    const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      player.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.license_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.club.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (player.email && player.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      (player.first_name?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.last_name?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.license_number?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.club?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.email?.toLowerCase() || '').includes(searchTermLower);
     
     const matchesRanking = rankingFilter === 'all' || 
       (rankingFilter === 'top25' && player.ranking <= 25) ||
@@ -190,8 +192,9 @@ export default function PlayersPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -565,5 +568,6 @@ export default function PlayersPage() {
         </Card>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 } 

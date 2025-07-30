@@ -1,9 +1,14 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Users, Calendar, Share2 } from 'lucide-react';
 import Link from 'next/link';
+import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
 
 export default function Home() {
+  const { isSignedIn } = useUser();
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50">
       {/* Header */}
@@ -14,9 +19,23 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-gray-900">PadelFlow</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
-              <Button>Try Demo</Button>
-            </Link>
+            {isSignedIn ? (
+              <>
+                <Link href="/dashboard">
+                  <Button>Dashboard</Button>
+                </Link>
+                <UserButton afterSignOutUrl="/" />
+              </>
+            ) : (
+              <>
+                <SignInButton mode="modal">
+                  <Button variant="outline">Sign In</Button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <Button>Sign Up</Button>
+                </SignUpButton>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -33,16 +52,26 @@ export default function Home() {
               to bracket generation and live scoring - everything you need in one platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/dashboard">
-                <Button size="lg" className="text-lg px-8 py-3">
-                  Try Demo Now
-                </Button>
-              </Link>
-              <Link href="/public/demo123">
-                <Button variant="outline" size="lg" className="text-lg px-8 py-3">
-                  View Demo Tournament
-                </Button>
-              </Link>
+              {isSignedIn ? (
+                <Link href="/dashboard">
+                  <Button size="lg" className="text-lg px-8 py-3">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <SignUpButton mode="modal">
+                    <Button size="lg" className="text-lg px-8 py-3">
+                      Get Started
+                    </Button>
+                  </SignUpButton>
+                  <Link href="/public/demo123">
+                    <Button variant="outline" size="lg" className="text-lg px-8 py-3">
+                      View Demo Tournament
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -121,11 +150,19 @@ export default function Home() {
           <p className="text-xl mb-8 opacity-90">
             Try our demo to see how easy tournament management can be
           </p>
-          <Link href="/dashboard">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-              Start Demo Now
-            </Button>
-          </Link>
+          {isSignedIn ? (
+            <Link href="/dashboard">
+              <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
+                Go to Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <SignUpButton mode="modal">
+              <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
+                Get Started Now
+              </Button>
+            </SignUpButton>
+          )}
         </div>
       </section>
 

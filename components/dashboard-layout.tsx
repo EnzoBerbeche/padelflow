@@ -1,10 +1,11 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { UserButton, SignOutButton } from '@clerk/nextjs';
 
 const navigation = [
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
@@ -32,14 +33,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                Demo Mode
-              </div>
-              <Link href="/">
-                <Button variant="outline" size="sm">
-                  Exit Demo
-                </Button>
-              </Link>
+              <UserButton afterSignOutUrl="/" />
             </div>
           </div>
         </div>

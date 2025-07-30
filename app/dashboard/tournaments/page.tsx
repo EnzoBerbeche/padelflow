@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { storage, Tournament } from '@/lib/storage';
 import { DashboardLayout } from '@/components/dashboard-layout';
+import { ProtectedRoute } from '@/components/protected-route';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,16 +20,22 @@ const DEMO_USER_ID = 'demo-user-123';
 
 export default function TournamentsPage() {
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTournaments();
-  }, []);
+  }, [currentUserId]);
 
   const fetchTournaments = () => {
     try {
-      const data = storage.tournaments.getAll(DEMO_USER_ID);
+      if (!currentUserId) {
+        setLoading(false);
+        return;
+      }
+      
+      const data = storage.tournaments.getCurrentUserTournaments(currentUserId);
       setTournaments(data);
     } catch (error) {
       console.error('Error fetching tournaments:', error);
@@ -117,8 +125,9 @@ export default function TournamentsPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -312,5 +321,6 @@ export default function TournamentsPage() {
         </div>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 } 
