@@ -14,12 +14,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Users, Plus, Edit, Trash2, MoreVertical, User, Mail, Phone, Search, Filter, Award, Circle, CircleDot, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
 
 export default function PlayersPage() {
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,11 +44,12 @@ export default function PlayersPage() {
 
   useEffect(() => {
     fetchPlayers();
-  }, []);
+  }, [currentUserId]);
 
   const fetchPlayers = () => {
     try {
-      const data = storage.players.getAll(DEMO_USER_ID);
+      const userId = currentUserId || DEMO_USER_ID;
+      const data = storage.players.getCurrentUserPlayers(userId);
       setPlayers(data);
     } catch (error) {
       console.error('Error fetching players:', error);
@@ -74,11 +77,12 @@ export default function PlayersPage() {
     e.preventDefault();
     
     try {
+      const userId = currentUserId || DEMO_USER_ID;
       if (editingPlayer) {
         // Update existing player
         storage.players.update(editingPlayer.id, {
           ...formData,
-          organizer_id: DEMO_USER_ID,
+          organizer_id: userId,
         });
         toast({
           title: "Success",
@@ -88,7 +92,8 @@ export default function PlayersPage() {
         // Create new player
         storage.players.create({
           ...formData,
-          organizer_id: DEMO_USER_ID,
+          organizer_id: userId,
+          owner_id: userId, // Set owner_id for new players
         });
         toast({
           title: "Success",

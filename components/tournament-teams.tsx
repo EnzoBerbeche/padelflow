@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { storage, Tournament, TeamWithPlayers, Player } from '@/lib/storage';
-import { Button } from '@/components/ui/button';
+import { storage, Player, Team, TeamWithPlayers, Tournament } from '@/lib/storage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Users, Trash2, Lock, Unlock, Edit2, Save, X } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Lock, Unlock, Award, User, Mail, Phone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
@@ -24,14 +26,11 @@ interface TournamentTeamsProps {
 
 export function TournamentTeams({ tournament, teams, onTeamsUpdate }: TournamentTeamsProps) {
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<string | null>(null);
-  const [newTeamForm, setNewTeamForm] = useState({
-    player1: null as Player | null,
-    player2: null as Player | null,
-  });
+  const [showAddPlayerDialog, setShowAddPlayerDialog] = useState(false);
+  const [showAddTeamDialog, setShowAddTeamDialog] = useState(false);
   const [newPlayerForm, setNewPlayerForm] = useState({
     first_name: '',
     last_name: '',
@@ -40,14 +39,19 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     email: '',
     phone: '',
   });
+  const [newTeamForm, setNewTeamForm] = useState({
+    player1: null as Player | null,
+    player2: null as Player | null,
+  });
 
   useEffect(() => {
     fetchPlayers();
-  }, []);
+  }, [currentUserId]);
 
   const fetchPlayers = () => {
     try {
-      const data = storage.players.getAll(DEMO_USER_ID);
+      const userId = currentUserId || DEMO_USER_ID;
+      const data = storage.players.getCurrentUserPlayers(userId);
       setPlayers(data);
     } catch (error) {
       console.error('Error fetching players:', error);
@@ -66,10 +70,15 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     }
 
     try {
+      const userId = currentUserId || DEMO_USER_ID;
       const player = storage.players.create({
         ...newPlayerForm,
         ranking: parseInt(newPlayerForm.ranking),
-        organizer_id: DEMO_USER_ID,
+        organizer_id: userId,
+        owner_id: userId, // Set owner_id for new players
+        club: 'Club Padel', // Default club
+        date_of_birth: new Date().toISOString().split('T')[0], // Default to today
+        gender: 'Mr' as 'Mr' | 'Mme', // Default gender
       });
 
       setPlayers([...players, player]);
@@ -148,7 +157,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
         player1: null,
         player2: null,
       });
-      setDialogOpen(false);
+      setShowAddTeamDialog(false);
       onTeamsUpdate();
 
       toast({
@@ -251,7 +260,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
           <p className="text-gray-600">Add and manage teams for this tournament</p>
         </div>
         <div className="flex space-x-2">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={showAddTeamDialog} onOpenChange={setShowAddTeamDialog}>
             <DialogTrigger asChild>
               <Button disabled={tournament.teams_locked}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -388,7 +397,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
 
                 {/* Actions */}
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setShowAddTeamDialog(false)}>
                     Cancel
                   </Button>
                   <Button onClick={addTeam} disabled={loading}>
@@ -442,7 +451,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
             <p className="text-gray-500 mb-6">
               Add teams to start building your tournament bracket
             </p>
-            <Button disabled={tournament.teams_locked} onClick={() => setDialogOpen(true)}>
+            <Button disabled={tournament.teams_locked} onClick={() => setShowAddTeamDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add First Team
             </Button>

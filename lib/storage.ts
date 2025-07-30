@@ -37,6 +37,7 @@ export interface Player {
   date_of_birth: string;
   gender: 'Mr' | 'Mme';
   organizer_id: string;
+  owner_id?: string; // Clerk user ID who created the player
   created_at: string;
   updated_at: string;
 }
@@ -220,6 +221,7 @@ const initializeData = () => {
       date_of_birth: new Date(1980 + (index % 20), (index % 12), 1 + (index % 28)).toISOString().split('T')[0], // Random date between 1980-2000
       gender: index % 2 === 0 ? 'Mr' : 'Mme', // Alternating Mr/Mme
       organizer_id: 'demo-user-123',
+      owner_id: 'demo-user-123', // Legacy demo players - visible to everyone
       created_at: now(),
       updated_at: now(),
     }));
@@ -351,6 +353,18 @@ export const storage = {
     getAll: (organizer_id: string): Player[] => {
       return getFromStorage<Player>(STORAGE_KEYS.players)
         .filter(p => p.organizer_id === organizer_id);
+    },
+    
+    getCurrentUserPlayers: (currentUserId: string): Player[] => {
+      const allPlayers = getFromStorage<Player>(STORAGE_KEYS.players);
+      return allPlayers.filter(p => {
+        // Show players owned by current user
+        if (p.owner_id === currentUserId) return true;
+        // Show legacy players (without owner_id) to everyone
+        if (!p.owner_id) return true;
+        // Hide players owned by other users
+        return false;
+      });
     },
     
     create: (data: Omit<Player, 'id' | 'created_at' | 'updated_at'>): Player => {
