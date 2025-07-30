@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+// Demo user ID for testing
+const DEMO_USER_ID = 'demo-user-123';
+
 export default function TournamentsPage() {
   const { toast } = useToast();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -24,7 +27,7 @@ export default function TournamentsPage() {
 
   const fetchTournaments = () => {
     try {
-      const data = storage.tournaments.getAll();
+      const data = storage.tournaments.getAll(DEMO_USER_ID);
       setTournaments(data);
     } catch (error) {
       console.error('Error fetching tournaments:', error);

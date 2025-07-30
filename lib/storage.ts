@@ -32,6 +32,9 @@ export interface Player {
   ranking: number;
   email?: string;
   phone?: string;
+  club: string;
+  date_of_birth: string;
+  gender: 'Mr' | 'Mme';
   organizer_id: string;
   created_at: string;
   updated_at: string;
@@ -212,6 +215,9 @@ const initializeData = () => {
       ranking: playerData.ranking,
       email: `${playerData.first.toLowerCase()}.${playerData.last.toLowerCase()}@email.com`,
       phone: `+33 6 ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(0, 2)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(2, 4)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(4, 6)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(6, 8)}`,
+      club: `Club Padel ${String.fromCharCode(65 + (index % 5))}`, // Club A, B, C, D, E
+      date_of_birth: new Date(1980 + (index % 20), (index % 12), 1 + (index % 28)).toISOString().split('T')[0], // Random date between 1980-2000
+      gender: index % 2 === 0 ? 'Mr' : 'Mme', // Alternating Mr/Mme
       organizer_id: 'demo-user-123',
       created_at: now(),
       updated_at: now(),
@@ -324,6 +330,36 @@ export const storage = {
       players.push(player);
       saveToStorage(STORAGE_KEYS.players, players);
       return player;
+    },
+    
+    update: (id: string, data: Partial<Player>): Player | null => {
+      const players = getFromStorage<Player>(STORAGE_KEYS.players);
+      const index = players.findIndex(p => p.id === id);
+      if (index === -1) return null;
+      
+      players[index] = {
+        ...players[index],
+        ...data,
+        updated_at: now(),
+      };
+      saveToStorage(STORAGE_KEYS.players, players);
+      return players[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const players = getFromStorage<Player>(STORAGE_KEYS.players);
+      const index = players.findIndex(p => p.id === id);
+      if (index === -1) return false;
+      
+      players.splice(index, 1);
+      saveToStorage(STORAGE_KEYS.players, players);
+      
+      // Also delete related records
+      const teamPlayers = getFromStorage<TeamPlayer>(STORAGE_KEYS.team_players);
+      saveToStorage(STORAGE_KEYS.team_players, 
+        teamPlayers.filter(tp => tp.player_id !== id));
+      
+      return true;
     },
   },
 

@@ -7,9 +7,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -27,7 +26,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/dashboard" className="flex items-center space-x-2">
+              <Link href="/dashboard/tournaments" className="flex items-center space-x-2">
                 <Trophy className="h-8 w-8 text-primary" />
                 <span className="text-xl font-bold text-gray-900">PadelFlow</span>
               </Link>
