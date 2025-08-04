@@ -34,7 +34,8 @@ export interface Player {
   email?: string;
   phone?: string;
   club: string;
-  date_of_birth: string;
+  year_of_birth: number; // NEW: Year of birth as integer
+  date_of_birth: string; // OLD: Will be removed after migration
   gender: 'Mr' | 'Mme';
   organizer_id: string;
   owner_id?: string; // Clerk user ID who created the player
@@ -218,22 +219,31 @@ const initializeData = () => {
       { first: 'Inês', last: 'Sousa', ranking: 190, license: 'POR012' },
     ];
 
-    const newPlayers: Player[] = fakePlayersData.map((playerData, index) => ({
-      id: generateId(),
-      license_number: playerData.license,
-      first_name: playerData.first,
-      last_name: playerData.last,
-      ranking: playerData.ranking,
-      email: `${playerData.first.toLowerCase()}.${playerData.last.toLowerCase()}@email.com`,
-      phone: `+33 6 ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(0, 2)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(2, 4)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(4, 6)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(6, 8)}`,
-      club: `Club Padel ${String.fromCharCode(65 + (index % 5))}`, // Club A, B, C, D, E
-      date_of_birth: new Date(1980 + (index % 20), (index % 12), 1 + (index % 28)).toISOString().split('T')[0], // Random date between 1980-2000
-      gender: index % 2 === 0 ? 'Mr' : 'Mme', // Alternating Mr/Mme
-      organizer_id: 'demo-user-123',
-      owner_id: 'demo-user-123', // Legacy demo players - visible to everyone
-      created_at: now(),
-      updated_at: now(),
-    }));
+    const newPlayers: Player[] = fakePlayersData.map((playerData, index) => {
+      // Generate 7-8 character license number
+      const licenseNumber = playerData.license.padEnd(7, '0').substring(0, 7 + (index % 2)); // 7 or 8 characters
+      
+      // Generate year of birth (1980-2000)
+      const yearOfBirth = 1980 + (index % 20);
+      
+      return {
+        id: generateId(),
+        license_number: licenseNumber,
+        first_name: playerData.first,
+        last_name: playerData.last,
+        ranking: playerData.ranking,
+        email: `${playerData.first.toLowerCase()}.${playerData.last.toLowerCase()}@email.com`,
+        phone: `+33 6 ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(0, 2)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(2, 4)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(4, 6)} ${String(Math.floor(Math.random() * 90000000) + 10000000).slice(6, 8)}`,
+        club: `Club Padel ${String.fromCharCode(65 + (index % 5))}`, // Club A, B, C, D, E
+        year_of_birth: yearOfBirth, // NEW: Year of birth as integer
+        date_of_birth: new Date(yearOfBirth, (index % 12), 1 + (index % 28)).toISOString().split('T')[0], // OLD: Keep for migration
+        gender: index % 2 === 0 ? 'Mr' : 'Mme', // Alternating Mr/Mme
+        organizer_id: 'demo-user-123',
+        owner_id: 'demo-user-123', // Legacy demo players - visible to everyone
+        created_at: now(),
+        updated_at: now(),
+      };
+    });
 
     // Merge with existing players and save
     const allPlayers = [...players, ...newPlayers];
@@ -271,10 +281,41 @@ const clearAllFormats = () => {
   }
 };
 
+// Migration function to update existing players
+const migratePlayers = () => {
+  const players = getFromStorage<Player>(STORAGE_KEYS.players);
+  let hasChanges = false;
+  
+  const updatedPlayers = players.map(player => {
+    const updatedPlayer = { ...player };
+    
+    // Add year_of_birth if missing
+    if (!player.year_of_birth && player.date_of_birth) {
+      const birthYear = new Date(player.date_of_birth).getFullYear();
+      updatedPlayer.year_of_birth = birthYear;
+      hasChanges = true;
+    }
+    
+    // Update license numbers to 7-8 characters if needed
+    if (player.license_number.length < 7 || player.license_number.length > 8) {
+      updatedPlayer.license_number = player.license_number.padEnd(7, '0').substring(0, 7);
+      hasChanges = true;
+    }
+    
+    return updatedPlayer;
+  });
+  
+  if (hasChanges) {
+    saveToStorage(STORAGE_KEYS.players, updatedPlayers);
+    console.log('🔧 Migrated existing players to new format');
+  }
+};
+
 // Initialize storage on first load
 if (typeof window !== 'undefined') {
   clearAllFormats(); // Clear formats first
   initializeData();
+  migratePlayers(); // Migrate existing players
 }
 
 // API functions
@@ -378,6 +419,26 @@ export const storage = {
     
     create: (data: Omit<Player, 'id' | 'created_at' | 'updated_at'>): Player => {
       const players = getFromStorage<Player>(STORAGE_KEYS.players);
+      
+      // Validate license number uniqueness
+      const existingPlayer = players.find(p => p.license_number === data.license_number);
+      if (existingPlayer) {
+        throw new Error(`Player with license number ${data.license_number} already exists`);
+      }
+      
+      // Validate license number length (7-8 characters)
+      if (data.license_number.length < 7 || data.license_number.length > 8) {
+        throw new Error('License number must be between 7 and 8 characters');
+      }
+      
+      // Validate year of birth (current year - 100 to current year - 1)
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 100;
+      const maxYear = currentYear - 1;
+      if (data.year_of_birth < minYear || data.year_of_birth > maxYear) {
+        throw new Error(`Year of birth must be between ${minYear} and ${maxYear}`);
+      }
+      
       const player: Player = {
         ...data,
         id: generateId(),
@@ -393,6 +454,29 @@ export const storage = {
       const players = getFromStorage<Player>(STORAGE_KEYS.players);
       const index = players.findIndex(p => p.id === id);
       if (index === -1) return null;
+      
+      // Validate license number uniqueness (if being updated)
+      if (data.license_number) {
+        const existingPlayer = players.find(p => p.license_number === data.license_number && p.id !== id);
+        if (existingPlayer) {
+          throw new Error(`Player with license number ${data.license_number} already exists`);
+        }
+        
+        // Validate license number length (7-8 characters)
+        if (data.license_number.length < 7 || data.license_number.length > 8) {
+          throw new Error('License number must be between 7 and 8 characters');
+        }
+      }
+      
+      // Validate year of birth (if being updated)
+      if (data.year_of_birth) {
+        const currentYear = new Date().getFullYear();
+        const minYear = currentYear - 100;
+        const maxYear = currentYear - 1;
+        if (data.year_of_birth < minYear || data.year_of_birth > maxYear) {
+          throw new Error(`Year of birth must be between ${minYear} and ${maxYear}`);
+        }
+      }
       
       players[index] = {
         ...players[index],

@@ -34,7 +34,8 @@ export default function PlayersPage() {
     email: '',
     phone: '',
     club: '',
-    date_of_birth: '',
+    year_of_birth: new Date().getFullYear() - 25, // Default to 25 years old
+    date_of_birth: '', // OLD: Will be removed after migration
     gender: 'Mr' as 'Mr' | 'Mme',
   });
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,7 +68,8 @@ export default function PlayersPage() {
       email: '',
       phone: '',
       club: '',
-      date_of_birth: '',
+      year_of_birth: new Date().getFullYear() - 25, // Default to 25 years old
+      date_of_birth: '', // OLD: Will be removed after migration
       gender: 'Mr' as 'Mr' | 'Mme',
     });
     setEditingPlayer(null);
@@ -124,7 +126,8 @@ export default function PlayersPage() {
       email: player.email || '',
       phone: player.phone || '',
       club: player.club,
-      date_of_birth: player.date_of_birth,
+      year_of_birth: player.year_of_birth || new Date().getFullYear() - 25,
+      date_of_birth: player.date_of_birth || '',
       gender: player.gender,
     });
     setIsDialogOpen(true);
@@ -288,12 +291,14 @@ export default function PlayersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
+                  <Label htmlFor="year_of_birth">Year of Birth</Label>
                   <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    id="year_of_birth"
+                    type="number"
+                    min={new Date().getFullYear() - 100}
+                    max={new Date().getFullYear() - 1}
+                    value={formData.year_of_birth}
+                    onChange={(e) => setFormData({ ...formData, year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
                     required
                   />
                 </div>
@@ -461,7 +466,7 @@ export default function PlayersPage() {
                       </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">
                         <div className="flex items-center space-x-1">
-                          <span>Date of Birth</span>
+                          <span>Year of Birth</span>
                         </div>
                       </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">
@@ -507,7 +512,7 @@ export default function PlayersPage() {
                           {player.club}
                         </td>
                         <td className="py-3 px-4 text-gray-600">
-                          {new Date(player.date_of_birth).toLocaleDateString()}
+                          {player.year_of_birth || new Date(player.date_of_birth).getFullYear()}
                         </td>
                         <td className="py-3 px-4 text-gray-600">
                           {player.email || '-'}
