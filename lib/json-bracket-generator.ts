@@ -85,7 +85,7 @@ export class JsonBracketGenerator {
         rotation_group: matchDef.rotation_group,
         stage: matchDef.stage,
         ranking_game: matchDef.ranking_game,
-        ranking_label: matchDef.ranking_label,
+        ranking_label: matchDef.ranking_label || undefined,
         team1_source: matchDef.team1_source,
         team2_source: matchDef.team2_source,
       });
