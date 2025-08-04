@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +30,24 @@ function TournamentForm() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  
+  // Debug current user and check available tournaments
+  useEffect(() => {
+    console.log('🔍 Current user ID changed:', currentUserId);
+    
+    // Check available tournaments for debugging
+    if (typeof window !== 'undefined') {
+      try {
+        const tournamentsData = localStorage.getItem('padelflow_tournaments');
+        if (tournamentsData) {
+          const tournaments = JSON.parse(tournamentsData);
+          console.log('🔍 Available tournaments:', tournaments);
+        }
+      } catch (error) {
+        console.error('🔍 Error reading tournaments:', error);
+      }
+    }
+  }, [currentUserId]);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -41,26 +59,117 @@ function TournamentForm() {
     type: '' as 'All' | 'Men' | 'Women' | 'Mixed' | '',
   });
 
+  // Debug form data changes
+  useEffect(() => {
+    console.log('🔍 Form data changed:', formData);
+  }, [formData]);
+
+  // Fallback effect to ensure form data is set when editing
+  useEffect(() => {
+    if (isEditing && editingTournament && !formData.name) {
+      console.log('🔍 Fallback: Setting form data from editing tournament');
+      setFormData({
+        name: editingTournament.name,
+        location: editingTournament.location,
+        date: new Date(editingTournament.date),
+        level: editingTournament.level,
+        start_time: editingTournament.start_time,
+        number_of_courts: editingTournament.number_of_courts.toString(),
+        conditions: editingTournament.conditions,
+        type: editingTournament.type,
+      });
+    }
+  }, [isEditing, editingTournament, formData.name]);
+
+  const processedEditId = useRef<string | null>(null);
+
+
+
   useEffect(() => {
     const editId = searchParams.get('edit');
-    if (editId) {
-      const tournament = storage.tournaments.getById(editId);
-      if (tournament && tournament.organizer_id === DEMO_USER_ID) {
-        setIsEditing(true);
-        setEditingTournament(tournament);
-        setFormData({
-          name: tournament.name,
-          location: tournament.location,
-          date: new Date(tournament.date),
-          level: tournament.level,
-          start_time: tournament.start_time,
-          number_of_courts: tournament.number_of_courts.toString(),
-          conditions: tournament.conditions,
-          type: tournament.type,
-        });
-      }
+    console.log('🔍 useEffect triggered');
+    console.log('🔍 editId:', editId);
+    console.log('🔍 processedEditId.current:', processedEditId.current);
+    console.log('🔍 currentUserId:', currentUserId);
+    
+    // Reset processedEditId if we're not editing
+    if (!editId) {
+      processedEditId.current = null;
+      console.log('🔍 Reset processedEditId to null');
+      return;
     }
-  }, [searchParams]);
+    
+    // Wait for user to be loaded before processing edit
+    if (currentUserId === null && editId) {
+      console.log('🔍 Waiting for user to be loaded...');
+      return;
+    }
+    
+    if (editId && editId !== processedEditId.current) {
+      console.log('🔍 Processing edit request...');
+      processedEditId.current = editId;
+      
+      // Ensure storage is initialized
+      if (typeof window === 'undefined') {
+        console.log('🔍 Window not available, skipping edit processing');
+        return;
+      }
+      
+      const tournament = storage.tournaments.getById(editId);
+      console.log('🔍 Found tournament:', tournament);
+      
+      if (tournament) {
+        // Check if user can edit this tournament
+        // Allow editing if:
+        // 1. User is the organizer
+        // 2. Tournament belongs to demo user
+        // 3. User is the owner
+        // 4. No current user (fallback for demo)
+        const canEdit = tournament.organizer_id === currentUserId || 
+                       tournament.organizer_id === DEMO_USER_ID ||
+                       tournament.owner_id === currentUserId ||
+                       tournament.owner_id === DEMO_USER_ID ||
+                       !currentUserId; // Allow editing if no current user (fallback)
+        
+        console.log('🔍 Can edit:', canEdit);
+        console.log('🔍 tournament.organizer_id:', tournament.organizer_id);
+        console.log('🔍 DEMO_USER_ID:', DEMO_USER_ID);
+        
+        if (canEdit) {
+          console.log('🔍 Setting form data...');
+          setIsEditing(true);
+          setEditingTournament(tournament);
+          
+          setFormData({
+            name: tournament.name,
+            location: tournament.location,
+            date: new Date(tournament.date),
+            level: tournament.level,
+            start_time: tournament.start_time,
+            number_of_courts: tournament.number_of_courts.toString(),
+            conditions: tournament.conditions,
+            type: tournament.type,
+          });
+          console.log('🔍 Form data set:', {
+            name: tournament.name,
+            location: tournament.location,
+            date: tournament.date,
+            level: tournament.level,
+            start_time: tournament.start_time,
+            number_of_courts: tournament.number_of_courts.toString(),
+            conditions: tournament.conditions,
+            type: tournament.type,
+          });
+        } else {
+          console.log('🔍 User cannot edit this tournament');
+        }
+      } else {
+        console.log('🔍 Tournament not found');
+      }
+    } else {
+      console.log('🔍 Not processing edit - conditions not met');
+    }
+  }, [searchParams, currentUserId]); // Removed isEditing from dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,13 +291,13 @@ function TournamentForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Tournament Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Spring Championship 2024"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
+                                 <Input
+                   id="name"
+                   placeholder="e.g., Spring Championship 2024"
+                   value={formData.name}
+                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                   required
+                 />
               </div>
 
               <div className="space-y-2">
