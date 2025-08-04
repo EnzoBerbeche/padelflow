@@ -59,6 +59,11 @@ export class JsonBracketGenerator {
     storage.matches.deleteByTournament(this.tournament_id);
 
     // Generate matches based on JSON format
+    if (!this.format.matches) {
+      console.warn('No matches defined in format');
+      return;
+    }
+
     this.format.matches.forEach((matchDef: JsonMatchDefinition) => {
       const { team1_id, team2_id } = this.resolveTeamsForMatch(matchDef);
 
