@@ -23,6 +23,18 @@ export interface Tournament {
   // Champs dynamiques pour le format JSON et les randoms
   format_json?: any;
   random_assignments?: Record<string, any>;
+  // Registration link functionality
+  registration_enabled: boolean;
+  registration_link_id?: string;
+}
+
+export interface RegistrationLink {
+  id: string;
+  tournament_id: string;
+  link_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Player {
@@ -122,6 +134,7 @@ const STORAGE_KEYS = {
   matches: 'padelflow_matches',
   tournament_teams: 'padelflow_tournament_teams',
   team_players: 'padelflow_team_players',
+  registration_links: 'padelflow_registration_links',
 };
 
 // Utility functions
@@ -269,6 +282,7 @@ const initializeData = () => {
       type: 'Mixed',
       created_at: now(),
       updated_at: now(),
+      registration_enabled: false, // Default to false
     };
     saveToStorage(STORAGE_KEYS.tournaments, [demoTournament]);
   }
@@ -355,6 +369,7 @@ export const storage = {
         ...data,
         id: generateId(),
         public_id: generatePublicId(),
+        registration_enabled: false, // Default to false
         created_at: now(),
         updated_at: now(),
       };
@@ -684,5 +699,55 @@ export const storage = {
       team_2: match.team_2_id ? teams.find(t => t.id === match.team_2_id) : undefined,
       winner_team: match.winner_team_id ? teams.find(t => t.id === match.winner_team_id) : undefined,
     }));
+  },
+
+  // Registration Links
+  registrationLinks: {
+    getByTournament: (tournament_id: string): RegistrationLink | null => {
+      const links = getFromStorage<RegistrationLink>(STORAGE_KEYS.registration_links);
+      return links.find(link => link.tournament_id === tournament_id) || null;
+    },
+    
+    getByLinkId: (link_id: string): RegistrationLink | null => {
+      const links = getFromStorage<RegistrationLink>(STORAGE_KEYS.registration_links);
+      return links.find(link => link.link_id === link_id && link.is_active) || null;
+    },
+    
+    create: (tournament_id: string): RegistrationLink => {
+      const links = getFromStorage<RegistrationLink>(STORAGE_KEYS.registration_links);
+      
+      // Deactivate any existing links for this tournament
+      links.forEach(link => {
+        if (link.tournament_id === tournament_id) {
+          link.is_active = false;
+          link.updated_at = now();
+        }
+      });
+      
+      const link_id = generatePublicId();
+      const registrationLink: RegistrationLink = {
+        id: generateId(),
+        tournament_id,
+        link_id,
+        is_active: true,
+        created_at: now(),
+        updated_at: now(),
+      };
+      
+      links.push(registrationLink);
+      saveToStorage(STORAGE_KEYS.registration_links, links);
+      return registrationLink;
+    },
+    
+    deactivate: (tournament_id: string): boolean => {
+      const links = getFromStorage<RegistrationLink>(STORAGE_KEYS.registration_links);
+      const link = links.find(l => l.tournament_id === tournament_id && l.is_active);
+      if (!link) return false;
+      
+      link.is_active = false;
+      link.updated_at = now();
+      saveToStorage(STORAGE_KEYS.registration_links, links);
+      return true;
+    },
   },
 };

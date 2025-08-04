@@ -8,7 +8,7 @@ import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Calendar, Clock, MapPin, Plus, Edit, Trash2, Eye, Copy } from 'lucide-react';
+import { Trophy, Calendar, Clock, MapPin, Plus, Edit, Trash2, Eye, Copy, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -320,6 +320,12 @@ export default function TournamentsPage() {
                         <Calendar className="h-4 w-4 mr-2" />
                         Teams: {tournament.teams_locked ? 'Locked' : 'Open'}
                       </div>
+                      {tournament.registration_enabled && (
+                        <div className="flex items-center text-sm text-green-600">
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                          Registration Active
+                        </div>
+                      )}
                     </div>
                     <div className="flex space-x-2 mt-4">
                       <Link href={`/dashboard/tournaments/${tournament.id}`} className="flex-1">

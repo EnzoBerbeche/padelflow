@@ -152,11 +152,12 @@ export default function PlayersPage() {
   };
 
   const getRankingColor = (ranking: number) => {
-    if (ranking <= 25) return 'bg-green-100 text-green-800';
-    if (ranking <= 100) return 'bg-blue-100 text-blue-800';
-    if (ranking <= 250) return 'bg-purple-100 text-purple-800';
-    if (ranking <= 500) return 'bg-orange-100 text-orange-800';
-    if (ranking <= 1000) return 'bg-red-100 text-red-800';
+    const validRanking = ranking || 0;
+    if (validRanking <= 25) return 'bg-green-100 text-green-800';
+    if (validRanking <= 100) return 'bg-blue-100 text-blue-800';
+    if (validRanking <= 250) return 'bg-purple-100 text-purple-800';
+    if (validRanking <= 500) return 'bg-orange-100 text-orange-800';
+    if (validRanking <= 1000) return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
   };
 
@@ -224,9 +225,22 @@ export default function PlayersPage() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender *</Label>
+                  <select
+                    id="gender"
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Mr' | 'Mme' })}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full"
+                    required
+                  >
+                    <option value="Mr">Mr</option>
+                    <option value="Mme">Mme</option>
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="first_name">First Name</Label>
+                    <Label htmlFor="first_name">First Name *</Label>
                     <Input
                       id="first_name"
                       value={formData.first_name}
@@ -235,7 +249,7 @@ export default function PlayersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="last_name">Last Name</Label>
+                    <Label htmlFor="last_name">Last Name *</Label>
                     <Input
                       id="last_name"
                       value={formData.last_name}
@@ -245,7 +259,7 @@ export default function PlayersPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="license_number">License Number</Label>
+                  <Label htmlFor="license_number">License Number *</Label>
                   <Input
                     id="license_number"
                     value={formData.license_number}
@@ -254,12 +268,33 @@ export default function PlayersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ranking">Ranking</Label>
+                  <Label htmlFor="ranking">Ranking *</Label>
                   <Input
                     id="ranking"
                     type="number"
                     value={formData.ranking}
                     onChange={(e) => setFormData({ ...formData, ranking: parseInt(e.target.value) || 0 })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="club">Club *</Label>
+                  <Input
+                    id="club"
+                    value={formData.club}
+                    onChange={(e) => setFormData({ ...formData, club: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year_of_birth">Year of Birth *</Label>
+                  <Input
+                    id="year_of_birth"
+                    type="number"
+                    min={new Date().getFullYear() - 100}
+                    max={new Date().getFullYear() - 1}
+                    value={formData.year_of_birth}
+                    onChange={(e) => setFormData({ ...formData, year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
                     required
                   />
                 </div>
@@ -280,40 +315,6 @@ export default function PlayersPage() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="club">Club</Label>
-                  <Input
-                    id="club"
-                    value={formData.club}
-                    onChange={(e) => setFormData({ ...formData, club: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="year_of_birth">Year of Birth</Label>
-                  <Input
-                    id="year_of_birth"
-                    type="number"
-                    min={new Date().getFullYear() - 100}
-                    max={new Date().getFullYear() - 1}
-                    value={formData.year_of_birth}
-                    onChange={(e) => setFormData({ ...formData, year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <select
-                    id="gender"
-                    value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Mr' | 'Mme' })}
-                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full"
-                    required
-                  >
-                    <option value="Mr">Mr</option>
-                    <option value="Mme">Mme</option>
-                  </select>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -502,7 +503,7 @@ export default function PlayersPage() {
                         </td>
                         <td className="py-3 px-4">
                           <Badge className={getRankingColor(player.ranking)}>
-                            P{player.ranking}
+                            P{player.ranking || 0}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-gray-600">
@@ -512,7 +513,7 @@ export default function PlayersPage() {
                           {player.club}
                         </td>
                         <td className="py-3 px-4 text-gray-600">
-                          {player.year_of_birth || new Date(player.date_of_birth).getFullYear()}
+                          {player.year_of_birth || (player.date_of_birth ? new Date(player.date_of_birth).getFullYear() : '-')}
                         </td>
                         <td className="py-3 px-4 text-gray-600">
                           {player.email || '-'}

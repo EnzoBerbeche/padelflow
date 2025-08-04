@@ -73,7 +73,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
       const userId = currentUserId || DEMO_USER_ID;
       const player = storage.players.create({
         ...newPlayerForm,
-        ranking: parseInt(newPlayerForm.ranking),
+        ranking: parseInt(newPlayerForm.ranking) || 0,
         organizer_id: userId,
         owner_id: userId, // Set owner_id for new players
         club: 'Club Padel', // Default club
