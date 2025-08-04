@@ -131,13 +131,22 @@ const now = () => new Date().toISOString();
 // Storage utilities
 const getFromStorage = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error reading from localStorage:', error);
+    return [];
+  }
 };
 
 const saveToStorage = <T>(key: string, data: T[]) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error writing to localStorage:', error);
+  }
 };
 
 // Initialize default formats and demo data

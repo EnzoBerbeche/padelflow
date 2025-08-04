@@ -24,6 +24,16 @@ export default function SettingsPage() {
 
   const exportData = () => {
     try {
+      // Check if localStorage is available
+      if (typeof window === 'undefined') {
+        toast({
+          title: "Error",
+          description: "Export not available in this environment",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Get all data from localStorage
       const tournaments = localStorage.getItem('padelflow_tournaments') || '[]';
       const players = localStorage.getItem('padelflow_players') || '[]';
@@ -71,6 +81,16 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Check if localStorage is available
+    if (typeof window === 'undefined') {
+      toast({
+        title: "Error",
+        description: "Import not available in this environment",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -112,6 +132,16 @@ export default function SettingsPage() {
 
   const clearAllData = () => {
     try {
+      // Check if localStorage is available
+      if (typeof window === 'undefined') {
+        toast({
+          title: "Error",
+          description: "Data clearing not available in this environment",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Clear all PadelFlow data
       localStorage.removeItem('padelflow_tournaments');
       localStorage.removeItem('padelflow_players');
@@ -142,6 +172,11 @@ export default function SettingsPage() {
 
   const getDataStats = () => {
     try {
+      // Check if localStorage is available
+      if (typeof window === 'undefined') {
+        return { tournaments: 0, players: 0, teams: 0, matches: 0 };
+      }
+
       const tournaments = JSON.parse(localStorage.getItem('padelflow_tournaments') || '[]');
       const players = JSON.parse(localStorage.getItem('padelflow_players') || '[]');
       const teams = JSON.parse(localStorage.getItem('padelflow_teams') || '[]');
@@ -154,6 +189,7 @@ export default function SettingsPage() {
         matches: matches.length,
       };
     } catch (error) {
+      console.error('Error getting data stats:', error);
       return { tournaments: 0, players: 0, teams: 0, matches: 0 };
     }
   };

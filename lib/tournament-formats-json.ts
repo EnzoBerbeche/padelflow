@@ -13,6 +13,32 @@ export interface JsonMatchDefinition {
   team2_source: string;
 }
 
+// Interface for the actual JSON format structure used in the files
+export interface JsonMatch {
+  id: number;
+  ordre_match: number;
+  source_team_1: string;
+  team_1: string;
+  score_team_1: number | null;
+  source_team_2: string;
+  team_2: string;
+  score_team_2: number | null;
+  terrain: string;
+  winner: string;
+  looser: string;
+}
+
+export interface JsonPhase {
+  name: string;
+  ordre_phase: number;
+  matches: JsonMatch[];
+}
+
+export interface JsonRotation {
+  name: string;
+  phases: JsonPhase[];
+}
+
 export interface JsonTournamentFormat {
   format_name: string;
   description: string;
@@ -21,6 +47,7 @@ export interface JsonTournamentFormat {
   matches?: JsonMatchDefinition[];
   bracket?: any; // Allow for tree-based bracket
   features?: string[];
+  rotations?: JsonRotation[]; // Add the rotations property
 }
 
 export interface TournamentFormatConfig {

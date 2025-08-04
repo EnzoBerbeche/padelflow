@@ -73,7 +73,7 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
     if (!format) return;
 
     // Détecter tous les groupes random_X_Y dans le format
-    const formatJson = format.format_data;
+    const formatJson = format.format_data as any; // Type assertion to bypass TypeScript strictness
     const rotations = (formatJson.rotations || []) as any[];
     const allMatches = rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || [];
     // Générer la liste complète des occurrences random_X_Y (avec index)
