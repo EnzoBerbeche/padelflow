@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { storage, Tournament } from '@/lib/storage';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -23,6 +23,7 @@ export default function TournamentsPage() {
   const currentUserId = useCurrentUserId();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTournaments();
@@ -55,8 +56,10 @@ export default function TournamentsPage() {
         updated_at: new Date().toISOString(),
       };
       
-      storage.tournaments.create(newTournament);
-      fetchTournaments();
+      const createdTournament = storage.tournaments.create(newTournament);
+      
+      // Update state immediately to prevent UI issues
+      setTournaments(prev => [...prev, createdTournament]);
       
       toast({
         title: "Success",
@@ -72,15 +75,29 @@ export default function TournamentsPage() {
     }
   };
 
-  const deleteTournament = (tournamentId: string) => {
+  const deleteTournament = useCallback((tournamentId: string) => {
+    if (deletingTournamentId) return; // Prevent multiple deletions
+    
+    setDeletingTournamentId(tournamentId);
+    
     try {
-      storage.tournaments.delete(tournamentId);
-      fetchTournaments();
+      const success = storage.tournaments.delete(tournamentId);
       
-      toast({
-        title: "Success",
-        description: "Tournament deleted successfully!",
-      });
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Tournament deleted successfully!",
+        });
+        
+        // Refresh the page after successful deletion
+        window.location.reload();
+      } else {
+        toast({
+          title: "Error",
+          description: "Tournament not found or could not be deleted",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error deleting tournament:', error);
       toast({
@@ -88,8 +105,10 @@ export default function TournamentsPage() {
         description: "Failed to delete tournament",
         variant: "destructive",
       });
+    } finally {
+      setDeletingTournamentId(null);
     }
-  };
+  }, [deletingTournamentId, toast]);
 
   const getLevelColor = (level: string) => {
     const colors = {
@@ -199,7 +218,7 @@ export default function TournamentsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {tournaments.map((tournament) => (
-                <Card key={tournament.id} className="hover:shadow-md transition-shadow">
+                <Card key={`tournament-${tournament.id}`} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -257,9 +276,10 @@ export default function TournamentsPage() {
                                 <DropdownMenuItem 
                                   className="text-red-600 focus:text-red-600"
                                   onSelect={(e) => e.preventDefault()}
+                                  disabled={deletingTournamentId === tournament.id}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
+                                  {deletingTournamentId === tournament.id ? 'Deleting...' : 'Delete'}
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -270,12 +290,13 @@ export default function TournamentsPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel disabled={deletingTournamentId === tournament.id}>Cancel</AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={() => deleteTournament(tournament.id)}
                                     className="bg-red-600 hover:bg-red-700"
+                                    disabled={deletingTournamentId === tournament.id}
                                   >
-                                    Delete Tournament
+                                    {deletingTournamentId === tournament.id ? 'Deleting...' : 'Delete Tournament'}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
