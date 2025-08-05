@@ -218,6 +218,7 @@ function TournamentForm() {
           number_of_courts: parseInt(formData.number_of_courts),
           conditions: formData.conditions,
           type: formData.type,
+          registration_enabled: false, // Default to disabled
         });
 
         toast({
