@@ -1,0 +1,6 @@
+# Debug file to check environment variables
+# This file will help us debug the .env.local issue
+
+# Please copy your .env.local content here:
+NEXT_PUBLIC_SUPABASE_URL=https://mzffqutucazwexapfyig.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZmZxdXR1Y2F6d2V4YXBmeWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4ODk2ODQsImV4cCI6MjA2OTQ2NTY4NH0.orgmjqFM0yIzIHSo44FCLmEyRnSiAujuxp5_QYqRLm0

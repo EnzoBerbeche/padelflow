@@ -28,21 +28,21 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     player1_license_number: '',
     player1_first_name: '',
     player1_last_name: '',
-    player1_ranking: 0,
+    player1_ranking: '',
     player1_email: '',
     player1_phone: '',
     player1_club: '',
-    player1_year_of_birth: new Date().getFullYear() - 25,
+    player1_year_of_birth: '',
     player1_gender: 'Mr' as 'Mr' | 'Mme',
     // Player 2
     player2_license_number: '',
     player2_first_name: '',
     player2_last_name: '',
-    player2_ranking: 0,
+    player2_ranking: '',
     player2_email: '',
     player2_phone: '',
     player2_club: '',
-    player2_year_of_birth: new Date().getFullYear() - 25,
+    player2_year_of_birth: '',
     player2_gender: 'Mr' as 'Mr' | 'Mme',
   });
 
@@ -145,12 +145,12 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         license_number: formData.player1_license_number,
         first_name: formData.player1_first_name,
         last_name: formData.player1_last_name,
-        ranking: formData.player1_ranking,
+        ranking: parseInt(formData.player1_ranking) || 0,
         email: formData.player1_email || undefined,
         phone: formData.player1_phone || undefined,
         club: formData.player1_club,
-        year_of_birth: formData.player1_year_of_birth,
-        date_of_birth: new Date(formData.player1_year_of_birth, 0, 1).toISOString().split('T')[0],
+        year_of_birth: parseInt(formData.player1_year_of_birth) || new Date().getFullYear() - 25,
+        date_of_birth: new Date(parseInt(formData.player1_year_of_birth) || new Date().getFullYear() - 25, 0, 1).toISOString().split('T')[0],
         gender: formData.player1_gender,
         organizer_id: tournament.organizer_id,
         owner_id: tournament.organizer_id,
@@ -160,12 +160,12 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         license_number: formData.player2_license_number,
         first_name: formData.player2_first_name,
         last_name: formData.player2_last_name,
-        ranking: formData.player2_ranking,
+        ranking: parseInt(formData.player2_ranking) || 0,
         email: formData.player2_email || undefined,
         phone: formData.player2_phone || undefined,
         club: formData.player2_club,
-        year_of_birth: formData.player2_year_of_birth,
-        date_of_birth: new Date(formData.player2_year_of_birth, 0, 1).toISOString().split('T')[0],
+        year_of_birth: parseInt(formData.player2_year_of_birth) || new Date().getFullYear() - 25,
+        date_of_birth: new Date(parseInt(formData.player2_year_of_birth) || new Date().getFullYear() - 25, 0, 1).toISOString().split('T')[0],
         gender: formData.player2_gender,
         organizer_id: tournament.organizer_id,
         owner_id: tournament.organizer_id,
@@ -197,11 +197,41 @@ export default function RegisterPage({ params }: RegisterPageProps) {
       router.push(`/public/${tournament.public_id}`);
     } catch (error) {
       console.error('Registration error:', error);
-      toast({
-        title: "Registration Failed",
-        description: error instanceof Error ? error.message : "An error occurred during registration",
-        variant: "destructive",
-      });
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes('already exists')) {
+          toast({
+            title: "License Number Already Exists",
+            description: error.message + ". Please use a different license number.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('License number must be')) {
+          toast({
+            title: "Invalid License Number",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Year of birth must be')) {
+          toast({
+            title: "Invalid Year of Birth",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Registration Failed",
+            description: error.message || "An error occurred during registration",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: "An error occurred during registration",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -371,13 +401,13 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player1_ranking">Ranking *</Label>
-                      <Input
-                        id="player1_ranking"
-                        type="number"
-                        value={formData.player1_ranking}
-                        onChange={(e) => setFormData({ ...formData, player1_ranking: parseInt(e.target.value) || 0 })}
-                        required
-                      />
+                                             <Input
+                         id="player1_ranking"
+                         type="number"
+                         value={formData.player1_ranking}
+                         onChange={(e) => setFormData({ ...formData, player1_ranking: e.target.value })}
+                         required
+                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player1_club">Club *</Label>
@@ -390,15 +420,15 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player1_year_of_birth">Year of Birth *</Label>
-                      <Input
-                        id="player1_year_of_birth"
-                        type="number"
-                        min={new Date().getFullYear() - 100}
-                        max={new Date().getFullYear() - 1}
-                        value={formData.player1_year_of_birth}
-                        onChange={(e) => setFormData({ ...formData, player1_year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
-                        required
-                      />
+                                             <Input
+                         id="player1_year_of_birth"
+                         type="number"
+                         min={new Date().getFullYear() - 100}
+                         max={new Date().getFullYear() - 1}
+                         value={formData.player1_year_of_birth}
+                         onChange={(e) => setFormData({ ...formData, player1_year_of_birth: e.target.value })}
+                         required
+                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player1_email">Email</Label>
@@ -468,13 +498,13 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player2_ranking">Ranking *</Label>
-                      <Input
-                        id="player2_ranking"
-                        type="number"
-                        value={formData.player2_ranking}
-                        onChange={(e) => setFormData({ ...formData, player2_ranking: parseInt(e.target.value) || 0 })}
-                        required
-                      />
+                                             <Input
+                         id="player2_ranking"
+                         type="number"
+                         value={formData.player2_ranking}
+                         onChange={(e) => setFormData({ ...formData, player2_ranking: e.target.value })}
+                         required
+                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player2_club">Club *</Label>
@@ -487,15 +517,15 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player2_year_of_birth">Year of Birth *</Label>
-                      <Input
-                        id="player2_year_of_birth"
-                        type="number"
-                        min={new Date().getFullYear() - 100}
-                        max={new Date().getFullYear() - 1}
-                        value={formData.player2_year_of_birth}
-                        onChange={(e) => setFormData({ ...formData, player2_year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
-                        required
-                      />
+                                             <Input
+                         id="player2_year_of_birth"
+                         type="number"
+                         min={new Date().getFullYear() - 100}
+                         max={new Date().getFullYear() - 1}
+                         value={formData.player2_year_of_birth}
+                         onChange={(e) => setFormData({ ...formData, player2_year_of_birth: e.target.value })}
+                         required
+                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="player2_email">Email</Label>

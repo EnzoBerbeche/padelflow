@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { CSVParser } from './csv-parser';
 
 // Types
 export interface Tournament {
@@ -125,6 +126,23 @@ export interface TeamPlayer {
   created_at: string;
 }
 
+export interface NationalPlayer {
+  id: string;
+  first_name: string;
+  last_name: string;
+  license_number: string;
+  ranking: number;
+  best_ranking: number;
+  points: number;
+  club: string;
+  league: string;
+  birth_year: number;
+  nationality: string;
+  gender: 'men' | 'women';
+  tournaments_count: number;
+  last_updated: string;
+}
+
 // Storage keys
 const STORAGE_KEYS = {
   tournaments: 'padelflow_tournaments',
@@ -135,6 +153,7 @@ const STORAGE_KEYS = {
   tournament_teams: 'padelflow_tournament_teams',
   team_players: 'padelflow_team_players',
   registration_links: 'padelflow_registration_links',
+  national_players: 'padelflow_national_players',
 };
 
 // Utility functions
@@ -159,7 +178,20 @@ const saveToStorage = <T>(key: string, data: T[]) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.error('Error writing to localStorage:', error);
+    if (error instanceof Error && error.name === 'QuotaExceededError') {
+      console.warn('Storage quota exceeded, clearing old data and retrying...');
+      // Clear all storage and retry
+      localStorage.clear();
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (retryError) {
+        console.error('Failed to save data even after clearing storage:', retryError);
+        // Show user-friendly error
+        alert('Storage limit reached. Please clear some data or use a smaller file.');
+      }
+    } else {
+      console.error('Error writing to localStorage:', error);
+    }
   }
 };
 
@@ -748,6 +780,79 @@ export const storage = {
       link.updated_at = now();
       saveToStorage(STORAGE_KEYS.registration_links, links);
       return true;
+    },
+  },
+
+  // National Players
+  nationalPlayers: {
+    getAll: (): NationalPlayer[] => {
+      return getFromStorage<NationalPlayer>(STORAGE_KEYS.national_players);
+    },
+    
+    search: (query: string, filters?: {
+      gender?: 'men' | 'women';
+      rankingMin?: number;
+      rankingMax?: number;
+      league?: string;
+    }): NationalPlayer[] => {
+      const players = getFromStorage<NationalPlayer>(STORAGE_KEYS.national_players);
+      const queryLower = query.toLowerCase();
+      
+      return players.filter(player => {
+        // Text search
+        const matchesQuery = 
+          player.first_name.toLowerCase().includes(queryLower) ||
+          player.last_name.toLowerCase().includes(queryLower) ||
+          player.license_number.toLowerCase().includes(queryLower) ||
+          player.club.toLowerCase().includes(queryLower);
+        
+        if (!matchesQuery) return false;
+        
+        // Apply filters
+        if (filters?.gender && player.gender !== filters.gender) return false;
+        if (filters?.rankingMin && player.ranking < filters.rankingMin) return false;
+        if (filters?.rankingMax && player.ranking > filters.rankingMax) return false;
+        if (filters?.league && player.league !== filters.league) return false;
+        
+        return true;
+      });
+    },
+    
+    importFromCSV: (csvContent: string, gender: 'men' | 'women'): void => {
+      const players = CSVParser.parseNationalPlayersCSV(csvContent, gender, {
+        delimiter: ',',
+        skipEmptyLines: true
+      });
+      
+      // For large datasets, we'll store only essential fields to save space
+      const compressedPlayers = players.map(player => ({
+        id: player.id,
+        first_name: player.first_name,
+        last_name: player.last_name,
+        license_number: player.license_number,
+        ranking: player.ranking,
+        club: player.club,
+        gender: player.gender,
+        // Store other fields only if needed for search
+        best_ranking: player.best_ranking,
+        points: player.points,
+        league: player.league,
+        birth_year: player.birth_year,
+        nationality: player.nationality,
+        tournaments_count: player.tournaments_count,
+        last_updated: player.last_updated,
+      }));
+      
+      // Replace existing data for this gender
+      const existingPlayers = getFromStorage<NationalPlayer>(STORAGE_KEYS.national_players);
+      const otherGenderPlayers = existingPlayers.filter(p => p.gender !== gender);
+      const allPlayers = [...otherGenderPlayers, ...compressedPlayers];
+      
+      saveToStorage(STORAGE_KEYS.national_players, allPlayers);
+    },
+    
+    clear: (): void => {
+      saveToStorage(STORAGE_KEYS.national_players, []);
     },
   },
 };

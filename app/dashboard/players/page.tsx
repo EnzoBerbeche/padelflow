@@ -30,11 +30,11 @@ export default function PlayersPage() {
     license_number: '',
     first_name: '',
     last_name: '',
-    ranking: 0,
+    ranking: '',
     email: '',
     phone: '',
     club: '',
-    year_of_birth: new Date().getFullYear() - 25, // Default to 25 years old
+    year_of_birth: '',
     date_of_birth: '', // OLD: Will be removed after migration
     gender: 'Mr' as 'Mr' | 'Mme',
   });
@@ -42,6 +42,7 @@ export default function PlayersPage() {
   const [rankingFilter, setRankingFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [clubFilter, setClubFilter] = useState<string>('all');
+  const [licenseError, setLicenseError] = useState<string>('');
 
   useEffect(() => {
     fetchPlayers();
@@ -64,15 +65,16 @@ export default function PlayersPage() {
       license_number: '',
       first_name: '',
       last_name: '',
-      ranking: 0,
+      ranking: '',
       email: '',
       phone: '',
       club: '',
-      year_of_birth: new Date().getFullYear() - 25, // Default to 25 years old
+      year_of_birth: '',
       date_of_birth: '', // OLD: Will be removed after migration
       gender: 'Mr' as 'Mr' | 'Mme',
     });
     setEditingPlayer(null);
+    setLicenseError('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -84,16 +86,23 @@ export default function PlayersPage() {
         // Update existing player
         storage.players.update(editingPlayer.id, {
           ...formData,
+          ranking: parseInt(formData.ranking) || 0,
+          year_of_birth: parseInt(formData.year_of_birth) || new Date().getFullYear() - 25,
           organizer_id: userId,
         });
         toast({
           title: "Success",
           description: "Player updated successfully!",
         });
+        fetchPlayers();
+        setIsDialogOpen(false);
+        resetForm();
       } else {
         // Create new player
         storage.players.create({
           ...formData,
+          ranking: parseInt(formData.ranking) || 0,
+          year_of_birth: parseInt(formData.year_of_birth) || new Date().getFullYear() - 25,
           organizer_id: userId,
           owner_id: userId, // Set owner_id for new players
         });
@@ -101,18 +110,52 @@ export default function PlayersPage() {
           title: "Success",
           description: "Player created successfully!",
         });
+        fetchPlayers();
+        setIsDialogOpen(false);
+        resetForm();
       }
-      
-      fetchPlayers();
-      setIsDialogOpen(false);
-      resetForm();
     } catch (error) {
       console.error('Error saving player:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save player",
-        variant: "destructive",
-      });
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message.includes('already exists')) {
+          setLicenseError('This license number is already registered. Please use a different one.');
+          toast({
+            title: "License Number Already Exists",
+            description: error.message + ". Please use a different license number.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('License number must be')) {
+          setLicenseError(error.message);
+          toast({
+            title: "Invalid License Number",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Year of birth must be')) {
+          toast({
+            title: "Invalid Year of Birth",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to save player",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to save player",
+          variant: "destructive",
+        });
+      }
+      
+      // Keep the form open so user can fix the error
+      // Only close on successful save
     }
   };
 
@@ -122,11 +165,11 @@ export default function PlayersPage() {
       license_number: player.license_number,
       first_name: player.first_name,
       last_name: player.last_name,
-      ranking: player.ranking,
+      ranking: player.ranking.toString(),
       email: player.email || '',
       phone: player.phone || '',
       club: player.club,
-      year_of_birth: player.year_of_birth || new Date().getFullYear() - 25,
+      year_of_birth: (player.year_of_birth || new Date().getFullYear() - 25).toString(),
       date_of_birth: player.date_of_birth || '',
       gender: player.gender,
     });
@@ -258,24 +301,31 @@ export default function PlayersPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="license_number">License Number *</Label>
-                  <Input
-                    id="license_number"
-                    value={formData.license_number}
-                    onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                    required
-                  />
-                </div>
+                                 <div className="space-y-2">
+                   <Label htmlFor="license_number">License Number *</Label>
+                   <Input
+                     id="license_number"
+                     value={formData.license_number}
+                     onChange={(e) => {
+                       setFormData({ ...formData, license_number: e.target.value });
+                       setLicenseError(''); // Clear error when user starts typing
+                     }}
+                     className={licenseError ? 'border-red-500 focus:border-red-500' : ''}
+                     required
+                   />
+                   {licenseError && (
+                     <p className="text-sm text-red-600 mt-1">{licenseError}</p>
+                   )}
+                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ranking">Ranking *</Label>
-                  <Input
-                    id="ranking"
-                    type="number"
-                    value={formData.ranking}
-                    onChange={(e) => setFormData({ ...formData, ranking: parseInt(e.target.value) || 0 })}
-                    required
-                  />
+                                       <Input
+                       id="ranking"
+                       type="number"
+                       value={formData.ranking}
+                       onChange={(e) => setFormData({ ...formData, ranking: e.target.value })}
+                       required
+                     />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="club">Club *</Label>
@@ -288,15 +338,15 @@ export default function PlayersPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="year_of_birth">Year of Birth *</Label>
-                  <Input
-                    id="year_of_birth"
-                    type="number"
-                    min={new Date().getFullYear() - 100}
-                    max={new Date().getFullYear() - 1}
-                    value={formData.year_of_birth}
-                    onChange={(e) => setFormData({ ...formData, year_of_birth: parseInt(e.target.value) || new Date().getFullYear() - 25 })}
-                    required
-                  />
+                                       <Input
+                       id="year_of_birth"
+                       type="number"
+                       min={new Date().getFullYear() - 100}
+                       max={new Date().getFullYear() - 1}
+                       value={formData.year_of_birth}
+                       onChange={(e) => setFormData({ ...formData, year_of_birth: e.target.value })}
+                       required
+                     />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
