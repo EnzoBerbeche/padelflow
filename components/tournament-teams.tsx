@@ -78,6 +78,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
         owner_id: userId, // Set owner_id for new players
         club: 'Club Padel', // Default club
         date_of_birth: new Date().toISOString().split('T')[0], // Default to today
+        year_of_birth: new Date().getFullYear() - 25, // Default to 25 years old
         gender: 'Mr' as 'Mr' | 'Mme', // Default gender
       });
 
