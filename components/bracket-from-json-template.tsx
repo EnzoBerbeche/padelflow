@@ -255,38 +255,86 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                           <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-1">
                             Match #{match.ordre_match}
                           </span>
-                          <button
-                            className={`px-2 py-1 rounded text-xs font-medium border ${
-                              (match as any).terrain_number 
-                                ? 'bg-green-50 text-green-700 border-green-200' 
-                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                            }`}
-                            onClick={() => {
-                              if (!(match as any).terrain_number) {
-                                const courts = [1,2,3,4];
-                                const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
-                                const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
-                                const free = courts.find(c => !occupied.includes(c));
-                                if (free) {
-                                  const newTemplate = JSON.parse(JSON.stringify(template));
-                                  for (const rotation of newTemplate.rotations) {
-                                    for (const phase of rotation.phases) {
-                                      for (const m of phase.matches) {
-                                        if (m.id === match.id) {
-                                          m.terrain_number = free;
+                          <div className="flex items-center gap-2">
+                            {(match as any).terrain_number ? (
+                              <>
+                                <select
+                                  className="text-xs bg-green-50 text-green-700 border border-green-200 rounded px-2 py-1 font-mono cursor-pointer"
+                                  value={(match as any).terrain_number}
+                                  onChange={(e) => {
+                                    const newCourt = e.target.value === 'none' ? undefined : Number(e.target.value);
+                                    
+                                    // If assigning a new court, check for conflicts
+                                    if (newCourt !== undefined) {
+                                      const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                                      const conflicts = allMatches.filter((m: any) => 
+                                        m.id !== match.id && m.terrain_number === newCourt
+                                      );
+                                      
+                                      if (conflicts.length > 0) {
+                                        alert(`Court ${newCourt} is already assigned to another match. Please choose a different court.`);
+                                        return;
+                                      }
+                                    }
+                                    
+                                    const newTemplate = JSON.parse(JSON.stringify(template));
+                                    for (const rotation of newTemplate.rotations) {
+                                      for (const phase of rotation.phases) {
+                                        for (const m of phase.matches) {
+                                          if (m.id === match.id) {
+                                            m.terrain_number = newCourt;
+                                          }
                                         }
                                       }
                                     }
+                                    onUpdateTemplate(newTemplate);
+                                  }}
+                                  title="Change court assignment"
+                                >
+                                  <option value="none">Unassign</option>
+                                  {[1, 2, 3, 4].map(court => {
+                                    const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                                    const isOccupied = allMatches.some((m: any) => 
+                                      m.id !== match.id && m.terrain_number === court
+                                    );
+                                    return (
+                                      <option key={court} value={court} disabled={isOccupied}>
+                                        Court {court}{isOccupied ? ' (Occupied)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </>
+                            ) : (
+                              <button
+                                className="px-2 py-1 rounded text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                onClick={() => {
+                                  const courts = [1,2,3,4];
+                                  const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                                  const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
+                                  const free = courts.find(c => !occupied.includes(c));
+                                  if (free) {
+                                    const newTemplate = JSON.parse(JSON.stringify(template));
+                                    for (const rotation of newTemplate.rotations) {
+                                      for (const phase of rotation.phases) {
+                                        for (const m of phase.matches) {
+                                          if (m.id === match.id) {
+                                            m.terrain_number = free;
+                                          }
+                                        }
+                                      }
+                                    }
+                                    onUpdateTemplate(newTemplate);
+                                  } else {
+                                    alert('No courts available. All courts are currently assigned.');
                                   }
-                                  onUpdateTemplate(newTemplate);
-                                }
-                              }
-                            }}
-                            disabled={!!(match as any).terrain_number}
-                            title={(match as any).terrain_number ? `Court ${(match as any).terrain_number}` : "Assigner un terrain"}
-                          >
-                            {(match as any).terrain_number ? `Court ${(match as any).terrain_number}` : "Assigner"}
-                          </button>
+                                }}
+                                title="Assigner un terrain"
+                              >
+                                Assigner
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Teams and VS - Centered */}
