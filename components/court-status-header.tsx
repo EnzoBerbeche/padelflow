@@ -207,7 +207,15 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className={`grid gap-4 ${
+          totalCourts === 1 ? 'grid-cols-1' :
+          totalCourts === 2 ? 'grid-cols-1 md:grid-cols-2' :
+          totalCourts === 3 ? 'grid-cols-1 md:grid-cols-3' :
+          totalCourts === 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' :
+          totalCourts === 5 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' :
+          totalCourts === 6 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6' :
+          'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6'
+        }`}>
           {courtStatuses.map((court) => (
             <div
               key={court.courtNumber}
