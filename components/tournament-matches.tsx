@@ -161,6 +161,7 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
         teams={teams}
         template={template}
         randomAssignments={randomAssignments}
+        onUpdateTemplate={handleUpdateTemplate}
       />
       <AssignMatchToCourtModal
         open={showAssignModal}

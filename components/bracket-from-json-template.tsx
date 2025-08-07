@@ -3,6 +3,8 @@ import { resolveTeamSource, RandomAssignments, MatchResult } from '@/lib/team-so
 import { TeamWithPlayers } from '@/lib/storage';
 import { storage } from '@/lib/storage';
 import { CourtAssignment } from './court-assignment';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Clock } from 'lucide-react';
 
 interface MatchJson {
   id: number;
@@ -197,244 +199,290 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
   }
   const maxColWidth = getMaxColumnWidthPx();
 
-  return (
-    <div style={{ display: 'flex', gap: 32 }}>
-      {template.rotations.map((rotation, rotIdx) => (
-        <div key={rotIdx} style={{ width: maxColWidth, minWidth: maxColWidth, maxWidth: maxColWidth }}>
-          <h2 style={{ textAlign: 'center', marginBottom: 16 }}>{rotation.name}</h2>
-          {rotation.phases
-            .sort((a, b) => a.ordre_phase - b.ordre_phase)
-            .map((phase, phaseIdx) => (
-              <div key={phaseIdx} className="mb-8 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
-                <h3 className="text-center text-base font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
-                {phase.matches
-                  .sort((a, b) => a.ordre_match - b.ordre_match)
-                  .map((match, matchIdx) => {
-                    // Déterminer l'index d'occurrence pour chaque random_X_Y
-                    function getRandomKeyWithIndex(source: string) {
-                      if (!source || !/^random_\d+_\d+$/.test(source)) return source;
-                      // Compter le nombre d'occurrences précédentes de ce random dans tous les matches déjà parcourus
-                      let count = 0;
-                      for (let i = 0; i < rotIdx; i++) {
-                        const r = template.rotations[i];
-                        for (const p of r.phases) {
-                          for (const m of p.matches) {
-                            if (m.source_team_1 === source || m.source_team_2 === source) count++;
+  // Fonction réutilisable pour rendre une carte de match
+  function renderMatchCard(match: MatchJson, rotIdx: number, phaseIdx: number, matchIdx: number) {
+    // Déterminer l'index d'occurrence pour chaque random_X_Y
+    function getRandomKeyWithIndex(source: string) {
+      if (!source || !/^random_\d+_\d+$/.test(source)) return source;
+      // Compter le nombre d'occurrences précédentes de ce random dans tous les matches déjà parcourus
+      let count = 0;
+      for (let i = 0; i < rotIdx; i++) {
+        const r = template.rotations[i];
+        for (const p of r.phases) {
+          for (const m of p.matches) {
+            if (m.source_team_1 === source || m.source_team_2 === source) count++;
+          }
+        }
+      }
+      for (let j = 0; j < phaseIdx; j++) {
+        const p = template.rotations[rotIdx].phases[j];
+        for (const m of p.matches) {
+          if (m.source_team_1 === source || m.source_team_2 === source) count++;
+        }
+      }
+      for (let k = 0; k < matchIdx; k++) {
+        const m = template.rotations[rotIdx].phases[phaseIdx].matches[k];
+        if (m.source_team_1 === source || m.source_team_2 === source) count++;
+      }
+      return `${source}_${count+1}`;
+    }
+    const team1Source = getRandomKeyWithIndex(match.source_team_1);
+    const team2Source = getRandomKeyWithIndex(match.source_team_2);
+    const team1 = resolveTeamSource(team1Source, teams, matchResults, randomAssignments);
+    const team2 = resolveTeamSource(team2Source, teams, matchResults, randomAssignments);
+    const isWinner1 = match.winner === '1';
+    const isWinner2 = match.winner === '2';
+    const isLooser1 = match.looser === '1';
+    const isLooser2 = match.looser === '2';
+    // Correction linter : préparer l'affichage des noms d'équipe
+    const team1Display = getTeamDisplay(team1 === null ? undefined : team1, match.source_team_1);
+    const team2Display = getTeamDisplay(team2 === null ? undefined : team2, match.source_team_2);
+    // Bloc match redesign
+    const isFinished = match.winner === '1' || match.winner === '2';
+    const hasScore = match.score_team_1 !== null && match.score_team_1 !== undefined && 
+                     match.score_team_2 !== null && match.score_team_2 !== undefined;
+    
+    // Get phase name for the header
+    const phaseName = template.rotations[rotIdx]?.phases[phaseIdx]?.name || '';
+    
+    return (
+      <div key={match.id} className="relative mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-3 flex flex-col gap-2">
+        {/* Compact Header with Phase + Match #, Score, and Court Assignment */}
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-1">
+            #{match.ordre_match}
+          </span>
+          
+          {/* Score Section - Center */}
+          <div className="flex items-center gap-2">
+            {hasScore ? (
+              <>
+                <span className="text-sm font-semibold text-gray-700">
+                  {match.score_team_1} - {match.score_team_2}
+                </span>
+                <button
+                  className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 text-sm flex items-center justify-center transition-colors"
+                  title="Réinitialiser le match"
+                  onClick={() => updateMatch(match.id, { score_team_1: null, score_team_2: null, winner: '', looser: '' })}
+                  type="button"
+                >
+                  ↺
+                </button>
+              </>
+            ) : (
+              <button
+                className="px-3 py-1 rounded text-xs font-medium border bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                onClick={() => openScoreDialog(match)}
+                title="Enter score"
+              >
+                Score
+              </button>
+            )}
+          </div>
+          
+          {/* Court Assignment */}
+          <div className="flex items-center gap-2">
+            {(match as any).terrain_number ? (
+              <>
+                <select
+                  className="text-xs bg-green-50 text-green-700 border border-green-200 rounded px-2 py-1 font-mono cursor-pointer"
+                  value={(match as any).terrain_number}
+                  onChange={(e) => {
+                    const newCourt = e.target.value === 'none' ? undefined : Number(e.target.value);
+                    
+                    // If assigning a new court, check for conflicts
+                    if (newCourt !== undefined) {
+                      const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                      const conflicts = allMatches.filter((m: any) => 
+                        m.id !== match.id && m.terrain_number === newCourt
+                      );
+                      
+                      if (conflicts.length > 0) {
+                        alert(`Court ${newCourt} is already assigned to another match. Please choose a different court.`);
+                        return;
+                      }
+                    }
+                    
+                    const newTemplate = JSON.parse(JSON.stringify(template));
+                    for (const rotation of newTemplate.rotations) {
+                      for (const phase of rotation.phases) {
+                        for (const m of phase.matches) {
+                          if (m.id === match.id) {
+                            m.terrain_number = newCourt;
                           }
                         }
                       }
-                      for (let j = 0; j < phaseIdx; j++) {
-                        const p = rotation.phases[j];
-                        for (const m of p.matches) {
-                          if (m.source_team_1 === source || m.source_team_2 === source) count++;
-                        }
-                      }
-                      for (let k = 0; k < matchIdx; k++) {
-                        const m = phase.matches[k];
-                        if (m.source_team_1 === source || m.source_team_2 === source) count++;
-                      }
-                      return `${source}_${count+1}`;
                     }
-                    const team1Source = getRandomKeyWithIndex(match.source_team_1);
-                    const team2Source = getRandomKeyWithIndex(match.source_team_2);
-                    const team1 = resolveTeamSource(team1Source, teams, matchResults, randomAssignments);
-                    const team2 = resolveTeamSource(team2Source, teams, matchResults, randomAssignments);
-                    const isWinner1 = match.winner === '1';
-                    const isWinner2 = match.winner === '2';
-                    const isLooser1 = match.looser === '1';
-                    const isLooser2 = match.looser === '2';
-                    // Correction linter : préparer l'affichage des noms d'équipe
-                    const team1Display = getTeamDisplay(team1 === null ? undefined : team1, match.source_team_1);
-                    const team2Display = getTeamDisplay(team2 === null ? undefined : team2, match.source_team_2);
-                    // Bloc match redesign
-                    const isFinished = match.winner === '1' || match.winner === '2';
+                    onUpdateTemplate(newTemplate);
+                  }}
+                  title="Change court assignment"
+                >
+                  <option value="none">Unassign</option>
+                  {[1, 2, 3, 4].map(court => {
+                    const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                    const isOccupied = allMatches.some((m: any) => 
+                      m.id !== match.id && m.terrain_number === court
+                    );
                     return (
-                      <div key={match.id} className="relative mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-3 flex flex-col gap-2">
-                        {/* Header with Match # and Court Assignment */}
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-1">
-                            Match #{match.ordre_match}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {(match as any).terrain_number ? (
-                              <>
-                                <select
-                                  className="text-xs bg-green-50 text-green-700 border border-green-200 rounded px-2 py-1 font-mono cursor-pointer"
-                                  value={(match as any).terrain_number}
-                                  onChange={(e) => {
-                                    const newCourt = e.target.value === 'none' ? undefined : Number(e.target.value);
-                                    
-                                    // If assigning a new court, check for conflicts
-                                    if (newCourt !== undefined) {
-                                      const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
-                                      const conflicts = allMatches.filter((m: any) => 
-                                        m.id !== match.id && m.terrain_number === newCourt
-                                      );
-                                      
-                                      if (conflicts.length > 0) {
-                                        alert(`Court ${newCourt} is already assigned to another match. Please choose a different court.`);
-                                        return;
-                                      }
-                                    }
-                                    
-                                    const newTemplate = JSON.parse(JSON.stringify(template));
-                                    for (const rotation of newTemplate.rotations) {
-                                      for (const phase of rotation.phases) {
-                                        for (const m of phase.matches) {
-                                          if (m.id === match.id) {
-                                            m.terrain_number = newCourt;
-                                          }
-                                        }
-                                      }
-                                    }
-                                    onUpdateTemplate(newTemplate);
-                                  }}
-                                  title="Change court assignment"
-                                >
-                                  <option value="none">Unassign</option>
-                                  {[1, 2, 3, 4].map(court => {
-                                    const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
-                                    const isOccupied = allMatches.some((m: any) => 
-                                      m.id !== match.id && m.terrain_number === court
-                                    );
-                                    return (
-                                      <option key={court} value={court} disabled={isOccupied}>
-                                        Court {court}{isOccupied ? ' (Occupied)' : ''}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                              </>
-                            ) : (
-                              <button
-                                className="px-2 py-1 rounded text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                                onClick={() => {
-                                  const courts = [1,2,3,4];
-                                  const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
-                                  const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
-                                  const free = courts.find(c => !occupied.includes(c));
-                                  if (free) {
-                                    const newTemplate = JSON.parse(JSON.stringify(template));
-                                    for (const rotation of newTemplate.rotations) {
-                                      for (const phase of rotation.phases) {
-                                        for (const m of phase.matches) {
-                                          if (m.id === match.id) {
-                                            m.terrain_number = free;
-                                          }
-                                        }
-                                      }
-                                    }
-                                    onUpdateTemplate(newTemplate);
-                                  } else {
-                                    alert('No courts available. All courts are currently assigned.');
-                                  }
-                                }}
-                                title="Assigner un terrain"
-                              >
-                                Assigner
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Teams and VS - Centered */}
-                        <div className="flex items-center justify-center gap-4 mb-3">
-                          <div className="flex-1 text-center">
-                            <div
-                              className={`text-sm font-medium cursor-pointer transition-colors ${
-                                isWinner1 ? "text-green-600 font-bold" : 
-                                isLooser1 ? "text-gray-400" : 
-                                "text-gray-700 hover:text-gray-900"
-                              }`}
-                              onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
-                              title="Cliquez pour sélectionner comme vainqueur"
-                            >
-                              {team1Display}
-                            </div>
-                          </div>
-                          
-                          <div className="text-lg font-bold text-gray-400 select-none px-2">VS</div>
-                          
-                          <div className="flex-1 text-center">
-                            <div
-                              className={`text-sm font-medium cursor-pointer transition-colors ${
-                                isWinner2 ? "text-green-600 font-bold" : 
-                                isLooser2 ? "text-gray-400" : 
-                                "text-gray-700 hover:text-gray-900"
-                              }`}
-                              onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
-                              title="Cliquez pour sélectionner comme vainqueur"
-                            >
-                              {team2Display}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Score Input - Larger */}
-                        <div className="flex items-center justify-center gap-3">
-                          <input
-                            type="number"
-                            min={0}
-                            value={match.score_team_1 !== null && match.score_team_1 !== undefined ? match.score_team_1 : ''}
-                            onChange={e => {
-                              const val = e.target.value === '' ? null : Number(e.target.value);
-                              const score1 = val;
-                              const score2 = match.score_team_2 !== null && match.score_team_2 !== undefined ? match.score_team_2 : null;
-                              let winner = match.winner;
-                              let looser = match.looser;
-                              if (score1 !== null && score2 !== null) {
-                                if (score1 > score2) { winner = '1'; looser = '2'; }
-                                else if (score2 > score1) { winner = '2'; looser = '1'; }
-                                else { winner = ''; looser = ''; }
-                              } else {
-                                winner = match.winner;
-                                looser = match.looser;
-                              }
-                              updateMatch(match.id, { score_team_1: val, winner, looser });
-                            }}
-                            className="w-16 px-3 py-2 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-200 text-lg font-medium"
-                            placeholder="0"
-                          />
-                          <span className="text-gray-500 font-bold text-lg">-</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={match.score_team_2 !== null && match.score_team_2 !== undefined ? match.score_team_2 : ''}
-                            onChange={e => {
-                              const val = e.target.value === '' ? null : Number(e.target.value);
-                              const score1 = match.score_team_1 !== null && match.score_team_1 !== undefined ? match.score_team_1 : null;
-                              const score2 = val;
-                              let winner = match.winner;
-                              let looser = match.looser;
-                              if (score1 !== null && score2 !== null) {
-                                if (score1 > score2) { winner = '1'; looser = '2'; }
-                                else if (score2 > score1) { winner = '2'; looser = '1'; }
-                                else { winner = ''; looser = ''; }
-                              } else {
-                                winner = match.winner;
-                                looser = match.looser;
-                              }
-                              updateMatch(match.id, { score_team_2: val, winner, looser });
-                            }}
-                            className="w-16 px-3 py-2 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-200 text-lg font-medium"
-                            placeholder="0"
-                          />
-                          <button
-                            className="ml-2 px-2 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 text-sm flex items-center justify-center transition-colors"
-                            title="Réinitialiser le match"
-                            onClick={() => updateMatch(match.id, { score_team_1: null, score_team_2: null, winner: '', looser: '' })}
-                            type="button"
-                          >
-                            ↺
-                          </button>
-                        </div>
-                      </div>
+                      <option key={court} value={court} disabled={isOccupied}>
+                        Court {court}{isOccupied ? ' (Occupied)' : ''}
+                      </option>
                     );
                   })}
-              </div>
-            ))}
+                </select>
+              </>
+            ) : (
+              <button
+                className="px-2 py-1 rounded text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                onClick={() => {
+                  const courts = [1,2,3,4];
+                  const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                  const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
+                  const free = courts.find(c => !occupied.includes(c));
+                  if (free) {
+                    const newTemplate = JSON.parse(JSON.stringify(template));
+                    for (const rotation of newTemplate.rotations) {
+                      for (const phase of rotation.phases) {
+                        for (const m of phase.matches) {
+                          if (m.id === match.id) {
+                            m.terrain_number = free;
+                          }
+                        }
+                      }
+                    }
+                    onUpdateTemplate(newTemplate);
+                  } else {
+                    alert('No courts available. All courts are currently assigned.');
+                  }
+                }}
+                title="Assigner un terrain"
+              >
+                Assigner
+              </button>
+            )}
+          </div>
         </div>
-      ))}
+
+        {/* Teams and VS - Centered */}
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex-1 text-center">
+            <div
+              className={`text-sm font-medium cursor-pointer transition-colors ${
+                isWinner1 ? "text-green-600 font-bold" : 
+                isLooser1 ? "text-gray-400" : 
+                "text-gray-700 hover:text-gray-900"
+              }`}
+              onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
+              title="Cliquez pour sélectionner comme vainqueur"
+            >
+              {team1Display}
+            </div>
+          </div>
+          
+          <div className="text-lg font-bold text-gray-400 select-none px-2">VS</div>
+          
+          <div className="flex-1 text-center">
+            <div
+              className={`text-sm font-medium cursor-pointer transition-colors ${
+                isWinner2 ? "text-green-600 font-bold" : 
+                isLooser2 ? "text-gray-400" : 
+                "text-gray-700 hover:text-gray-900"
+              }`}
+              onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
+              title="Cliquez pour sélectionner comme vainqueur"
+            >
+              {team2Display}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fonction pour obtenir les prochains matches
+  function getNextMatches() {
+    const allMatches: MatchJson[] = [];
+    for (const rotation of template.rotations) {
+      for (const phase of rotation.phases) {
+        for (const match of phase.matches) {
+          allMatches.push(match);
+        }
+      }
+    }
+    
+    // Trier par ordre_match et filtrer les matches non terminés et sans terrain assigné
+    return allMatches
+      .sort((a, b) => a.ordre_match - b.ordre_match)
+      .filter(match => 
+        // Pas de vainqueur (match non terminé)
+        (!match.winner || match.winner === '') &&
+        // Pas de terrain assigné (match pas encore commencé)
+        (!(match as any).terrain_number || (match as any).terrain_number === undefined)
+      )
+      .slice(0, 4); // Prendre les 4 premiers matches à venir
+  }
+
+  const nextMatches = getNextMatches();
+
+  return (
+    <div>
+      {/* Next Matches Bar */}
+      {nextMatches.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-semibold flex items-center">
+              <Clock className="mr-2 text-gray-500" />
+              Next Matches
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="overflow-x-auto">
+              <div className="flex justify-between gap-4 pb-2">
+                {nextMatches.map((match) => {
+                  // Trouver les indices pour renderMatchCard
+                  let rotIdx = 0, phaseIdx = 0, matchIdx = 0;
+                  for (let r = 0; r < template.rotations.length; r++) {
+                    for (let p = 0; p < template.rotations[r].phases.length; p++) {
+                      for (let m = 0; m < template.rotations[r].phases[p].matches.length; m++) {
+                        if (template.rotations[r].phases[p].matches[m].id === match.id) {
+                          rotIdx = r;
+                          phaseIdx = p;
+                          matchIdx = m;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  return (
+                    <div key={match.id} className="flex-1 min-w-0">
+                      {renderMatchCard(match, rotIdx, phaseIdx, matchIdx)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bracket View */}
+      <div style={{ display: 'flex', gap: 32 }}>
+        {template.rotations.map((rotation, rotIdx) => (
+          <div key={rotIdx} style={{ width: maxColWidth, minWidth: maxColWidth, maxWidth: maxColWidth }}>
+            <h2 style={{ textAlign: 'center', marginBottom: 16 }}>{rotation.name}</h2>
+            {rotation.phases
+              .sort((a, b) => a.ordre_phase - b.ordre_phase)
+              .map((phase, phaseIdx) => (
+                <div key={phaseIdx} className="mb-8 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
+                  <h3 className="text-center text-base font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
+                  {phase.matches
+                    .sort((a, b) => a.ordre_match - b.ordre_match)
+                    .map((match, matchIdx) => renderMatchCard(match, rotIdx, phaseIdx, matchIdx))}
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
       {/* Dialog de saisie du score */}
       {scoreDialog.open && scoreDialog.match && (
         <div style={{
