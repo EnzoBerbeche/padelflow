@@ -381,6 +381,7 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
         onClose={() => setShowRandomDraw(false)}
         teams={teams}
         randomOccurrences={pendingRandomOccurrences}
+        formatTemplate={pendingFormatKey ? availableFormats.find(f => f.format_key === pendingFormatKey)?.format_data : undefined}
         onComplete={(assignments) => {
           if (pendingFormatKey) {
             proceedWithFormatSelection(pendingFormatKey, assignments as any);

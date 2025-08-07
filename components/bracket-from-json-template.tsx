@@ -114,6 +114,28 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
     // setLocalTemplate(JSON.parse(JSON.stringify(template))); // This line is removed
   }, [template]);
 
+  // Helper function to generate the correct random key with index
+  const generateRandomKeyWithIndex = (source: string, match: any, template: any) => {
+    if (!source || !source.startsWith('random_')) return source;
+    
+    // Count how many times this random source appears before this match
+    let count = 0;
+    for (const rotation of template.rotations) {
+      for (const phase of rotation.phases) {
+        for (const m of phase.matches) {
+          if (m.source_team_1 === source || m.source_team_2 === source) {
+            count++;
+            // If this is the current match, return the key with this count
+            if (m.ordre_match === match.ordre_match && m === match) {
+              return `${source}_${count}`;
+            }
+          }
+        }
+      }
+    }
+    return source;
+  };
+
   // Met à jour le score ou le winner dans le template via le parent
   const updateMatch = (matchId: number, updates: Partial<MatchJson>) => {
     const newTemplate = JSON.parse(JSON.stringify(template));
@@ -193,14 +215,20 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
       let looser_team_id = '';
       // On tente de retrouver l'id d'équipe gagnante/perdante si possible
       if (match.winner === '1') {
-        const team1 = resolveTeamSource(match.source_team_1, teams, results, randomAssignments);
+        // Use the shared random key generation logic
+        const team1Source = generateRandomKeyWithIndex(match.source_team_1, match, template);
+        const team2Source = generateRandomKeyWithIndex(match.source_team_2, match, template);
+        const team1 = resolveTeamSource(team1Source, teams, results, randomAssignments);
+        const team2 = resolveTeamSource(team2Source, teams, results, randomAssignments);
         winner_team_id = team1?.id || '';
-        const team2 = resolveTeamSource(match.source_team_2, teams, results, randomAssignments);
         looser_team_id = team2?.id || '';
       } else if (match.winner === '2') {
-        const team2 = resolveTeamSource(match.source_team_2, teams, results, randomAssignments);
+        // Use the shared random key generation logic
+        const team1Source = generateRandomKeyWithIndex(match.source_team_1, match, template);
+        const team2Source = generateRandomKeyWithIndex(match.source_team_2, match, template);
+        const team1 = resolveTeamSource(team1Source, teams, results, randomAssignments);
+        const team2 = resolveTeamSource(team2Source, teams, results, randomAssignments);
         winner_team_id = team2?.id || '';
-        const team1 = resolveTeamSource(match.source_team_1, teams, results, randomAssignments);
         looser_team_id = team1?.id || '';
       }
       results.push({
@@ -217,33 +245,9 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
 
   // Fonction réutilisable pour rendre une carte de match
   function renderMatchCard(match: MatchJson, rotIdx: number, phaseIdx: number, matchIdx: number) {
-    // Déterminer l'index d'occurrence pour chaque random_X_Y
-    function getRandomKeyWithIndex(source: string) {
-      if (!source || !/^random_\d+_\d+$/.test(source)) return source;
-      // Compter le nombre d'occurrences précédentes de ce random dans tous les matches déjà parcourus
-      let count = 0;
-      for (let i = 0; i < rotIdx; i++) {
-        const r = template.rotations[i];
-        for (const p of r.phases) {
-          for (const m of p.matches) {
-            if (m.source_team_1 === source || m.source_team_2 === source) count++;
-          }
-        }
-      }
-      for (let j = 0; j < phaseIdx; j++) {
-        const p = template.rotations[rotIdx].phases[j];
-        for (const m of p.matches) {
-          if (m.source_team_1 === source || m.source_team_2 === source) count++;
-        }
-      }
-      for (let k = 0; k < matchIdx; k++) {
-        const m = template.rotations[rotIdx].phases[phaseIdx].matches[k];
-        if (m.source_team_1 === source || m.source_team_2 === source) count++;
-      }
-      return `${source}_${count+1}`;
-    }
-    const team1Source = getRandomKeyWithIndex(match.source_team_1);
-    const team2Source = getRandomKeyWithIndex(match.source_team_2);
+    // Use the shared random key generation logic
+    const team1Source = generateRandomKeyWithIndex(match.source_team_1, match, template);
+    const team2Source = generateRandomKeyWithIndex(match.source_team_2, match, template);
     const team1 = resolveTeamSource(team1Source, teams, matchResults, randomAssignments);
     const team2 = resolveTeamSource(team2Source, teams, matchResults, randomAssignments);
     const isWinner1 = match.winner === '1';
