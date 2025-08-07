@@ -4,7 +4,7 @@ import { TeamWithPlayers } from '@/lib/storage';
 import { storage } from '@/lib/storage';
 import { CourtAssignment } from './court-assignment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 
 interface MatchJson {
   id: number;
@@ -458,7 +458,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
           <CardContent className="p-4 pt-0">
             <div className="relative">
               <div className="overflow-x-auto scrollbar-hide">
-                <div className="flex flex-col sm:flex-row gap-4 pb-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-2">
                   {nextMatches.map((match) => {
                     // Trouver les indices pour renderMatchCard
                     let rotIdx = 0, phaseIdx = 0, matchIdx = 0;
@@ -475,7 +475,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                       }
                     }
                     return (
-                      <div key={match.id} className="w-full sm:w-72 lg:w-80 flex-shrink-0">
+                      <div key={match.id} className="w-full">
                         {renderMatchCard(match, rotIdx, phaseIdx, matchIdx)}
                       </div>
                     );
@@ -488,29 +488,47 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
       )}
 
       {/* Bracket View */}
-      <div className="relative">
+      <div className="relative max-w-full">
         {/* Scrollable Container */}
         <div 
           ref={bracketScrollRef}
           className="overflow-x-auto scrollbar-hide"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
-            {template.rotations.map((rotation, rotIdx) => (
-              <div key={rotIdx} className="w-full lg:w-80 xl:w-96 flex-shrink-0">
-                <h2 className="text-center mb-4 text-lg font-semibold">{rotation.name}</h2>
-                {rotation.phases
-                  .sort((a, b) => a.ordre_phase - b.ordre_phase)
-                  .map((phase, phaseIdx) => (
-                    <div key={phaseIdx} className="mb-6 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
-                      <h3 className="text-center text-sm font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
-                      {phase.matches
-                        .sort((a, b) => a.ordre_match - b.ordre_match)
-                        .map((match, matchIdx) => renderMatchCard(match, rotIdx, phaseIdx, matchIdx))}
-                    </div>
-                  ))}
+          {/* Rotations */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-orange-500" />
+                <h2 className="text-xl font-bold">Rotations</h2>
               </div>
-            ))}
+            </div>
+            
+            <div className={`grid gap-4 ${
+              template.rotations.length === 1 ? 'grid-cols-1' :
+              template.rotations.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+              template.rotations.length === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+              template.rotations.length === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
+              template.rotations.length === 5 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : // 5 rotations: 4 on top, 1 below
+              template.rotations.length === 6 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6' :
+              'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+            }`}>
+              {template.rotations.map((rotation, rotIdx) => (
+                <div key={rotIdx} className="w-full">
+                  <h2 className="text-center mb-4 text-lg font-semibold">{rotation.name}</h2>
+                  {rotation.phases
+                    .sort((a, b) => a.ordre_phase - b.ordre_phase)
+                    .map((phase, phaseIdx) => (
+                      <div key={phaseIdx} className="mb-6 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
+                        <h3 className="text-center text-sm font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
+                        {phase.matches
+                          .sort((a, b) => a.ordre_match - b.ordre_match)
+                          .map((match, matchIdx) => renderMatchCard(match, rotIdx, phaseIdx, matchIdx))}
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         

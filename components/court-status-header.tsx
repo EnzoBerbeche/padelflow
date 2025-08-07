@@ -212,18 +212,18 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
           totalCourts === 2 ? 'grid-cols-1 sm:grid-cols-2' :
           totalCourts === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
           totalCourts === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
-          totalCourts === 5 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
+          totalCourts === 5 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : // 5 courts: 4 on top, 1 below
           totalCourts === 6 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6' :
           'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
         }`}>
-          {courtStatuses.map((court) => (
+          {courtStatuses.map((court, index) => (
             <div
               key={court.courtNumber}
               className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-md ${
                 court.isOccupied 
                   ? 'border-red-200 bg-red-50' 
                   : 'border-green-200 bg-green-50'
-              }`}
+              } ${totalCourts === 5 && index === 4 ? 'lg:col-start-1 lg:col-span-1' : ''}`}
               onClick={() => handleCourtClick(court.courtNumber)}
             >
               <div className="flex items-center justify-between mb-2">
