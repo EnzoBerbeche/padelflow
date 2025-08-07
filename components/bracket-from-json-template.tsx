@@ -250,7 +250,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
         {/* Compact Header with Phase + Match #, Score, and Court Assignment */}
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-1">
-            #{match.ordre_match}
+            {phaseName} - {match.ordre_match}
           </span>
           
           {/* Score Section - Center */}

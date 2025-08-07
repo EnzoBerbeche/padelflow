@@ -147,6 +147,20 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
     return `Match #${m.ordre_match || m.json_match_id || m.order_index || m.id}`;
   };
 
+  // Helper to get phase name from template
+  const getPhaseName = (match: any) => {
+    for (const rotation of template.rotations) {
+      for (const phase of rotation.phases) {
+        for (const phaseMatch of phase.matches) {
+          if (phaseMatch.id === match.id) {
+            return phase.name;
+          }
+        }
+      }
+    }
+    return '';
+  };
+
   // Helper for team display
   const getTeamDisplay = (team: any, fallbackSource?: string) => {
     if (!team) return fallbackSource || '';
@@ -208,6 +222,11 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
                 <h4 className="font-medium text-gray-900">
                   Court {court.courtNumber}
                 </h4>
+                {court.isOccupied && court.match && (
+                  <span className="text-xs text-gray-600 font-medium">
+                    {getPhaseName(court.match)}
+                  </span>
+                )}
                 {court.isOccupied ? (
                   <XCircle className="h-5 w-5 text-red-600" />
                 ) : (
