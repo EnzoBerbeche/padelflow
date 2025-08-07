@@ -1,0 +1,538 @@
+{
+  "format_name": "Tournoi 16 équipes - A plat - Test",
+  "description": "Format de test pour 16 équipes",
+  "min_players": 16,
+  "max_players": 16,
+  "features": [
+    "Tableau à plat",
+    "Test"
+  ],
+  "rotations": [
+    {
+      "name": "Rotation 1",
+      "phases": [
+        {
+          "name": "1/8 de finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 1,
+              "ordre_match": 1,
+              "source_team_1": "1",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "2",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 2,
+              "ordre_match": 2,
+              "source_team_1": "3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 3,
+              "ordre_match": 3,
+              "source_team_1": "5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "6",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 4,
+              "ordre_match": 4,
+              "source_team_1": "7",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 5,
+              "ordre_match": 5,
+              "source_team_1": "9",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "10",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 6,
+              "ordre_match": 6,
+              "source_team_1": "11",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "12",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 7,
+              "ordre_match": 7,
+              "source_team_1": "13",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "14",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 8,
+              "ordre_match": 8,
+              "source_team_1": "15",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "16",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rotation 2",
+      "phases": [
+        {
+          "name": "1/4 finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 9,
+              "ordre_match": 9,
+              "source_team_1": "W_1",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_2",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 10,
+              "ordre_match": 10,
+              "source_team_1": "W_3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 11,
+              "ordre_match": 11,
+              "source_team_1": "W_5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_6",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 12,
+              "ordre_match": 12,
+              "source_team_1": "W_7",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 9 - 16",
+          "ordre_phase": 2,
+          "matches": [
+            {
+              "id": 13,
+              "ordre_match": 13,
+              "source_team_1": "L_1",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_2",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 14,
+              "ordre_match": 14,
+              "source_team_1": "L_3",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_4",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 15,
+              "ordre_match": 15,
+              "source_team_1": "L_5",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_6",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 16,
+              "ordre_match": 16,
+              "source_team_1": "L_7",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_8",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rotation 3",
+      "phases": [
+        {
+          "name": "Demi-finale",
+          "ordre_phase": 3,
+          "matches": [
+            {
+              "id": 17,
+              "ordre_match": 17,
+              "source_team_1": "W_9",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_10",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 18,
+              "ordre_match": 18,
+              "source_team_1": "W_11",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_12",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 5-8",
+          "ordre_phase": 2,
+          "matches": [
+            {
+              "id": 19,
+              "ordre_match": 19,
+              "source_team_1": "L_9",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_10",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 20,
+              "ordre_match": 20,
+              "source_team_1": "L_11",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_12",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classemnt 9-12",
+          "ordre_phase": 3,
+          "matches": [
+            {
+              "id": 21,
+              "ordre_match": 21,
+              "source_team_1": "W_13",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_14",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 22,
+              "ordre_match": 22,
+              "source_team_1": "W_15",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_16",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classemnt 13-16",
+          "ordre_phase": 3,
+          "matches": [
+            {
+              "id": 23,
+              "ordre_match": 23,
+              "source_team_1": "L_13",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_14",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            },
+            {
+              "id": 24,
+              "ordre_match": 24,
+              "source_team_1": "L_15",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_16",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rotation 4",
+      "phases": [
+        {
+          "name": "Finale",
+          "ordre_phase": 1,
+          "matches": [
+            {
+              "id": 25,
+              "ordre_match": 25,
+              "source_team_1": "W_17",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_18",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Petite finale",
+          "ordre_phase": 2,
+          "matches": [
+            {
+              "id": 26,
+              "ordre_match": 26,
+              "source_team_1": "L_17",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_18",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 5-6",
+          "ordre_phase": 3,
+          "matches": [
+            {
+              "id": 27,
+              "ordre_match": 27,
+              "source_team_1": "W_19",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_20",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 7-8" ,
+          "ordre_phase": 4,
+          "matches": [
+            {
+              "id": 28,
+              "ordre_match": 28,
+              "source_team_1": "L_19",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_20",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 9-10" ,
+          "ordre_phase": 5,
+          "matches": [
+            {
+              "id": 29,
+              "ordre_match": 29,
+              "source_team_1": "W_21",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_22",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 11-12" ,
+          "ordre_phase": 6,
+          "matches": [
+            {
+              "id": 30,
+              "ordre_match": 30,
+              "source_team_1": "L_21",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_22",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 13-14" ,
+          "ordre_phase": 6,
+          "matches": [
+            {
+              "id": 31,
+              "ordre_match": 31,
+              "source_team_1": "W_23",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "W_24",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        },
+        {
+          "name": "Classement 15-16" ,
+          "ordre_phase": 6,
+          "matches": [
+            {
+              "id": 32,
+              "ordre_match": 32,
+              "source_team_1": "L_23",
+              "team_1": "",
+              "score_team_1": null,
+              "source_team_2": "L_24",
+              "team_2": "",
+              "score_team_2": null,
+              "terrain": "",
+              "winner": "",
+              "looser": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

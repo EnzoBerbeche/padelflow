@@ -1,5 +1,8 @@
 {
   "format_name": "Tournoi 8 équipes - A plat",
+  "description": "Format pour 8 équipes avec tableau à plat",
+  "min_players": 8,
+  "max_players": 8,
   "features": [
     "Tableau à plat",
     "Random ts 3 & 4",

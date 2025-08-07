@@ -1,5 +1,8 @@
 {
-  "format_name": "Tournoi 8 équipes - A plat - Pas de random",
+  "format_name": "Tournoi 8 équipes - Sans random",
+  "description": "Format pour 8 équipes sans random",
+  "min_players": 8,
+  "max_players": 8,
   "features": [
     "Tableau à plat",
     "Pas de random"

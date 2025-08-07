@@ -1,5 +1,8 @@
 {
-  "format_name": "Tournoi 8 équipes - A plat - Test",
+  "format_name": "Tournoi 8 équipes - Test",
+  "description": "Format de test pour 8 équipes",
+  "min_players": 8,
+  "max_players": 8,
   "features": [
     "Tableau à plat",
     "Test"

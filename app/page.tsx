@@ -5,9 +5,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Trophy, Users, Calendar, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function Home() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
+  
+  // Redirect authenticated users to tournaments page
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace('/dashboard/tournaments');
+    }
+  }, [isSignedIn, isLoaded, router]);
+
+  // Show loading while checking authentication
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to tournaments...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50">
@@ -21,7 +43,7 @@ export default function Home() {
           <div className="flex items-center space-x-4">
             {isSignedIn ? (
               <>
-                <Link href="/dashboard">
+                <Link href="/dashboard/tournaments">
                   <Button>Dashboard</Button>
                 </Link>
                 <UserButton afterSignOutUrl="/" />
@@ -53,9 +75,9 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {isSignedIn ? (
-                <Link href="/dashboard">
+                <Link href="/dashboard/tournaments">
                   <Button size="lg" className="text-lg px-8 py-3">
-                    Go to Dashboard
+                    Go to Tournaments
                   </Button>
                 </Link>
               ) : (
@@ -151,9 +173,9 @@ export default function Home() {
             Try our demo to see how easy tournament management can be
           </p>
           {isSignedIn ? (
-            <Link href="/dashboard">
+            <Link href="/dashboard/tournaments">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-                Go to Dashboard
+                Go to Tournaments
               </Button>
             </Link>
           ) : (

@@ -249,34 +249,81 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                     // Bloc match redesign
                     const isFinished = match.winner === '1' || match.winner === '2';
                     return (
-                      <div key={match.id} className="relative mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col gap-2">
-                        {/* Numéro de match et terrain assigné */}
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-0.5">Match #{match.ordre_match}</span>
-                          {(match as any).terrain_number && (
-                            <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5 font-mono">Court {(match as any).terrain_number}</span>
-                          )}
-                        </div>
-                        {/* Équipes et VS */}
-                        <div className="flex items-center justify-center gap-2">
-                          <div
-                            className={isWinner1 ? "font-bold text-blue-700 cursor-pointer" : isLooser1 ? "text-gray-400 cursor-pointer" : "font-medium text-gray-700 cursor-pointer"}
-                            onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
-                            title="Cliquez pour sélectionner comme vainqueur"
+                      <div key={match.id} className="relative mb-6 bg-white rounded-lg border border-gray-200 shadow-sm p-3 flex flex-col gap-2">
+                        {/* Header with Match # and Court Assignment */}
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs text-gray-500 font-mono bg-gray-100 rounded px-2 py-1">
+                            Match #{match.ordre_match}
+                          </span>
+                          <button
+                            className={`px-2 py-1 rounded text-xs font-medium border ${
+                              (match as any).terrain_number 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            }`}
+                            onClick={() => {
+                              if (!(match as any).terrain_number) {
+                                const courts = [1,2,3,4];
+                                const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
+                                const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
+                                const free = courts.find(c => !occupied.includes(c));
+                                if (free) {
+                                  const newTemplate = JSON.parse(JSON.stringify(template));
+                                  for (const rotation of newTemplate.rotations) {
+                                    for (const phase of rotation.phases) {
+                                      for (const m of phase.matches) {
+                                        if (m.id === match.id) {
+                                          m.terrain_number = free;
+                                        }
+                                      }
+                                    }
+                                  }
+                                  onUpdateTemplate(newTemplate);
+                                }
+                              }
+                            }}
+                            disabled={!!(match as any).terrain_number}
+                            title={(match as any).terrain_number ? `Court ${(match as any).terrain_number}` : "Assigner un terrain"}
                           >
-                            {team1Display}
+                            {(match as any).terrain_number ? `Court ${(match as any).terrain_number}` : "Assigner"}
+                          </button>
+                        </div>
+
+                        {/* Teams and VS - Centered */}
+                        <div className="flex items-center justify-center gap-4 mb-3">
+                          <div className="flex-1 text-center">
+                            <div
+                              className={`text-sm font-medium cursor-pointer transition-colors ${
+                                isWinner1 ? "text-green-600 font-bold" : 
+                                isLooser1 ? "text-gray-400" : 
+                                "text-gray-700 hover:text-gray-900"
+                              }`}
+                              onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
+                              title="Cliquez pour sélectionner comme vainqueur"
+                            >
+                              {team1Display}
+                            </div>
                           </div>
-                          <div className="mx-2 text-lg font-bold text-gray-400 select-none" style={{ minWidth: 32, textAlign: 'center' }}>VS</div>
-                          <div
-                            className={isWinner2 ? "font-bold text-blue-700 cursor-pointer" : isLooser2 ? "text-gray-400 cursor-pointer" : "font-medium text-gray-700 cursor-pointer"}
-                            onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
-                            title="Cliquez pour sélectionner comme vainqueur"
-                          >
-                            {team2Display}
+                          
+                          <div className="text-lg font-bold text-gray-400 select-none px-2">VS</div>
+                          
+                          <div className="flex-1 text-center">
+                            <div
+                              className={`text-sm font-medium cursor-pointer transition-colors ${
+                                isWinner2 ? "text-green-600 font-bold" : 
+                                isLooser2 ? "text-gray-400" : 
+                                "text-gray-700 hover:text-gray-900"
+                              }`}
+                              onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
+                              title="Cliquez pour sélectionner comme vainqueur"
+                            >
+                              {team2Display}
+                            </div>
                           </div>
                         </div>
-                        {/* Bloc de saisie de score sous les équipes */}
-                        <div className="flex items-center justify-center gap-4 mt-2">
+
+                        {/* Score Input - Larger */}
+                        <div className="flex items-center justify-center gap-3">
                           <input
                             type="number"
                             min={0}
@@ -297,10 +344,10 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                               }
                               updateMatch(match.id, { score_team_1: val, winner, looser });
                             }}
-                            className="w-14 px-1 py-1 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            placeholder="Score 1"
+                            className="w-16 px-3 py-2 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-200 text-lg font-medium"
+                            placeholder="0"
                           />
-                          <span className="text-gray-500 font-bold">-</span>
+                          <span className="text-gray-500 font-bold text-lg">-</span>
                           <input
                             type="number"
                             min={0}
@@ -321,47 +368,18 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                               }
                               updateMatch(match.id, { score_team_2: val, winner, looser });
                             }}
-                            className="w-14 px-1 py-1 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            placeholder="Score 2"
+                            className="w-16 px-3 py-2 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-200 text-lg font-medium"
+                            placeholder="0"
                           />
-                          {/* Bouton reset */}
                           <button
-                            className="ml-2 px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 text-lg flex items-center justify-center"
+                            className="ml-2 px-2 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-200 text-sm flex items-center justify-center transition-colors"
                             title="Réinitialiser le match"
                             onClick={() => updateMatch(match.id, { score_team_1: null, score_team_2: null, winner: '', looser: '' })}
                             type="button"
-                          >↺</button>
+                          >
+                            ↺
+                          </button>
                         </div>
-                        {/* Score et bouton */}
-                        <div className="flex items-center justify-between mt-2">
-                          {match.score_team_1 !== null && match.score_team_2 !== null ? (
-                            <span className="text-sm font-semibold text-gray-700">{match.score_team_1} - {match.score_team_2}</span>
-                          ) : <span />}
-                          {/* Le bouton 'Saisir le score' reste optionnel, peut être masqué si tu veux */}
-                        </div>
-                        {/* CourtAssignment */}
-                        {!isFinished && (
-                          <div className="mt-2">
-                            <CourtAssignment
-                              match={match as any}
-                              totalCourts={4}
-                              allMatches={template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) as any[]}
-                              onCourtAssign={(matchId, courtNumber) => {
-                                const newTemplate = JSON.parse(JSON.stringify(template));
-                                for (const rotation of newTemplate.rotations) {
-                                  for (const phase of rotation.phases) {
-                                    for (const m of phase.matches) {
-                                      if (m.id === matchId) {
-                                        m.terrain_number = courtNumber;
-                                      }
-                                    }
-                                  }
-                                }
-                                onUpdateTemplate(newTemplate);
-                              }}
-                            />
-                          </div>
-                        )}
                       </div>
                     );
                   })}

@@ -8,6 +8,7 @@ export default function DashboardRedirect() {
   const router = useRouter();
 
   useEffect(() => {
+    // Redirect to tournaments page immediately
     router.replace('/dashboard/tournaments');
   }, [router]);
 
