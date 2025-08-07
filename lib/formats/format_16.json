@@ -249,7 +249,7 @@
       "phases": [
         {
           "name": "Demi-finale",
-          "ordre_phase": 3,
+          "ordre_phase": 1,
           "matches": [
             {
               "id": 17,

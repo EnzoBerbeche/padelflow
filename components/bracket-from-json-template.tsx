@@ -4,7 +4,7 @@ import { TeamWithPlayers } from '@/lib/storage';
 import { storage } from '@/lib/storage';
 import { CourtAssignment } from './court-assignment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MatchJson {
   id: number;
@@ -70,10 +70,43 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
   const [scoreInputs, setScoreInputs] = useState<{ score1: string; score2: string }>({ score1: '', score2: '' });
   // Ajout d'un dummy state pour forcer le re-render
   const [, forceUpdate] = useState(0);
+  
+  // Scroll indicators state
+  const [showLeftScroll, setShowLeftScroll] = useState(false);
+  const [showRightScroll, setShowRightScroll] = useState(false);
+  const bracketScrollRef = useRef<HTMLDivElement>(null);
+
+  // Handle scroll to update indicators
+  const handleScroll = () => {
+    if (bracketScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = bracketScrollRef.current;
+      setShowLeftScroll(scrollLeft > 0);
+      setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  // Scroll to left/right
+  const scrollTo = (direction: 'left' | 'right') => {
+    if (bracketScrollRef.current) {
+      const scrollAmount = 400; // Adjust based on your needs
+      const newScrollLeft = bracketScrollRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+      bracketScrollRef.current.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
+    }
+  };
 
   // Forcer le re-render à chaque modification du template local
   useEffect(() => {
     forceUpdate(n => n + 1);
+  }, [template]);
+
+  // Initialize scroll indicators
+  useEffect(() => {
+    handleScroll();
+    const scrollElement = bracketScrollRef.current;
+    if (scrollElement) {
+      scrollElement.addEventListener('scroll', handleScroll);
+      return () => scrollElement.removeEventListener('scroll', handleScroll);
+    }
   }, [template]);
 
   // Synchroniser localTemplate avec le prop template à chaque changement de template
@@ -181,25 +214,6 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
 
   // Avant le mapping des rotations, construire matchResults une seule fois
   const matchResults = buildMatchResults();
-
-  // Calculer dynamiquement la largeur maximale nécessaire pour les colonnes
-  function getMaxColumnWidthPx() {
-    // On prend la longueur max des noms d'équipes, du bouton, etc.
-    let maxLen = 0;
-    for (const rotation of template.rotations) {
-      for (const phase of rotation.phases) {
-        for (const match of phase.matches) {
-          const t1 = getTeamDisplay(resolveTeamSource(match.source_team_1, teams, matchResults, randomAssignments) ?? undefined, match.source_team_1);
-          const t2 = getTeamDisplay(resolveTeamSource(match.source_team_2, teams, matchResults, randomAssignments) ?? undefined, match.source_team_2);
-          maxLen = Math.max(maxLen, (t1?.length || 0), (t2?.length || 0));
-        }
-      }
-    }
-    // Largeur min pour le bouton et le layout
-    const px = Math.max(300, Math.min(520, 16 * maxLen + 120));
-    return px;
-  }
-  const maxColWidth = getMaxColumnWidthPx();
 
   // Fonction réutilisable pour rendre une carte de match
   function renderMatchCard(match: MatchJson, rotIdx: number, phaseIdx: number, matchIdx: number) {
@@ -438,29 +452,31 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="overflow-x-auto">
-              <div className="flex justify-between gap-4 pb-2">
-                {nextMatches.map((match) => {
-                  // Trouver les indices pour renderMatchCard
-                  let rotIdx = 0, phaseIdx = 0, matchIdx = 0;
-                  for (let r = 0; r < template.rotations.length; r++) {
-                    for (let p = 0; p < template.rotations[r].phases.length; p++) {
-                      for (let m = 0; m < template.rotations[r].phases[p].matches.length; m++) {
-                        if (template.rotations[r].phases[p].matches[m].id === match.id) {
-                          rotIdx = r;
-                          phaseIdx = p;
-                          matchIdx = m;
-                          break;
+            <div className="relative">
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex flex-col sm:flex-row gap-4 pb-2">
+                  {nextMatches.map((match) => {
+                    // Trouver les indices pour renderMatchCard
+                    let rotIdx = 0, phaseIdx = 0, matchIdx = 0;
+                    for (let r = 0; r < template.rotations.length; r++) {
+                      for (let p = 0; p < template.rotations[r].phases.length; p++) {
+                        for (let m = 0; m < template.rotations[r].phases[p].matches.length; m++) {
+                          if (template.rotations[r].phases[p].matches[m].id === match.id) {
+                            rotIdx = r;
+                            phaseIdx = p;
+                            matchIdx = m;
+                            break;
+                          }
                         }
                       }
                     }
-                  }
-                  return (
-                    <div key={match.id} className="flex-1 min-w-0">
-                      {renderMatchCard(match, rotIdx, phaseIdx, matchIdx)}
-                    </div>
-                  );
-                })}
+                    return (
+                      <div key={match.id} className="w-full sm:w-72 lg:w-80 flex-shrink-0">
+                        {renderMatchCard(match, rotIdx, phaseIdx, matchIdx)}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -468,22 +484,54 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
       )}
 
       {/* Bracket View */}
-      <div style={{ display: 'flex', gap: 32 }}>
-        {template.rotations.map((rotation, rotIdx) => (
-          <div key={rotIdx} style={{ width: maxColWidth, minWidth: maxColWidth, maxWidth: maxColWidth }}>
-            <h2 style={{ textAlign: 'center', marginBottom: 16 }}>{rotation.name}</h2>
-            {rotation.phases
-              .sort((a, b) => a.ordre_phase - b.ordre_phase)
-              .map((phase, phaseIdx) => (
-                <div key={phaseIdx} className="mb-8 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
-                  <h3 className="text-center text-base font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
-                  {phase.matches
-                    .sort((a, b) => a.ordre_match - b.ordre_match)
-                    .map((match, matchIdx) => renderMatchCard(match, rotIdx, phaseIdx, matchIdx))}
-                </div>
-              ))}
+      <div className="relative">
+        {/* Scrollable Container */}
+        <div 
+          ref={bracketScrollRef}
+          className="overflow-x-auto scrollbar-hide"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
+            {template.rotations.map((rotation, rotIdx) => (
+              <div key={rotIdx} className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+                <h2 className="text-center mb-4 text-lg font-semibold">{rotation.name}</h2>
+                {rotation.phases
+                  .sort((a, b) => a.ordre_phase - b.ordre_phase)
+                  .map((phase, phaseIdx) => (
+                    <div key={phaseIdx} className="mb-6 bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
+                      <h3 className="text-center text-sm font-semibold text-gray-700 mb-4 tracking-wide uppercase">{phase.name}</h3>
+                      {phase.matches
+                        .sort((a, b) => a.ordre_match - b.ordre_match)
+                        .map((match, matchIdx) => renderMatchCard(match, rotIdx, phaseIdx, matchIdx))}
+                    </div>
+                  ))}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        
+        {/* Scroll Indicators - Only show on larger screens */}
+        <div className="hidden lg:block">
+          {showLeftScroll && (
+            <button
+              onClick={() => scrollTo('left')}
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-2 shadow-lg hover:shadow-xl transition-shadow"
+              title="Scroll left"
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-600" />
+            </button>
+          )}
+          
+          {showRightScroll && (
+            <button
+              onClick={() => scrollTo('right')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-2 shadow-lg hover:shadow-xl transition-shadow"
+              title="Scroll right"
+            >
+              <ChevronRight className="h-5 w-5 text-gray-600" />
+            </button>
+          )}
+        </div>
       </div>
       {/* Dialog de saisie du score */}
       {scoreDialog.open && scoreDialog.match && (

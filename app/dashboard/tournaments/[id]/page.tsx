@@ -280,86 +280,84 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       <DashboardLayout>
         <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{tournament.name}</h1>
-              <div className="flex items-center space-x-4 mt-2 text-gray-600">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {format(new Date(tournament.date), 'PPP')}
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-center space-x-4">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{tournament.name}</h1>
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-2 text-gray-600">
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {format(new Date(tournament.date), 'PPP')}
+                  </div>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    {tournament.start_time}
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    {tournament.location}
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1" />
-                  {tournament.start_time}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <Badge className={getLevelColor(tournament.level)}>
+                    {tournament.level}
+                  </Badge>
+                  <Badge className={getTypeColor(tournament.type)}>
+                    {tournament.type}
+                  </Badge>
+                  <Badge variant="outline">
+                    <Target className="h-3 w-3 mr-1" />
+                    {tournament.number_of_courts} courts
+                  </Badge>
+                  <Badge variant="outline">
+                    {tournament.conditions}
+                  </Badge>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  {tournament.location}
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 mt-2">
-                <Badge className={getLevelColor(tournament.level)}>
-                  {tournament.level}
-                </Badge>
-                <Badge className={getTypeColor(tournament.type)}>
-                  {tournament.type}
-                </Badge>
-                <Badge variant="outline">
-                  <Target className="h-3 w-3 mr-1" />
-                  {tournament.number_of_courts} courts
-                </Badge>
-                <Badge variant="outline">
-                  {tournament.conditions}
-                </Badge>
               </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant={tournament.teams_locked ? "default" : "secondary"}>
-              {tournament.teams_locked ? (
-                <>
-                  <Lock className="h-3 w-3 mr-1" />
-                  Teams Locked
-                </>
-              ) : (
-                <>
-                  <Settings className="h-3 w-3 mr-1" />
-                  Teams Open
-                </>
-              )}
-            </Badge>
-            <Button variant="outline" onClick={copyPublicLink}>
-              <Share2 className="h-4 w-4 mr-2" />
-              Copy Public Link
-            </Button>
-            <Button variant="outline" onClick={viewPublicPage}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              View Public Page
-            </Button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+              <Badge variant={tournament.teams_locked ? "default" : "secondary"}>
+                {tournament.teams_locked ? (
+                  <>
+                    <Lock className="h-3 w-3 mr-1" />
+                    Teams Locked
+                  </>
+                ) : (
+                  <>
+                    <Settings className="h-3 w-3 mr-1" />
+                    Teams Open
+                  </>
+                )}
+              </Badge>
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <Button variant="outline" size="sm" onClick={copyPublicLink}>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Copy Public Link
+                </Button>
+                <Button variant="outline" size="sm" onClick={viewPublicPage}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View Public Page
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="registration">Registration</TabsTrigger>
-            <TabsTrigger value="format" disabled={!tournament.teams_locked}>
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1">
+            <TabsTrigger value="teams" className="text-xs lg:text-sm">Teams</TabsTrigger>
+            <TabsTrigger value="registration" className="text-xs lg:text-sm">Registration</TabsTrigger>
+            <TabsTrigger value="format" disabled={!tournament.teams_locked} className="text-xs lg:text-sm">
               Format
             </TabsTrigger>
-            <TabsTrigger value="matches" disabled={!tournament.format_id}>
+            <TabsTrigger value="matches" disabled={!tournament.format_id} className="text-xs lg:text-sm">
               Matches
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="teams" className="space-y-6">
+          <TabsContent value="teams" className="space-y-6 mt-6">
             <TournamentTeams 
               tournament={tournament}
               teams={teams}
@@ -367,7 +365,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="registration" className="space-y-6">
+          <TabsContent value="registration" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -481,7 +479,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
             </Card>
           </TabsContent>
 
-          <TabsContent value="format" className="space-y-6">
+          <TabsContent value="format" className="space-y-6 mt-6">
             <TournamentFormats 
               tournament={tournament}
               teams={teams}
@@ -489,7 +487,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="matches" className="space-y-6">
+          <TabsContent value="matches" className="space-y-6 mt-6">
             <TournamentMatches 
               tournament={tournament}
               teams={teams}

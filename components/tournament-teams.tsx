@@ -312,12 +312,12 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
         <div>
           <h2 className="text-2xl font-semibold">Teams Management</h2>
           <p className="text-gray-600">Add and manage teams for this tournament</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           {!tournament.teams_locked && (
             <Button 
               onClick={() => {
@@ -403,125 +403,207 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
 
             {/* Players Table */}
             <div className="max-h-96 overflow-y-auto border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Name</span>
-                        {sortColumn === 'name' && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('license')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>License</span>
-                        {sortColumn === 'license' && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('club')}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Club</span>
-                        {sortColumn === 'club' && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="text-center cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('ranking')}
-                    >
-                      <div className="flex items-center justify-center space-x-1">
-                        <span>Ranking</span>
-                        {sortColumn === 'ranking' && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="text-center cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('gender')}
-                    >
-                      <div className="flex items-center justify-center space-x-1">
-                        <span>Gender</span>
-                        {sortColumn === 'gender' && (
-                          <span className="text-xs">
-                            {sortDirection === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPlayers.map((player) => {
-                    const isSelected = selectedPlayers.includes(player.id);
-                    return (
-                      <TableRow 
-                        key={player.id} 
-                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => handlePlayerSelection(player.id, !isSelected)}
+              {/* Desktop Table View */}
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('name')}
                       >
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-2">
-                            {isSelected && (
-                              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                            )}
-                            <span className={isSelected ? 'font-semibold text-blue-700' : ''}>
-                              {formatPlayerName(player.first_name, player.last_name)}
+                        <div className="flex items-center space-x-1">
+                          <span>Name</span>
+                          {sortColumn === 'name' && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
                             </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {player.license_number}
-                        </TableCell>
-                        <TableCell>
-                          {player.club}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-mono">
-                            {player.ranking}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="text-xs">
-                            {player.gender}
-                          </Badge>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('license')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>License</span>
+                          {sortColumn === 'license' && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('club')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Club</span>
+                          {sortColumn === 'club' && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('ranking')}
+                      >
+                        <div className="flex items-center justify-center space-x-1">
+                          <span>Ranking</span>
+                          {sortColumn === 'ranking' && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('gender')}
+                      >
+                        <div className="flex items-center justify-center space-x-1">
+                          <span>Gender</span>
+                          {sortColumn === 'gender' && (
+                            <span className="text-xs">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPlayers.map((player) => {
+                      const isSelected = selectedPlayers.includes(player.id);
+                      return (
+                        <TableRow 
+                          key={player.id} 
+                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                            isSelected ? 'bg-blue-50 border-blue-200' : ''
+                          }`}
+                          onClick={() => handlePlayerSelection(player.id, !isSelected)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center space-x-2">
+                              {isSelected && (
+                                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                              )}
+                              <span className={isSelected ? 'font-semibold text-blue-700' : ''}>
+                                {formatPlayerName(player.first_name, player.last_name)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {player.license_number}
+                          </TableCell>
+                          <TableCell>
+                            {player.club}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="font-mono">
+                              {player.ranking}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-xs">
+                              {player.gender}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filteredPlayers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                          No players found matching your search
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                  {filteredPlayers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                        No players found matching your search
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-2 p-2">
+                {filteredPlayers.map((player) => {
+                  const isSelected = selectedPlayers.includes(player.id);
+                  return (
+                    <div
+                      key={player.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'bg-blue-50 border-blue-200 shadow-sm' 
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handlePlayerSelection(player.id, !isSelected)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {isSelected && (
+                              <div className="w-3 h-3 bg-blue-600 rounded-full flex-shrink-0"></div>
+                            )}
+                            <h3 className={`font-semibold text-base ${
+                              isSelected ? 'text-blue-700' : 'text-gray-900'
+                            }`}>
+                              {formatPlayerName(player.first_name, player.last_name)}
+                            </h3>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">License:</span>
+                              <span className="text-sm font-mono text-gray-800">
+                                {player.license_number}
+                              </span>
+                            </div>
+                            
+                            {player.club && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Club:</span>
+                                <span className="text-sm text-gray-800 truncate max-w-32">
+                                  {player.club}
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Ranking:</span>
+                              <Badge variant="outline" className="font-mono text-xs">
+                                {player.ranking}
+                              </Badge>
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Gender:</span>
+                              <Badge variant="outline" className="text-xs">
+                                {player.gender}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {isSelected && (
+                          <div className="ml-3 flex-shrink-0">
+                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs">✓</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {filteredPlayers.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No players found matching your search</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Selected Players Preview */}
@@ -599,63 +681,99 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Rank</TableHead>
-                  <TableHead>Team Name</TableHead>
-                  <TableHead>Player 1</TableHead>
-                  <TableHead>Player 2</TableHead>
-                  <TableHead className="text-center">Weight</TableHead>
-                  {!tournament.teams_locked && (
-                    <TableHead className="w-20 text-center">Actions</TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTeams.map((team, index) => (
-                  <TableRow key={team.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <Badge variant="secondary" className="font-mono">
-                        TS{index + 1}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {team.name}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">
-                          {team.players[0]?.first_name} {team.players[0]?.last_name}
-                        </p>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <span>License: {team.players[0]?.license_number}</span>
-                          <Badge variant="outline" className="text-xs">
-                            R: {team.players[0]?.ranking}
-                          </Badge>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">
-                          {team.players[1]?.first_name} {team.players[1]?.last_name}
-                        </p>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <span>License: {team.players[1]?.license_number}</span>
-                          <Badge variant="outline" className="text-xs">
-                            R: {team.players[1]?.ranking}
-                          </Badge>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-mono text-lg">
-                        {team.weight}
-                      </Badge>
-                    </TableCell>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Rank</TableHead>
+                    <TableHead>Team Name</TableHead>
+                    <TableHead>Player 1</TableHead>
+                    <TableHead>Player 2</TableHead>
+                    <TableHead className="text-center">Weight</TableHead>
                     {!tournament.teams_locked && (
+                      <TableHead className="w-20 text-center">Actions</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedTeams.map((team, index) => (
+                    <TableRow key={team.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <Badge variant="secondary" className="font-mono">
+                          TS{index + 1}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {team.name}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            {team.players[0]?.first_name} {team.players[0]?.last_name}
+                          </p>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>License: {team.players[0]?.license_number}</span>
+                            <Badge variant="outline" className="text-xs">
+                              R: {team.players[0]?.ranking}
+                            </Badge>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            {team.players[1]?.first_name} {team.players[1]?.last_name}
+                          </p>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <span>License: {team.players[1]?.license_number}</span>
+                            <Badge variant="outline" className="text-xs">
+                              R: {team.players[1]?.ranking}
+                            </Badge>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono text-lg">
+                          {team.weight}
+                        </Badge>
+                      </TableCell>
+                      {!tournament.teams_locked && (
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeTeam(team.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-4">
+              {sortedTeams.map((team, index) => (
+                <Card key={team.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <Badge variant="secondary" className="font-mono">
+                          TS{index + 1}
+                        </Badge>
+                        <div>
+                          <h3 className="font-medium text-lg">{team.name}</h3>
+                          <Badge variant="outline" className="font-mono text-sm mt-1">
+                            Weight: {team.weight}
+                          </Badge>
+                        </div>
+                      </div>
+                      {!tournament.teams_locked && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -664,12 +782,46 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {/* Player 1 */}
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm text-gray-700">Player 1</h4>
+                          <Badge variant="outline" className="text-xs">
+                            R: {team.players[0]?.ranking}
+                          </Badge>
+                        </div>
+                        <p className="font-semibold text-base">
+                          {team.players[0]?.first_name} {team.players[0]?.last_name}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          License: {team.players[0]?.license_number}
+                        </p>
+                      </div>
+
+                      {/* Player 2 */}
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm text-gray-700">Player 2</h4>
+                          <Badge variant="outline" className="text-xs">
+                            R: {team.players[1]?.ranking}
+                          </Badge>
+                        </div>
+                        <p className="font-semibold text-base">
+                          {team.players[1]?.first_name} {team.players[1]?.last_name}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          License: {team.players[1]?.license_number}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
