@@ -54,7 +54,7 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
   };
 
   // Gestion des terrains
-  const totalCourts = 4; // À adapter dynamiquement si besoin
+  const totalCourts = tournament.number_of_courts || 4; // Use tournament's court count
   const courtManagement = useCourtManagement({
     matches,
     totalCourts,
@@ -178,6 +178,7 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
         teams={teams}
         randomAssignments={randomAssignments}
         onUpdateTemplate={handleUpdateTemplate}
+        totalCourts={totalCourts}
       />
     </div>
   );

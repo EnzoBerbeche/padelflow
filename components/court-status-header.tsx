@@ -228,7 +228,15 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
                   </span>
                 )}
                 {court.isOccupied ? (
-                  <XCircle className="h-5 w-5 text-red-600" />
+                  <XCircle 
+                    className="h-5 w-5 text-red-600 cursor-pointer hover:text-red-700 transition-colors" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (court.match) {
+                        updateMatch((court.match as any).id, { terrain_number: undefined });
+                      }
+                    }}
+                  />
                 ) : (
                   <CheckCircle className="h-5 w-5 text-green-600" />
                 )}

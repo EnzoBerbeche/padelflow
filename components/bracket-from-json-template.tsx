@@ -42,6 +42,7 @@ interface BracketFromJsonTemplateProps {
   teams: TeamWithPlayers[];
   randomAssignments: RandomAssignments;
   onUpdateTemplate: (newTemplate: BracketJsonTemplate) => void;
+  totalCourts?: number;
 }
 
 // Helper pour afficher le nom d'équipe formaté
@@ -60,7 +61,8 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
   template,
   teams,
   randomAssignments,
-  onUpdateTemplate
+  onUpdateTemplate,
+  totalCourts = 4
 }) => {
   // plus de state local pour le template
   const [editing, setEditing] = useState<{ matchId: number; field: 'score1' | 'score2' | null }>({ matchId: -1, field: null });
@@ -318,7 +320,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                   title="Change court assignment"
                 >
                   <option value="none">Unassign</option>
-                  {[1, 2, 3, 4].map(court => {
+                  {Array.from({ length: totalCourts }, (_, i) => i + 1).map(court => {
                     const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
                     const isOccupied = allMatches.some((m: any) => 
                       m.id !== match.id && m.terrain_number === court
@@ -335,7 +337,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
               <button
                 className="px-2 py-1 rounded text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                 onClick={() => {
-                  const courts = [1,2,3,4];
+                  const courts = Array.from({ length: totalCourts }, (_, i) => i + 1);
                   const allMatches = template.rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches));
                   const occupied = allMatches.filter((m: any) => m.terrain_number).map((m: any) => m.terrain_number);
                   const free = courts.find(c => !occupied.includes(c));
