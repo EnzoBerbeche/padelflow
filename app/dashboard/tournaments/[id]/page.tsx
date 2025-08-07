@@ -102,10 +102,17 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
       // Fetch registration link if enabled
       if (tournamentData.registration_enabled) {
+        console.log('Tournament has registration enabled, looking for link...');
         const link = storage.registrationLinks.getByTournament(id);
+        console.log('Found registration link:', link);
         if (link && link.is_active) {
+          console.log('Setting registration link:', link.link_id);
           setRegistrationLink(link.link_id);
+        } else {
+          console.log('No active registration link found');
         }
+      } else {
+        console.log('Tournament registration is disabled');
       }
     } catch (error) {
       console.error('Error fetching tournament:', error);

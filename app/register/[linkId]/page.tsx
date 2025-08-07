@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { storage, Tournament, RegistrationLink, Player } from '@/lib/storage';
+import { storage, Tournament, RegistrationLink } from '@/lib/storage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Calendar, MapPin, Clock, Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Clock, Users, CheckCircle, AlertCircle, Search, Mail, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { nationalPlayersAPI, SupabaseNationalPlayer } from '@/lib/supabase';
+import { use } from 'react';
+import { createConfirmationEmailHtml, createConfirmationEmailSubject } from '@/lib/email-templates';
 
 interface RegisterPageProps {
   params: Promise<{ linkId: string }>;
@@ -19,550 +22,579 @@ interface RegisterPageProps {
 export default function RegisterPage({ params }: RegisterPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [registrationLink, setRegistrationLink] = useState<RegistrationLink | null>(null);
-  const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    // Player 1
-    player1_license_number: '',
-    player1_first_name: '',
-    player1_last_name: '',
-    player1_ranking: '',
-    player1_email: '',
-    player1_phone: '',
-    player1_club: '',
-    player1_year_of_birth: '',
-    player1_gender: 'Mr' as 'Mr' | 'Mme',
-    // Player 2
-    player2_license_number: '',
-    player2_first_name: '',
-    player2_last_name: '',
-    player2_ranking: '',
-    player2_email: '',
-    player2_phone: '',
-    player2_club: '',
-    player2_year_of_birth: '',
-    player2_gender: 'Mr' as 'Mr' | 'Mme',
-  });
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [registrationLink, setRegistrationLink] = useState<RegistrationLink | null>(null);
+  const [selectedPlayers, setSelectedPlayers] = useState<SupabaseNationalPlayer[]>([]);
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<SupabaseNationalPlayer[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [email, setEmail] = useState('');
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
-  // Next.js 15 migration: params is a Promise in React 19+
-  // @ts-expect-error: params is a Promise in React 19, but a plain object in React 18
-  const { linkId } = params;
+  const { linkId } = use(params); // Next.js 15 migration
 
   useEffect(() => {
-    fetchRegistrationData();
+    fetchTournament();
   }, [linkId]);
 
-  const fetchRegistrationData = () => {
+  const fetchTournament = async () => {
     try {
+      setLoading(true);
+      
+      // Get registration link
       const link = storage.registrationLinks.getByLinkId(linkId);
       if (!link) {
-        throw new Error('Registration link not found or inactive');
+        toast({
+          title: "Invalid Link",
+          description: "This registration link is invalid or has expired.",
+          variant: "destructive",
+        });
+        router.push('/');
+        return;
       }
-      
       setRegistrationLink(link);
-      
+
+      // Get tournament
       const tournamentData = storage.tournaments.getById(link.tournament_id);
       if (!tournamentData) {
-        throw new Error('Tournament not found');
+        toast({
+          title: "Tournament Not Found",
+          description: "The tournament for this registration link could not be found.",
+          variant: "destructive",
+        });
+        router.push('/');
+        return;
       }
-      
-      if (!tournamentData.registration_enabled) {
-        throw new Error('Registration is not enabled for this tournament');
-      }
-      
       setTournament(tournamentData);
     } catch (error) {
-      console.error('Error fetching registration data:', error);
+      console.error('Error fetching tournament:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load tournament information.",
+        variant: "destructive",
+      });
+      router.push('/');
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to check if license number is already used
-  const isLicenseNumberUsed = (licenseNumber: string, excludePlayerId?: string): boolean => {
-    const allPlayers = storage.players.getAll(tournament?.organizer_id || '');
-    return allPlayers.some(player => 
-      player.license_number === licenseNumber && 
-      (!excludePlayerId || player.id !== excludePlayerId)
-    );
-  };
+  const searchPlayers = async () => {
+    if (!playerSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
 
-  // Function to validate license numbers
-  const validateLicenseNumbers = (): { valid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-    
-    // Check if license numbers are the same
-    if (formData.player1_license_number === formData.player2_license_number) {
-      errors.push('Both players cannot have the same license number');
-    }
-    
-    // Check if license numbers are already used
-    if (isLicenseNumberUsed(formData.player1_license_number)) {
-      errors.push('Player 1 license number is already registered');
-    }
-    
-    if (isLicenseNumberUsed(formData.player2_license_number)) {
-      errors.push('Player 2 license number is already registered');
-    }
-    
-    return { valid: errors.length === 0, errors };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    
+    setSearching(true);
     try {
-      if (!tournament || !registrationLink) {
-        throw new Error('Tournament or registration link not found');
-      }
-
-      // Validate license numbers
-      const licenseValidation = validateLicenseNumbers();
-      if (!licenseValidation.valid) {
-        throw new Error(licenseValidation.errors.join(', '));
-      }
-
-      // Validate required fields
-      const requiredFields = [
-        'player1_license_number', 'player1_first_name', 'player1_last_name', 'player1_ranking', 'player1_club',
-        'player2_license_number', 'player2_first_name', 'player2_last_name', 'player2_ranking', 'player2_club'
-      ];
-      
-      for (const field of requiredFields) {
-        if (!formData[field as keyof typeof formData]) {
-          throw new Error(`Please fill in all required fields`);
-        }
-      }
-
-      // Generate team name from player names
-      const teamName = `${formData.player1_first_name} ${formData.player1_last_name} - ${formData.player2_first_name} ${formData.player2_last_name}`;
-
-      // Create players
-      const player1: Omit<Player, 'id' | 'created_at' | 'updated_at'> = {
-        license_number: formData.player1_license_number,
-        first_name: formData.player1_first_name,
-        last_name: formData.player1_last_name,
-        ranking: parseInt(formData.player1_ranking) || 0,
-        email: formData.player1_email || undefined,
-        phone: formData.player1_phone || undefined,
-        club: formData.player1_club,
-        year_of_birth: parseInt(formData.player1_year_of_birth) || new Date().getFullYear() - 25,
-        date_of_birth: new Date(parseInt(formData.player1_year_of_birth) || new Date().getFullYear() - 25, 0, 1).toISOString().split('T')[0],
-        gender: formData.player1_gender,
-        organizer_id: tournament.organizer_id,
-        owner_id: tournament.organizer_id,
-      };
-
-      const player2: Omit<Player, 'id' | 'created_at' | 'updated_at'> = {
-        license_number: formData.player2_license_number,
-        first_name: formData.player2_first_name,
-        last_name: formData.player2_last_name,
-        ranking: parseInt(formData.player2_ranking) || 0,
-        email: formData.player2_email || undefined,
-        phone: formData.player2_phone || undefined,
-        club: formData.player2_club,
-        year_of_birth: parseInt(formData.player2_year_of_birth) || new Date().getFullYear() - 25,
-        date_of_birth: new Date(parseInt(formData.player2_year_of_birth) || new Date().getFullYear() - 25, 0, 1).toISOString().split('T')[0],
-        gender: formData.player2_gender,
-        organizer_id: tournament.organizer_id,
-        owner_id: tournament.organizer_id,
-      };
-
-      // Create players
-      const createdPlayer1 = storage.players.create(player1);
-      const createdPlayer2 = storage.players.create(player2);
-
-      // Create team
-      const team = storage.teams.create({
-        name: teamName,
-        weight: createdPlayer1.ranking + createdPlayer2.ranking,
+      const results = await nationalPlayersAPI.search(playerSearch, {
+        gender: tournament?.type === 'Men' ? 'men' : tournament?.type === 'Women' ? 'women' : undefined
       });
-
-      // Add team to tournament
-      storage.tournamentTeams.create(tournament.id, team.id);
-
-      // Add players to team
-      storage.teamPlayers.create(team.id, createdPlayer1.id);
-      storage.teamPlayers.create(team.id, createdPlayer2.id);
-
-      toast({
-        title: "Registration Successful!",
-        description: `Team "${teamName}" has been registered for ${tournament.name}`,
-      });
-
-      // Redirect to tournament public page
-      router.push(`/public/${tournament.public_id}`);
+      setSearchResults(results);
     } catch (error) {
-      console.error('Registration error:', error);
-      
-      // Handle specific error cases
-      if (error instanceof Error) {
-        if (error.message.includes('already exists')) {
-          toast({
-            title: "License Number Already Exists",
-            description: error.message + ". Please use a different license number.",
-            variant: "destructive",
-          });
-        } else if (error.message.includes('License number must be')) {
-          toast({
-            title: "Invalid License Number",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else if (error.message.includes('Year of birth must be')) {
-          toast({
-            title: "Invalid Year of Birth",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Registration Failed",
-            description: error.message || "An error occurred during registration",
-            variant: "destructive",
-          });
-        }
-      } else {
+      console.error('Error searching players:', error);
+      toast({
+        title: "Search Error",
+        description: "Failed to search for players. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const addPlayer = (player: SupabaseNationalPlayer) => {
+    // Check if already selected
+    if (selectedPlayers.find(p => p.license_number === player.license_number)) {
+      toast({
+        title: "Player Already Selected",
+        description: "This player is already in your team.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if player is already registered in this tournament
+    if (tournament) {
+      const tournamentTeams = storage.tournamentTeams.getByTournament(tournament.id);
+      const allTeamsWithPlayers = tournamentTeams.map((team: any) => ({
+        ...team,
+        players: storage.teamPlayers.getByTeam(team.team_id).map((teamPlayer: any) => {
+          const allPlayers = storage.players.getAll('');
+          return allPlayers.find((p: any) => p.id === teamPlayer.player_id);
+        }).filter(Boolean)
+      }));
+
+      const isAlreadyRegistered = allTeamsWithPlayers.some((team: any) =>
+        team.players.some((tournamentPlayer: any) => tournamentPlayer.license_number === player.license_number)
+      );
+
+      if (isAlreadyRegistered) {
         toast({
-          title: "Registration Failed",
-          description: "An error occurred during registration",
+          title: "Player Already Registered",
+          description: `${player.first_name} ${player.last_name} is already registered in this tournament.`,
           variant: "destructive",
         });
+        return;
       }
+    }
+
+    // Check if team is full (max 2 players)
+    if (selectedPlayers.length >= 2) {
+      toast({
+        title: "Team Full",
+        description: "You can only select 2 players for a team.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate gender if tournament has gender restriction
+    if (tournament?.type === 'Men' && player.gender !== 'men') {
+      toast({
+        title: "Gender Mismatch",
+        description: "This tournament is for men only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (tournament?.type === 'Women' && player.gender !== 'women') {
+      toast({
+        title: "Gender Mismatch",
+        description: "This tournament is for women only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedPlayers([...selectedPlayers, player]);
+    setPlayerSearch('');
+    setSearchResults([]);
+  };
+
+  const removePlayer = (licenseNumber: string) => {
+    setSelectedPlayers(selectedPlayers.filter(p => p.license_number !== licenseNumber));
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (!tournament || !registrationLink) {
+        toast({
+          title: "Error",
+          description: "Tournament or registration link not found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const pendingRegistration = storage.pendingRegistrations.create({
+        tournament_id: tournament.id,
+        registration_link_id: registrationLink.id,
+        email: email,
+        players: selectedPlayers.map(player => ({
+          license_number: player.license_number,
+          first_name: player.first_name,
+          last_name: player.last_name,
+          ranking: player.ranking,
+          club: player.club,
+          gender: player.gender,
+        })),
+        confirmation_token: '',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
+      });
+
+      const confirmationToken = storage.confirmationTokens.create(pendingRegistration.id);
+      storage.pendingRegistrations.update(pendingRegistration.id, {
+        confirmation_token: confirmationToken.token,
+      });
+
+      const confirmationUrl = `${window.location.origin}/confirm/${confirmationToken.token}`;
+      
+      // Send confirmation email
+      const playerNames = selectedPlayers.map(player => `${player.first_name} ${player.last_name}`);
+      const emailHtml = createConfirmationEmailHtml(tournament.name, playerNames, confirmationUrl);
+      const emailSubject = createConfirmationEmailSubject(tournament.name);
+
+      const emailResponse = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: emailSubject,
+          html: emailHtml,
+          confirmationUrl: confirmationUrl,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        throw new Error('Failed to send email');
+      }
+
+      const emailResult = await emailResponse.json();
+
+      toast({
+        title: "Confirmation Email Sent!",
+        description: "Please check your email and click the confirmation link within 1 hour.",
+      });
+      setSelectedPlayers([]);
+      setEmail('');
+      setShowEmailForm(false);
+    } catch (error) {
+      console.error('Error submitting registration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit registration. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   const getLevelColor = (level: string) => {
-    const colors = {
-      'P25': 'bg-green-100 text-green-800',
-      'P100': 'bg-blue-100 text-blue-800',
-      'P250': 'bg-purple-100 text-purple-800',
-      'P500': 'bg-orange-100 text-orange-800',
-      'P1000': 'bg-red-100 text-red-800',
-      'P1500': 'bg-pink-100 text-pink-800',
-      'P2000': 'bg-gray-100 text-gray-800',
-    };
-    return colors[level as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    switch (level) {
+      case 'P25': return 'bg-green-100 text-green-800';
+      case 'P100': return 'bg-blue-100 text-blue-800';
+      case 'P250': return 'bg-yellow-100 text-yellow-800';
+      case 'P500': return 'bg-orange-100 text-orange-800';
+      case 'P1000': return 'bg-red-100 text-red-800';
+      case 'P1500': return 'bg-purple-100 text-purple-800';
+      case 'P2000': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const getTypeColor = (type: string) => {
-    const colors = {
-      'All': 'bg-indigo-100 text-indigo-800',
-      'Men': 'bg-blue-100 text-blue-800',
-      'Women': 'bg-pink-100 text-pink-800',
-      'Mixed': 'bg-purple-100 text-purple-800',
-    };
-    return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    switch (type) {
+      case 'Men': return 'bg-blue-100 text-blue-800';
+      case 'Women': return 'bg-pink-100 text-pink-800';
+      case 'Mixed': return 'bg-purple-100 text-purple-800';
+      case 'All': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tournament information...</p>
+        </div>
       </div>
     );
   }
 
   if (!tournament || !registrationLink) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Link Invalid</h2>
-          <p className="text-gray-600">This registration link is not valid or has expired.</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-red-600">Invalid Registration Link</CardTitle>
+            <CardDescription className="text-center">
+              This registration link is invalid or has expired.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.push('/')} className="w-full">
+              Return Home
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center space-x-3">
-            <Trophy className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tournament Registration</h1>
-              <p className="text-gray-600 mt-1">Register your team for {tournament.name}</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          {/* Tournament Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <span>Tournament Information</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">{tournament.name}</h3>
-                  <div className="space-y-2 text-gray-600">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {format(new Date(tournament.date), 'PPP')}
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2" />
-                      {tournament.start_time}
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      {tournament.location}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <Badge className={getLevelColor(tournament.level)}>
-                      {tournament.level}
-                    </Badge>
-                    <Badge className={getTypeColor(tournament.type)}>
-                      {tournament.type}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <div className="flex items-center mb-1">
-                      <Users className="h-4 w-4 mr-2" />
-                      {tournament.number_of_courts} courts • {tournament.conditions}
-                    </div>
-                  </div>
-                </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Tournament Header */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-4">
+              <Trophy className="h-8 w-8 text-orange-500" />
+              <div>
+                <CardTitle className="text-2xl">{tournament.name}</CardTitle>
+                <CardDescription>Tournament Registration</CardDescription>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  {format(new Date(tournament.date), 'PPP')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">{tournament.location}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">{tournament.start_time}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">{tournament.number_of_teams} teams</span>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Badge className={getLevelColor(tournament.level)}>
+                {tournament.level}
+              </Badge>
+              <Badge className={getTypeColor(tournament.type)}>
+                {tournament.type}
+              </Badge>
+              <Badge variant="outline">
+                {tournament.conditions}
+              </Badge>
+            </div>
+          </CardHeader>
+        </Card>
 
-          {/* Registration Form */}
+        {/* Registration Form */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Player Selection */}
           <Card>
             <CardHeader>
-              <CardTitle>Team Registration</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Select Players
+              </CardTitle>
               <CardDescription>
-                Fill in the information for both players in your team
+                Search and select 2 players for your team
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Player 1 */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2">Player 1</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_gender">Gender *</Label>
-                      <select
-                        id="player1_gender"
-                        value={formData.player1_gender}
-                        onChange={(e) => setFormData({ ...formData, player1_gender: e.target.value as 'Mr' | 'Mme' })}
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full"
-                        required
-                      >
-                        <option value="Mr">Mr</option>
-                        <option value="Mme">Mme</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_first_name">First Name *</Label>
-                      <Input
-                        id="player1_first_name"
-                        value={formData.player1_first_name}
-                        onChange={(e) => setFormData({ ...formData, player1_first_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_last_name">Last Name *</Label>
-                      <Input
-                        id="player1_last_name"
-                        value={formData.player1_last_name}
-                        onChange={(e) => setFormData({ ...formData, player1_last_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_license_number">License Number *</Label>
-                      <Input
-                        id="player1_license_number"
-                        value={formData.player1_license_number}
-                        onChange={(e) => setFormData({ ...formData, player1_license_number: e.target.value })}
-                        placeholder="7-8 characters"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_ranking">Ranking *</Label>
-                                             <Input
-                         id="player1_ranking"
-                         type="number"
-                         value={formData.player1_ranking}
-                         onChange={(e) => setFormData({ ...formData, player1_ranking: e.target.value })}
-                         required
-                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_club">Club *</Label>
-                      <Input
-                        id="player1_club"
-                        value={formData.player1_club}
-                        onChange={(e) => setFormData({ ...formData, player1_club: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_year_of_birth">Year of Birth *</Label>
-                                             <Input
-                         id="player1_year_of_birth"
-                         type="number"
-                         min={new Date().getFullYear() - 100}
-                         max={new Date().getFullYear() - 1}
-                         value={formData.player1_year_of_birth}
-                         onChange={(e) => setFormData({ ...formData, player1_year_of_birth: e.target.value })}
-                         required
-                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_email">Email</Label>
-                      <Input
-                        id="player1_email"
-                        type="email"
-                        value={formData.player1_email}
-                        onChange={(e) => setFormData({ ...formData, player1_email: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player1_phone">Phone</Label>
-                      <Input
-                        id="player1_phone"
-                        type="tel"
-                        value={formData.player1_phone}
-                        onChange={(e) => setFormData({ ...formData, player1_phone: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Player 2 */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2">Player 2</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_gender">Gender *</Label>
-                      <select
-                        id="player2_gender"
-                        value={formData.player2_gender}
-                        onChange={(e) => setFormData({ ...formData, player2_gender: e.target.value as 'Mr' | 'Mme' })}
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full"
-                        required
-                      >
-                        <option value="Mr">Mr</option>
-                        <option value="Mme">Mme</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_first_name">First Name *</Label>
-                      <Input
-                        id="player2_first_name"
-                        value={formData.player2_first_name}
-                        onChange={(e) => setFormData({ ...formData, player2_first_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_last_name">Last Name *</Label>
-                      <Input
-                        id="player2_last_name"
-                        value={formData.player2_last_name}
-                        onChange={(e) => setFormData({ ...formData, player2_last_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_license_number">License Number *</Label>
-                      <Input
-                        id="player2_license_number"
-                        value={formData.player2_license_number}
-                        onChange={(e) => setFormData({ ...formData, player2_license_number: e.target.value })}
-                        placeholder="7-8 characters"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_ranking">Ranking *</Label>
-                                             <Input
-                         id="player2_ranking"
-                         type="number"
-                         value={formData.player2_ranking}
-                         onChange={(e) => setFormData({ ...formData, player2_ranking: e.target.value })}
-                         required
-                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_club">Club *</Label>
-                      <Input
-                        id="player2_club"
-                        value={formData.player2_club}
-                        onChange={(e) => setFormData({ ...formData, player2_club: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_year_of_birth">Year of Birth *</Label>
-                                             <Input
-                         id="player2_year_of_birth"
-                         type="number"
-                         min={new Date().getFullYear() - 100}
-                         max={new Date().getFullYear() - 1}
-                         value={formData.player2_year_of_birth}
-                         onChange={(e) => setFormData({ ...formData, player2_year_of_birth: e.target.value })}
-                         required
-                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_email">Email</Label>
-                      <Input
-                        id="player2_email"
-                        type="email"
-                        value={formData.player2_email}
-                        onChange={(e) => setFormData({ ...formData, player2_email: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="player2_phone">Phone</Label>
-                      <Input
-                        id="player2_phone"
-                        type="tel"
-                        value={formData.player2_phone}
-                        onChange={(e) => setFormData({ ...formData, player2_phone: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push(`/public/${tournament.public_id}`)}
+            <CardContent className="space-y-4">
+              {/* Search */}
+              <div className="space-y-2">
+                <Label htmlFor="player-search">Search Players</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="player-search"
+                    placeholder="Search by name, license number, or club..."
+                    value={playerSearch}
+                    onChange={(e) => setPlayerSearch(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && searchPlayers()}
+                  />
+                  <Button 
+                    onClick={searchPlayers} 
+                    disabled={searching || !playerSearch.trim()}
+                    size="sm"
                   >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? 'Registering...' : 'Register Team'}
+                    {searching ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
-              </form>
+              </div>
+
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Search Results</Label>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {searchResults.map((player) => (
+                      <div
+                        key={player.license_number}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                        onClick={() => addPlayer(player)}
+                      >
+                        <div>
+                          <div className="font-medium">
+                            {player.first_name} {player.last_name}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {player.license_number} • {player.club} • Ranking: {player.ranking}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {player.gender}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Players */}
+              {selectedPlayers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Selected Players ({selectedPlayers.length}/2)</Label>
+                  <div className="space-y-2">
+                    {selectedPlayers.map((player) => (
+                      <div
+                        key={player.license_number}
+                        className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                      >
+                        <div>
+                          <div className="font-medium">
+                            {player.first_name} {player.last_name}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {player.license_number} • {player.club} • Ranking: {player.ranking}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removePlayer(player.license_number)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Email Form */}
+              {selectedPlayers.length === 2 && !showEmailForm && (
+                <Button 
+                  onClick={() => setShowEmailForm(true)}
+                  className="w-full"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Continue to Email
+                </Button>
+              )}
             </CardContent>
           </Card>
+
+          {/* Email Confirmation */}
+          {showEmailForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Confirmation
+                </CardTitle>
+                <CardDescription>
+                  Enter your email to receive a confirmation link
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleEmailSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Selected Players Summary */}
+                  <div className="space-y-2">
+                    <Label>Team Summary</Label>
+                    <div className="space-y-2">
+                      {selectedPlayers.map((player) => (
+                        <div
+                          key={player.license_number}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                        >
+                          <span className="text-sm">
+                            {player.first_name} {player.last_name}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {player.gender}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowEmailForm(false)}
+                      className="flex-1"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitting || !email.trim()}
+                      className="flex-1"
+                    >
+                      {submitting ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Send Confirmation
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instructions */}
+          {!showEmailForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                  How to Register
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                      1
+                    </div>
+                    <div>
+                      <div className="font-medium">Search for Players</div>
+                      <div className="text-sm text-gray-600">
+                        Use the search box to find players by name, license number, or club.
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                      2
+                    </div>
+                    <div>
+                      <div className="font-medium">Select Your Team</div>
+                      <div className="text-sm text-gray-600">
+                        Click on players to add them to your team. You need exactly 2 players.
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                      3
+                    </div>
+                    <div>
+                      <div className="font-medium">Confirm Registration</div>
+                      <div className="text-sm text-gray-600">
+                        Enter your email to receive a confirmation link. You'll have 1 hour to confirm.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

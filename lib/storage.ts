@@ -16,6 +16,7 @@ export interface Tournament {
   level: 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000';
   start_time: string;
   number_of_courts: number;
+  number_of_teams: number; // Number of teams that can participate
   conditions: 'inside' | 'outside' | 'both';
   type: 'All' | 'Men' | 'Women' | 'Mixed';
   bracket?: any; // Add bracket property for tree-based bracket structure
@@ -36,6 +37,34 @@ export interface RegistrationLink {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PendingRegistration {
+  id: string;
+  tournament_id: string;
+  registration_link_id: string;
+  email: string;
+  players: {
+    license_number: string;
+    first_name: string;
+    last_name: string;
+    ranking: number;
+    club: string;
+    gender: 'men' | 'women';
+  }[];
+  confirmation_token: string;
+  expires_at: string;
+  created_at: string;
+  updated_at?: string;
+  confirmed_at?: string;
+}
+
+export interface ConfirmationToken {
+  id: string;
+  token: string;
+  pending_registration_id: string;
+  expires_at: string;
+  created_at: string;
 }
 
 export interface Player {
@@ -148,11 +177,13 @@ const STORAGE_KEYS = {
   tournaments: 'padelflow_tournaments',
   players: 'padelflow_players',
   teams: 'padelflow_teams',
-  formats: 'padelflow_formats',
   matches: 'padelflow_matches',
   tournament_teams: 'padelflow_tournament_teams',
   team_players: 'padelflow_team_players',
+  tournament_formats: 'padelflow_tournament_formats',
   registration_links: 'padelflow_registration_links',
+  pending_registrations: 'padelflow_pending_registrations',
+  confirmation_tokens: 'padelflow_confirmation_tokens',
   national_players: 'padelflow_national_players',
 };
 
@@ -198,7 +229,7 @@ const saveToStorage = <T>(key: string, data: T[]) => {
 // Initialize default formats and demo data
 const initializeData = () => {
   // Initialize formats - REMOVED ALL DEFAULT FORMATS
-  const formats = getFromStorage<TournamentFormat>(STORAGE_KEYS.formats);
+  const formats = getFromStorage<TournamentFormat>(STORAGE_KEYS.tournament_formats);
   // No default formats will be created
 
   // Initialize comprehensive player database
@@ -310,6 +341,7 @@ const initializeData = () => {
       level: 'P500',
       start_time: '09:00',
       number_of_courts: 4,
+      number_of_teams: 16, // Default for demo
       conditions: 'outside',
       type: 'Mixed',
       created_at: now(),
@@ -323,7 +355,7 @@ const initializeData = () => {
 // Clear all formats from storage
 const clearAllFormats = () => {
   if (typeof window !== 'undefined') {
-    saveToStorage(STORAGE_KEYS.formats, []);
+    saveToStorage(STORAGE_KEYS.tournament_formats, []);
   }
 };
 
@@ -651,7 +683,7 @@ export const storage = {
   // Formats
   formats: {
     getPublic: (min_teams: number, max_teams: number): TournamentFormat[] => {
-      return getFromStorage<TournamentFormat>(STORAGE_KEYS.formats)
+      return getFromStorage<TournamentFormat>(STORAGE_KEYS.tournament_formats)
         .filter(f => f.is_public && f.min_teams <= max_teams && f.max_teams >= min_teams);
     },
   },
@@ -696,41 +728,6 @@ export const storage = {
       saveToStorage(STORAGE_KEYS.matches, 
         matches.filter(m => m.tournament_id !== tournament_id));
     },
-  },
-
-  // Helper functions for complex queries
-  getTeamsWithPlayers: (tournament_id: string): TeamWithPlayers[] => {
-    const tournamentTeams = storage.tournamentTeams.getByTournament(tournament_id);
-    const teams = getFromStorage<Team>(STORAGE_KEYS.teams);
-    const players = getFromStorage<Player>(STORAGE_KEYS.players);
-    const teamPlayers = getFromStorage<TeamPlayer>(STORAGE_KEYS.team_players);
-    
-    return tournamentTeams.map(tt => {
-      const team = teams.find(t => t.id === tt.team_id);
-      if (!team) return null;
-      
-      const teamPlayerRecords = teamPlayers.filter(tp => tp.team_id === team.id);
-      const teamPlayersData = teamPlayerRecords.map(tp => 
-        players.find(p => p.id === tp.player_id)
-      ).filter(Boolean) as Player[];
-      
-      return {
-        ...team,
-        players: teamPlayersData,
-      };
-    }).filter(Boolean) as TeamWithPlayers[];
-  },
-  
-  getMatchesWithTeams: (tournament_id: string): MatchWithTeams[] => {
-    const matches = storage.matches.getByTournament(tournament_id);
-    const teams = getFromStorage<Team>(STORAGE_KEYS.teams);
-    
-    return matches.map(match => ({
-      ...match,
-      team_1: match.team_1_id ? teams.find(t => t.id === match.team_1_id) : undefined,
-      team_2: match.team_2_id ? teams.find(t => t.id === match.team_2_id) : undefined,
-      winner_team: match.winner_team_id ? teams.find(t => t.id === match.winner_team_id) : undefined,
-    }));
   },
 
   // Registration Links
@@ -779,6 +776,104 @@ export const storage = {
       link.is_active = false;
       link.updated_at = now();
       saveToStorage(STORAGE_KEYS.registration_links, links);
+      return true;
+    },
+  },
+
+  // Pending Registrations
+  pendingRegistrations: {
+    getByTournament: (tournament_id: string): PendingRegistration[] => {
+      return getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations)
+        .filter(pr => pr.tournament_id === tournament_id);
+    },
+    
+    getByRegistrationLink: (registration_link_id: string): PendingRegistration | null => {
+      const registrations = getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations);
+      return registrations.find(reg => reg.registration_link_id === registration_link_id) || null;
+    },
+    
+    create: (data: Omit<PendingRegistration, 'id' | 'created_at'>): PendingRegistration => {
+      const registrations = getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations);
+      const pendingRegistration: PendingRegistration = {
+        ...data,
+        id: generateId(),
+        created_at: now(),
+      };
+      registrations.push(pendingRegistration);
+      saveToStorage(STORAGE_KEYS.pending_registrations, registrations);
+      return pendingRegistration;
+    },
+    
+    update: (id: string, data: Partial<PendingRegistration>): PendingRegistration | null => {
+      const registrations = getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations);
+      const index = registrations.findIndex(reg => reg.id === id);
+      if (index === -1) return null;
+      
+      registrations[index] = {
+        ...registrations[index],
+        ...data,
+        updated_at: now(),
+      };
+      saveToStorage(STORAGE_KEYS.pending_registrations, registrations);
+      return registrations[index];
+    },
+    
+    delete: (id: string): boolean => {
+      const registrations = getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations);
+      const index = registrations.findIndex(reg => reg.id === id);
+      if (index === -1) return false;
+      
+      registrations.splice(index, 1);
+      saveToStorage(STORAGE_KEYS.pending_registrations, registrations);
+      return true;
+    },
+  },
+
+  // Confirmation Tokens
+  confirmationTokens: {
+    getByPendingRegistration: (pending_registration_id: string): ConfirmationToken | null => {
+      const tokens = getFromStorage<ConfirmationToken>(STORAGE_KEYS.confirmation_tokens);
+      return tokens.find(token => token.pending_registration_id === pending_registration_id) || null;
+    },
+    
+    create: (pending_registration_id: string): ConfirmationToken => {
+      const tokens = getFromStorage<ConfirmationToken>(STORAGE_KEYS.confirmation_tokens);
+      const token: ConfirmationToken = {
+        id: generateId(),
+        token: generatePublicId(), // Generate a unique token
+        pending_registration_id,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+        created_at: now(),
+      };
+      tokens.push(token);
+      saveToStorage(STORAGE_KEYS.confirmation_tokens, tokens);
+      return token;
+    },
+    
+    verify: (token: string): boolean => {
+      const tokens = getFromStorage<ConfirmationToken>(STORAGE_KEYS.confirmation_tokens);
+      const tokenRecord = tokens.find(t => t.token === token);
+      if (!tokenRecord) return false;
+      
+      // Check if token has expired
+      if (new Date(tokenRecord.expires_at) < new Date()) {
+        tokens.splice(tokens.indexOf(tokenRecord), 1); // Remove expired token
+        saveToStorage(STORAGE_KEYS.confirmation_tokens, tokens);
+        return false;
+      }
+      
+      // Mark pending registration as confirmed
+      const pendingRegistration = getFromStorage<PendingRegistration>(STORAGE_KEYS.pending_registrations);
+      const confirmedRegistration = pendingRegistration.find(pr => pr.id === tokenRecord.pending_registration_id);
+      if (!confirmedRegistration) return false;
+      
+      confirmedRegistration.confirmed_at = now();
+      saveToStorage(STORAGE_KEYS.pending_registrations, pendingRegistration);
+      
+      // Remove pending registration and token
+      tokens.splice(tokens.indexOf(tokenRecord), 1);
+      saveToStorage(STORAGE_KEYS.confirmation_tokens, tokens);
+      
       return true;
     },
   },
@@ -854,5 +949,40 @@ export const storage = {
     clear: (): void => {
       saveToStorage(STORAGE_KEYS.national_players, []);
     },
+  },
+
+  // Helper functions for complex queries
+  getTeamsWithPlayers: (tournament_id: string): TeamWithPlayers[] => {
+    const tournamentTeams = storage.tournamentTeams.getByTournament(tournament_id);
+    const teams = getFromStorage<Team>(STORAGE_KEYS.teams);
+    const players = getFromStorage<Player>(STORAGE_KEYS.players);
+    const teamPlayers = getFromStorage<TeamPlayer>(STORAGE_KEYS.team_players);
+    
+    return tournamentTeams.map(tt => {
+      const team = teams.find(t => t.id === tt.team_id);
+      if (!team) return null;
+      
+      const teamPlayerRecords = teamPlayers.filter(tp => tp.team_id === team.id);
+      const teamPlayersData = teamPlayerRecords.map(tp => 
+        players.find(p => p.id === tp.player_id)
+      ).filter(Boolean) as Player[];
+      
+      return {
+        ...team,
+        players: teamPlayersData,
+      };
+    }).filter(Boolean) as TeamWithPlayers[];
+  },
+  
+  getMatchesWithTeams: (tournament_id: string): MatchWithTeams[] => {
+    const matches = storage.matches.getByTournament(tournament_id);
+    const teams = getFromStorage<Team>(STORAGE_KEYS.teams);
+    
+    return matches.map(match => ({
+      ...match,
+      team_1: match.team_1_id ? teams.find(t => t.id === match.team_1_id) : undefined,
+      team_2: match.team_2_id ? teams.find(t => t.id === match.team_2_id) : undefined,
+      winner_team: match.winner_team_id ? teams.find(t => t.id === match.winner_team_id) : undefined,
+    }));
   },
 };

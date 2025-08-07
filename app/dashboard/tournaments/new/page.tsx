@@ -55,6 +55,7 @@ function TournamentForm() {
     level: '' as 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000' | '',
     start_time: '',
     number_of_courts: '',
+    number_of_teams: '',
     conditions: '' as 'inside' | 'outside' | 'both' | '',
     type: '' as 'All' | 'Men' | 'Women' | 'Mixed' | '',
   });
@@ -75,6 +76,7 @@ function TournamentForm() {
         level: editingTournament.level,
         start_time: editingTournament.start_time,
         number_of_courts: editingTournament.number_of_courts.toString(),
+        number_of_teams: editingTournament.number_of_teams.toString(),
         conditions: editingTournament.conditions,
         type: editingTournament.type,
       });
@@ -147,6 +149,7 @@ function TournamentForm() {
             level: tournament.level,
             start_time: tournament.start_time,
             number_of_courts: tournament.number_of_courts.toString(),
+            number_of_teams: tournament.number_of_teams.toString(),
             conditions: tournament.conditions,
             type: tournament.type,
           });
@@ -157,6 +160,7 @@ function TournamentForm() {
             level: tournament.level,
             start_time: tournament.start_time,
             number_of_courts: tournament.number_of_courts.toString(),
+            number_of_teams: tournament.number_of_teams.toString(),
             conditions: tournament.conditions,
             type: tournament.type,
           });
@@ -174,7 +178,7 @@ function TournamentForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.location || !formData.date || !formData.level || 
-        !formData.start_time || !formData.number_of_courts || !formData.conditions || !formData.type) {
+        !formData.start_time || !formData.number_of_courts || !formData.number_of_teams || !formData.conditions || !formData.type) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -194,6 +198,7 @@ function TournamentForm() {
           level: formData.level,
           start_time: formData.start_time,
           number_of_courts: parseInt(formData.number_of_courts),
+          number_of_teams: parseInt(formData.number_of_teams),
           conditions: formData.conditions,
           type: formData.type,
         });
@@ -216,6 +221,7 @@ function TournamentForm() {
           level: formData.level,
           start_time: formData.start_time,
           number_of_courts: parseInt(formData.number_of_courts),
+          number_of_teams: parseInt(formData.number_of_teams),
           conditions: formData.conditions,
           type: formData.type,
           registration_enabled: false, // Default to disabled
@@ -407,6 +413,20 @@ function TournamentForm() {
                     <SelectItem value="Mixed">Mixed Doubles</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="number_of_teams">Number of Teams *</Label>
+                <Input
+                  id="number_of_teams"
+                  type="number"
+                  min="1"
+                  max="50"
+                  placeholder="e.g., 8"
+                  value={formData.number_of_teams}
+                  onChange={(e) => setFormData({ ...formData, number_of_teams: e.target.value })}
+                  required
+                />
               </div>
             </div>
           </CardContent>

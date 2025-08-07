@@ -58,6 +58,16 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
       return;
     }
 
+    // Check if we've reached the team limit
+    if (teams.length >= tournament.number_of_teams) {
+      toast({
+        title: "Error",
+        description: `Cannot add more teams. Tournament limit is ${tournament.number_of_teams} teams.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const player1 = players.find(p => p.id === selectedPlayers[0]);
     const player2 = players.find(p => p.id === selectedPlayers[1]);
 
@@ -315,7 +325,12 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
         <div>
           <h2 className="text-2xl font-semibold">Teams Management</h2>
-          <p className="text-gray-600">Add and manage teams for this tournament</p>
+          <p className="text-gray-600">
+            Add and manage teams for this tournament 
+            <span className="ml-2 font-medium text-blue-600">
+              ({teams.length}/{tournament.number_of_teams} teams)
+            </span>
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           {!tournament.teams_locked && (
@@ -328,10 +343,16 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
                 }
               }}
               variant={showPlayerSelection ? "outline" : "default"}
+              disabled={teams.length >= tournament.number_of_teams}
             >
               <Plus className="h-4 w-4 mr-2" />
               {showPlayerSelection ? "Close Selection" : "Add Teams"}
             </Button>
+          )}
+          {teams.length >= tournament.number_of_teams && !tournament.teams_locked && (
+            <div className="text-sm text-orange-600 font-medium">
+              Team limit reached ({tournament.number_of_teams} teams)
+            </div>
           )}
           <Button 
             variant={tournament.teams_locked ? "destructive" : "default"}
@@ -362,6 +383,15 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Team Limit Warning */}
+            {teams.length >= tournament.number_of_teams && (
+              <div className="mb-4 p-3 bg-orange-100 border border-orange-300 rounded-lg">
+                <div className="flex items-center space-x-2 text-orange-800">
+                  <span className="text-sm font-medium">⚠️ Team limit reached</span>
+                  <span className="text-sm">You cannot add more teams. Tournament limit is {tournament.number_of_teams} teams.</span>
+                </div>
+              </div>
+            )}
             {/* Search Bar */}
             <div className="mb-4">
               <div className="relative">

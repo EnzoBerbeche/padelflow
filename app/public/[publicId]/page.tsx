@@ -25,10 +25,8 @@ export default function PublicTournamentPage({ params }: PublicTournamentPagePro
   const [loading, setLoading] = useState(true);
   const [isOrganizer, setIsOrganizer] = useState(false);
 
-  // Next.js 15 migration: params is a Promise in React 19+
-  // In React 18, access params.publicId directly. In React 19, use: const { publicId } = React.use(params);
-  // @ts-expect-error: params is a Promise in React 19, but a plain object in React 18
-  const { publicId } = params;
+  // Next.js 15 migration: use React.use() to unwrap params
+  const { publicId } = use(params);
 
   useEffect(() => {
     fetchTournamentData();
