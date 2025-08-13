@@ -13,8 +13,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.28.0",
-    "@hookform/resolvers": "^3.9.0",
-    "@next/swc-wasm-nodejs": "^15.3.4",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -74,11 +72,10 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
     "uuid": "^9.0.1",
-    "vaul": "^0.9.9",
-    "zod": "^3.23.8"
+    "vaul": "^0.9.9"
   },
   "devDependencies": {
-    "ts-prune": "^0.10.3",
-    "depcheck": "^1.4.7"
+    "depcheck": "^1.4.7",
+    "ts-prune": "^0.10.3"
   }
 }
