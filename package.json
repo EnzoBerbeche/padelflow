@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "lint:unused": "ts-prune",
+    "deps:unused": "depcheck"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.28.0",
@@ -73,5 +76,9 @@
     "uuid": "^9.0.1",
     "vaul": "^0.9.9",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "ts-prune": "^0.10.3",
+    "depcheck": "^1.4.7"
   }
 }

@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import { CSVParser } from './csv-parser';
 
 // Types
 export interface Tournament {
@@ -911,39 +910,6 @@ export const storage = {
         
         return true;
       });
-    },
-    
-    importFromCSV: (csvContent: string, gender: 'men' | 'women'): void => {
-      const players = CSVParser.parseNationalPlayersCSV(csvContent, gender, {
-        delimiter: ',',
-        skipEmptyLines: true
-      });
-      
-      // For large datasets, we'll store only essential fields to save space
-      const compressedPlayers = players.map(player => ({
-        id: player.id,
-        first_name: player.first_name,
-        last_name: player.last_name,
-        license_number: player.license_number,
-        ranking: player.ranking,
-        club: player.club,
-        gender: player.gender,
-        // Store other fields only if needed for search
-        best_ranking: player.best_ranking,
-        points: player.points,
-        league: player.league,
-        birth_year: player.birth_year,
-        nationality: player.nationality,
-        tournaments_count: player.tournaments_count,
-        last_updated: player.last_updated,
-      }));
-      
-      // Replace existing data for this gender
-      const existingPlayers = getFromStorage<NationalPlayer>(STORAGE_KEYS.national_players);
-      const otherGenderPlayers = existingPlayers.filter(p => p.gender !== gender);
-      const allPlayers = [...otherGenderPlayers, ...compressedPlayers];
-      
-      saveToStorage(STORAGE_KEYS.national_players, allPlayers);
     },
     
     clear: (): void => {
