@@ -83,33 +83,4 @@ export function resolveTeamSource(
   } as TeamWithPlayers;
 }
 
-/**
- * Affiche pour chaque random_X_Y du template les équipes candidates (TSX à TSY)
- */
-export function debugRandomGroupsFromTemplate(template: any, teams: TeamWithPlayers[]): Record<string, TeamWithPlayers[]> {
-  const result: Record<string, TeamWithPlayers[]> = {};
-  if (!template.rotations) return result;
-  const randomSources = new Set<string>();
-  // Parcours toutes les sources random du template
-  template.rotations.forEach((rotation: any) => {
-    rotation.phases.forEach((phase: any) => {
-      phase.matches.forEach((match: any) => {
-        [match.source_team_1, match.source_team_2].forEach((source: string) => {
-          if (typeof source === 'string' && source.startsWith('random_')) {
-            randomSources.add(source);
-          }
-        });
-      });
-    });
-  });
-  randomSources.forEach((source) => {
-    // Ex: random_5_8
-    const match = source.match(/^random_(\d+)_(\d+)$/);
-    if (match) {
-      const min = parseInt(match[1], 10);
-      const max = parseInt(match[2], 10);
-      result[source] = teams.filter(t => t.seed_number && t.seed_number >= min && t.seed_number <= max);
-    }
-  });
-  return result;
-} 
+ 
