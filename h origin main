@@ -1,0 +1,10 @@
+[33m64646bb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m chore: remove accidental file created during merge
+[33mc60671d[m[33m ([m[1;32mchore/cleanup-step-6[m[33m)[m chore: remove 21 unused dependencies - final cleanup (Step 6)
+[33m492ded3[m[33m ([m[1;32mchore/cleanup-step-5[m[33m, [m[1;32mchore/cleanup-step-4[m[33m)[m chore: remove 24 unused UI components (Step 4)
+[33m1785f6f[m[33m ([m[1;32mchore/cleanup-step-3[m[33m)[m chore: remove unused dependencies (Step 3)
+[33m3c04e57[m[33m ([m[1;32mchore/cleanup-step-2[m[33m)[m chore: remove unused middleware and utility functions (Step 2)
+[33m10e357a[m[33m ([m[1;32mchore/cleanup-step-1[m[33m)[m chore: remove exposed credentials and debug artifacts (Step 1)
+[33m1b08faf[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mchore/cleanup-audit[m[33m)[m feat: complete registration system with email confirmation and player validation
+[33m7426db1[m feat: improve responsive layout for Court Status and Rotations
+[33me155047[m feat: enhance random draw system with match previews and fix team propagation
+[33m655ebac[m feat: improve responsive design for mobile devices
