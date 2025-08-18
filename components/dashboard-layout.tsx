@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { UserButton, SignOutButton } from '@clerk/nextjs';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 
 const navigation = [
@@ -42,7 +42,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <UserButton afterSignOutUrl="/" />
+              {/** Simple sign out button using Supabase **/}
+              <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>Sign out</Button>
             </div>
           </div>
         </div>

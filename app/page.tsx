@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Users, Calendar, Share2 } from 'lucide-react';
 import Link from 'next/link';
-import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
+import { supabase } from '@/lib/supabase';
+import { useSupabaseAuth } from '@/hooks/use-current-user';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function Home() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useSupabaseAuth();
   const router = useRouter();
   
   // Redirect authenticated users to tournaments page
@@ -46,16 +47,16 @@ export default function Home() {
                 <Link href="/dashboard/tournaments">
                   <Button>Dashboard</Button>
                 </Link>
-                <UserButton afterSignOutUrl="/" />
+                <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign out</Button>
               </>
             ) : (
               <>
-                <SignInButton mode="modal">
+                <Link href="/sign-in">
                   <Button variant="outline">Sign In</Button>
-                </SignInButton>
-                <SignUpButton mode="modal">
+                </Link>
+                <Link href="/sign-up">
                   <Button>Sign Up</Button>
-                </SignUpButton>
+                </Link>
               </>
             )}
           </div>
@@ -82,11 +83,11 @@ export default function Home() {
                 </Link>
               ) : (
                 <>
-                  <SignUpButton mode="modal">
+                  <Link href="/sign-up">
                     <Button size="lg" className="text-lg px-8 py-3">
                       Get Started
                     </Button>
-                  </SignUpButton>
+                  </Link>
                   <Link href="/public/demo123">
                     <Button variant="outline" size="lg" className="text-lg px-8 py-3">
                       View Demo Tournament
@@ -179,11 +180,11 @@ export default function Home() {
               </Button>
             </Link>
           ) : (
-            <SignUpButton mode="modal">
+            <Link href="/sign-up">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
                 Get Started Now
               </Button>
-            </SignUpButton>
+            </Link>
           )}
         </div>
       </section>

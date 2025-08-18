@@ -12,12 +12,12 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Settings, User, Shield, Database, Trash2, Download, Upload, Bell, Palette, Globe, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@clerk/nextjs';
+import { useSupabaseUser } from '@/hooks/use-current-user';
 import { storage } from '@/lib/storage';
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user } = useSupabaseUser();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [language, setLanguage] = useState('en');
@@ -222,7 +222,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Email</p>
-                    <p className="text-sm text-gray-600">{user?.emailAddresses[0]?.emailAddress || 'Not available'}</p>
+                    <p className="text-sm text-gray-600">{user?.email || 'Not available'}</p>
                   </div>
                   <Badge variant="outline">Verified</Badge>
                 </div>
@@ -238,7 +238,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-medium">Member Since</p>
                     <p className="text-sm text-gray-600">
-                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Not available'}
+                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Not available'}
                     </p>
                   </div>
                 </div>
@@ -435,7 +435,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Authentication</span>
-                    <span className="text-sm font-medium">Clerk</span>
+                    <span className="text-sm font-medium">Supabase</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Storage</span>
