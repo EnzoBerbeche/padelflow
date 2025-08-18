@@ -41,17 +41,57 @@ export interface SupabaseNationalPlayer {
 export const nationalPlayersAPI = {
   // Get all players
   getAll: async (): Promise<SupabaseNationalPlayer[]> => {
+    type RankingRow = {
+      id_unique: string;
+      licence: string;
+      nom: string | null;
+      genre: 'Homme' | 'Femme';
+      rang: number;
+      evolution: number | null;
+      meilleur_classement: number | null;
+      nationalite: string | null;
+      annee_naissance: number | null;
+      points: number | null;
+      nb_tournois: number | null;
+      ligue: string | null;
+      club: string | null;
+      ranking_year: number;
+      ranking_month: number;
+    };
+
     const { data, error } = await supabase
-      .from('national_players')
-      .select('*')
-      .order('ranking', { ascending: true });
-    
+      .from('rankings')
+      .select(
+        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month'
+      );
+
     if (error) {
-      console.error('Error fetching national players:', error);
+      console.error('Error fetching rankings:', error);
       return [];
     }
-    
-    return data || [];
+
+    const rows: RankingRow[] = (data as any[]) || [];
+
+    // Keep only the latest row per licence (by year, then month)
+    const latestByLicence = new Map<string, RankingRow>();
+    for (const row of rows) {
+      const existing = latestByLicence.get(row.licence);
+      if (!existing) {
+        latestByLicence.set(row.licence, row);
+        continue;
+      }
+      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
+      const currentKey = row.ranking_year * 100 + row.ranking_month;
+      if (currentKey > existingKey) {
+        latestByLicence.set(row.licence, row);
+      }
+    }
+
+    const mapped: SupabaseNationalPlayer[] = Array.from(latestByLicence.values())
+      .map(mapRankingRowToNationalPlayer)
+      .sort((a, b) => a.ranking - b.ranking);
+
+    return mapped;
   },
 
   // Search players
@@ -64,34 +104,97 @@ export const nationalPlayersAPI = {
       league?: string;
     }
   ): Promise<SupabaseNationalPlayer[]> => {
-    let supabaseQuery = supabase
-      .from('national_players')
-      .select('*')
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,license_number.ilike.%${query}%,club.ilike.%${query}%`)
-      .order('ranking', { ascending: true });
+    type RankingRow = {
+      id_unique: string;
+      licence: string;
+      nom: string | null;
+      genre: 'Homme' | 'Femme';
+      rang: number;
+      evolution: number | null;
+      meilleur_classement: number | null;
+      nationalite: string | null;
+      annee_naissance: number | null;
+      points: number | null;
+      nb_tournois: number | null;
+      ligue: string | null;
+      club: string | null;
+      ranking_year: number;
+      ranking_month: number;
+    };
 
-    // Apply filters
+    const trimmed = (query || '').trim();
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+
+    let supabaseQuery = supabase
+      .from('rankings')
+      .select(
+        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month'
+      );
+
+    if (tokens.length > 1) {
+      // AND all tokens within the name field (handles "first last" or any spacing)
+      for (const t of tokens) {
+        supabaseQuery = supabaseQuery.ilike('nom', `%${t}%`);
+      }
+    } else {
+      // Single-token broad match across key fields (PostgREST or-group prefers * wildcards)
+      const t = trimmed;
+      supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
+    }
+
+    // Apply filters at DB level where possible
     if (filters?.gender) {
-      supabaseQuery = supabaseQuery.eq('gender', filters.gender);
+      const mappedGender = filters.gender === 'men' ? 'Homme' : 'Femme';
+      supabaseQuery = supabaseQuery.eq('genre', mappedGender);
     }
-    if (filters?.rankingMin) {
-      supabaseQuery = supabaseQuery.gte('ranking', filters.rankingMin);
+    if (typeof filters?.rankingMin === 'number') {
+      supabaseQuery = supabaseQuery.gte('rang', filters.rankingMin as number);
     }
-    if (filters?.rankingMax) {
-      supabaseQuery = supabaseQuery.lte('ranking', filters.rankingMax);
+    if (typeof filters?.rankingMax === 'number') {
+      supabaseQuery = supabaseQuery.lte('rang', filters.rankingMax as number);
     }
     if (filters?.league) {
-      supabaseQuery = supabaseQuery.eq('league', filters.league);
+      supabaseQuery = supabaseQuery.eq('ligue', filters.league);
     }
 
     const { data, error } = await supabaseQuery;
-    
+
     if (error) {
-      console.error('Error searching national players:', error);
+      console.error('Error searching rankings:', error);
       return [];
     }
-    
-    return data || [];
+
+    let rows: RankingRow[] = (data as any[]) || [];
+
+    // For multi-token queries, also enforce AND semantics on the client side as a safety net
+    if (tokens.length > 1) {
+      const lowerTokens = tokens.map(t => t.toLowerCase());
+      rows = rows.filter(r => {
+        const haystack = `${r.nom || ''} ${r.licence || ''} ${r.club || ''}`.toLowerCase();
+        return lowerTokens.every(t => haystack.includes(t));
+      });
+    }
+
+    // Keep only latest per licence
+    const latestByLicence = new Map<string, RankingRow>();
+    for (const row of rows) {
+      const existing = latestByLicence.get(row.licence);
+      if (!existing) {
+        latestByLicence.set(row.licence, row);
+        continue;
+      }
+      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
+      const currentKey = row.ranking_year * 100 + row.ranking_month;
+      if (currentKey > existingKey) {
+        latestByLicence.set(row.licence, row);
+      }
+    }
+
+    const mapped: SupabaseNationalPlayer[] = Array.from(latestByLicence.values())
+      .map(mapRankingRowToNationalPlayer)
+      .sort((a, b) => a.ranking - b.ranking);
+
+    return mapped;
   },
 
   // Test connection and table existence
@@ -103,7 +206,7 @@ export const nationalPlayersAPI = {
     
     try {
       const { data, error } = await supabase
-        .from('national_players')
+        .from('rankings')
         .select('count')
         .limit(1);
       
@@ -122,96 +225,102 @@ export const nationalPlayersAPI = {
 
   // Import players from CSV (batch insert)
   importFromCSV: async (
-    players: SupabaseNationalPlayer[], 
-    gender: 'men' | 'women'
+    _players: SupabaseNationalPlayer[], 
+    _gender: 'men' | 'women'
   ): Promise<boolean> => {
-    try {
-      console.log(`Starting import of ${players.length} ${gender} players...`);
-      
-      // Test connection first
-      const isConnected = await nationalPlayersAPI.testConnection();
-      if (!isConnected) {
-        console.error('Cannot connect to Supabase. Check environment variables and table existence.');
-        return false;
-      }
-      
-      // First, delete existing players of this gender
-      const { error: deleteError } = await supabase
-        .from('national_players')
-        .delete()
-        .eq('gender', gender);
-      
-      if (deleteError) {
-        console.error('Error deleting existing players:', deleteError);
-        return false;
-      }
-      
-      console.log(`Deleted existing ${gender} players`);
-
-      // Then insert new players in batches
-      const batchSize = 50; // Even smaller batch size for debugging
-      let totalInserted = 0;
-      
-      for (let i = 0; i < players.length; i += batchSize) {
-        const batch = players.slice(i, i + batchSize);
-        console.log(`Inserting batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(players.length/batchSize)} (${batch.length} players)`);
-        
-        // Remove id field from batch (let Supabase generate it)
-        const batchWithoutId = batch.map(player => {
-          const { id, ...playerWithoutId } = player;
-          return playerWithoutId;
-        });
-        
-        const { error: insertError } = await supabase
-          .from('national_players')
-          .insert(batchWithoutId);
-        
-        if (insertError) {
-          console.error('Error inserting batch:', insertError);
-          console.error('Batch data sample:', batchWithoutId.slice(0, 2));
-          console.error('Supabase URL:', supabaseUrl);
-          return false;
-        }
-        
-        totalInserted += batch.length;
-      }
-      
-      console.log(`Successfully imported ${totalInserted} players`);
-      return true;
-    } catch (error) {
-      console.error('Error importing players:', error);
-      return false;
-    }
+    // Deprecated for rankings pipeline. Kept to satisfy existing callers if any.
+    console.warn('importFromCSV is deprecated for the rankings schema.');
+    return false;
   },
 
   // Clear all players
   clear: async (): Promise<boolean> => {
-    const { error } = await supabase
-      .from('national_players')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-    
-    if (error) {
-      console.error('Error clearing players:', error);
-      return false;
-    }
-    
-    return true;
+    // Dangerous against the rankings table; leave as noop for safety
+    console.warn('clear() is disabled for the rankings schema.');
+    return false;
   },
 
   // Get unique leagues for filtering
   getLeagues: async (): Promise<string[]> => {
+    type Row = { licence: string; ligue: string | null; ranking_year: number; ranking_month: number };
     const { data, error } = await supabase
-      .from('national_players')
-      .select('league')
-      .not('league', 'is', null);
-    
+      .from('rankings')
+      .select('licence, ligue, ranking_year, ranking_month')
+      .not('ligue', 'is', null);
+
     if (error) {
-      console.error('Error fetching leagues:', error);
+      console.error('Error fetching leagues from rankings:', error);
       return [];
     }
-    
-    const uniqueLeagues = Array.from(new Set(data?.map(p => p.league) || []));
+
+    const rows: Row[] = (data as any[]) || [];
+
+    // Latest per licence, then collect leagues
+    const latestByLicence = new Map<string, Row>();
+    for (const row of rows) {
+      const existing = latestByLicence.get(row.licence);
+      if (!existing) {
+        latestByLicence.set(row.licence, row);
+        continue;
+      }
+      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
+      const currentKey = row.ranking_year * 100 + row.ranking_month;
+      if (currentKey > existingKey) {
+        latestByLicence.set(row.licence, row);
+      }
+    }
+
+    const uniqueLeagues = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.ligue).filter(Boolean) as string[]));
     return uniqueLeagues.sort();
   },
 };
+
+function mapRankingRowToNationalPlayer(row: {
+  id_unique: string;
+  licence: string;
+  nom: string | null;
+  genre: 'Homme' | 'Femme';
+  rang: number;
+  evolution: number | null;
+  meilleur_classement: number | null;
+  nationalite: string | null;
+  annee_naissance: number | null;
+  points: number | null;
+  nb_tournois: number | null;
+  ligue: string | null;
+  club: string | null;
+  ranking_year: number;
+  ranking_month: number;
+}): SupabaseNationalPlayer {
+  const fullName = (row.nom || '').trim();
+  let firstName = '';
+  let lastName = '';
+  if (fullName) {
+    const parts = fullName.split(/\s+/);
+    if (parts.length === 1) {
+      lastName = parts[0];
+    } else {
+      lastName = parts.pop() as string;
+      firstName = parts.join(' ');
+    }
+  }
+
+  const lastUpdated = new Date(Date.UTC(row.ranking_year, (row.ranking_month || 1) - 1, 1)).toISOString();
+
+  return {
+    id: row.id_unique,
+    first_name: firstName || '',
+    last_name: lastName || '',
+    license_number: row.licence,
+    ranking: row.rang,
+    best_ranking: row.meilleur_classement ?? row.rang,
+    points: row.points ?? 0,
+    club: row.club ?? '',
+    league: row.ligue ?? '',
+    birth_year: row.annee_naissance ?? 0,
+    nationality: row.nationalite ?? '',
+    gender: row.genre === 'Homme' ? 'men' : 'women',
+    tournaments_count: row.nb_tournois ?? 0,
+    last_updated: lastUpdated,
+  };
+}
