@@ -1,22 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Temporary hardcoded values for testing
-const supabaseUrl = 'https://mzffqutucazwexapfyig.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZmZxdXR1Y2F6d2V4YXBmeWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4ODk2ODQsImV4cCI6MjA2OTQ2NTY4NH0.orgmjqFM0yIzIHSo44FCLmEyRnSiAujuxp5_QYqRLm0';
+// Read Supabase configuration from environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
 
 // Check if environment variables are set
-const isConfigured = supabaseUrl && supabaseAnonKey;
+const isConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isConfigured) {
-  console.error('Missing Supabase environment variables:', {
-    url: supabaseUrl ? 'SET' : 'MISSING',
-    key: supabaseAnonKey ? 'SET' : 'MISSING'
-  });
+  console.error('Supabase not configured. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.');
   console.error('Please create a .env.local file with your Supabase credentials');
 }
 
-// Create client with hardcoded values for now
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create client
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 // National Players table interface
 export interface SupabaseNationalPlayer {
