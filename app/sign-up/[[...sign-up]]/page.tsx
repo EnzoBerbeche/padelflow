@@ -37,7 +37,11 @@ export default function SignUpPage() {
       setMessage('Passwords do not match');
       return;
     }
-    const { error, data } = await supabase.auth.signUp({ email, password });
+    const { error, data } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${location.origin}/dashboard/tournaments` }
+    });
     setLoading(false);
     if (error) {
       setMessage(error.message);
