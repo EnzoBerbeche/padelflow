@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { useState } from 'react';
 const navigation = [
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Players', href: '/dashboard/players', icon: Users },
+  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
