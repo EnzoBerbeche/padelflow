@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { nationalPlayersAPI, SupabaseNationalPlayer } from '@/lib/supabase';
+import { nationalPlayersAPI, SupabaseNationalPlayer, playersAPI } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
@@ -31,6 +33,11 @@ export default function TenUpPage() {
   const [rankingMax, setRankingMax] = useState<string>('');
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [leagues, setLeagues] = useState<string[]>([]);
+  const [clubs, setClubs] = useState<string[]>([]);
+  const [clubFilter, setClubFilter] = useState<string[]>([]);
+  const [clubSearch, setClubSearch] = useState<string>('');
+  const [clubOpen, setClubOpen] = useState<boolean>(false);
+  const [clubBaseline, setClubBaseline] = useState<string[]>([]);
   
   // Results state
   const [allPlayers, setAllPlayers] = useState<SupabaseNationalPlayer[]>([]);
@@ -44,16 +51,25 @@ export default function TenUpPage() {
   
   // Player management state
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
+  const [myLicences, setMyLicences] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year'>('ranking');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchAllPlayers();
     fetchLeagues();
+    fetchClubs();
+    // Load current user's licences to toggle Add/Remove
+    (async () => {
+      const licences = await playersAPI.getMyLicences();
+      setMyLicences(licences);
+    })();
   }, []);
 
   useEffect(() => {
-    // Apply filters and update pagination
+    // Bind latest server results and (re)apply current sorting preferences
     applyFilters();
-  }, [allPlayers, searchTerm, genderFilter, rankingMin, rankingMax, leagueFilter]);
+  }, [allPlayers, sortKey, sortDir]);
 
   const fetchAllPlayers = async () => {
     setLoading(true);
@@ -82,79 +98,65 @@ export default function TenUpPage() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...allPlayers];
-
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim();
-      const tokens = searchLower.split(/\s+/).filter(Boolean);
-      filtered = filtered.filter(player => {
-        const first = (player.first_name || '').toLowerCase();
-        const last = (player.last_name || '').toLowerCase();
-        const club = (player.club || '').toLowerCase();
-        const license = (player.license_number || '').toLowerCase();
-        const full1 = `${first} ${last}`.trim();
-        const full2 = `${last} ${first}`.trim();
-
-        // Match if any single-field includes the whole query
-        if (
-          first.includes(searchLower) ||
-          last.includes(searchLower) ||
-          club.includes(searchLower) ||
-          license.includes(searchLower) ||
-          full1.includes(searchLower) ||
-          full2.includes(searchLower)
-        ) return true;
-
-        // If multi-token, require all tokens to be present in either order
-        if (tokens.length > 1) {
-          const allInFull1 = tokens.every(t => full1.includes(t));
-          const allInFull2 = tokens.every(t => full2.includes(t));
-          if (allInFull1 || allInFull2) return true;
-        }
-
-        return false;
-      });
+  const fetchClubs = async () => {
+    try {
+      const cs = await nationalPlayersAPI.getClubs();
+      const valid = cs.filter(c => c && c.trim() !== '');
+      setClubs(valid);
+    } catch (error) {
+      console.error('Error fetching clubs:', error);
     }
+  };
 
-    // Apply gender filter
-    if (genderFilter !== 'all') {
-      filtered = filtered.filter(player => player.gender === genderFilter);
-    }
-
-    // Apply ranking filters
-    if (rankingMin) {
-      filtered = filtered.filter(player => player.ranking >= parseInt(rankingMin));
-    }
-    if (rankingMax) {
-      filtered = filtered.filter(player => player.ranking <= parseInt(rankingMax));
-    }
-
-    // Apply league filter
-    if (leagueFilter !== 'all') {
-      filtered = filtered.filter(player => player.league === leagueFilter);
-    }
-
-    // Sort from lowest to highest ranking
-    filtered.sort((a, b) => a.ranking - b.ranking);
-
-    setFilteredPlayers(filtered);
-    
-    // Reset to first page when filters change
+  const applyFilters = (overrideKey?: 'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year', overrideDir?: 'asc' | 'desc') => {
+    // No client-side filtering. Server already applied filters in searchPlayers().
+    const bound = [...allPlayers];
+    // Apply client-side sort
+    const activeKey = overrideKey ?? sortKey;
+    const activeDir = overrideDir ?? sortDir;
+    const getValue = (p: SupabaseNationalPlayer): string | number => {
+      switch (activeKey) {
+        case 'name':
+          return `${(p.first_name || '').toLowerCase()} ${(p.last_name || '').toLowerCase()}`.trim();
+        case 'license':
+          return (p.license_number || '').toLowerCase();
+        case 'ranking':
+          return p.ranking || 0;
+        case 'club':
+          return (p.club || '').toLowerCase();
+        case 'league':
+          return (p.league || '').toLowerCase();
+        case 'birth_year':
+          return p.birth_year || 0;
+        default:
+          return 0;
+      }
+    };
+    bound.sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+      let cmp = 0;
+      if (typeof va === 'number' && typeof vb === 'number') {
+        cmp = va - vb;
+      } else {
+        cmp = String(va).localeCompare(String(vb));
+      }
+      return activeDir === 'asc' ? cmp : -cmp;
+    });
+    setFilteredPlayers(bound);
     setCurrentPage(1);
-    
-    // Calculate total pages
-    setTotalPages(Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    setTotalPages(Math.ceil(bound.length / ITEMS_PER_PAGE));
+  };
+
+  const toggleSort = (key: 'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year') => {
+    const nextDir: 'asc' | 'desc' = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    setSortKey(key);
+    setSortDir(nextDir);
+    // Apply immediately using computed values to avoid any stale state issues
+    applyFilters(key, nextDir);
   };
 
   const searchPlayers = async () => {
-    if (!searchTerm.trim()) {
-      // If no search term, show all players
-      applyFilters();
-      return;
-    }
-    
     setSearching(true);
     try {
       const filters: any = {};
@@ -162,7 +164,7 @@ export default function TenUpPage() {
       if (rankingMin) filters.rankingMin = parseInt(rankingMin);
       if (rankingMax) filters.rankingMax = parseInt(rankingMax);
       if (leagueFilter !== 'all') filters.league = leagueFilter;
-
+      if (clubFilter.length > 0) filters.clubs = clubFilter;
       const results = await nationalPlayersAPI.search(searchTerm, filters);
       setAllPlayers(results);
       
@@ -188,55 +190,23 @@ export default function TenUpPage() {
     setAddingPlayer(nationalPlayer.id);
     
     try {
-      const userId = currentUserId || DEMO_USER_ID;
-      
-      // Check if player already exists
-      const existingPlayers = storage.players.getCurrentUserPlayers(userId);
-      const existingPlayer = existingPlayers.find(p => p.license_number === nationalPlayer.license_number);
-      
-      if (existingPlayer) {
+      // Insert licence into Supabase players (user-scoped)
+      const result = await playersAPI.addLicenceForCurrentUser(nationalPlayer.license_number);
+      if (!result.ok) {
         toast({
-          title: "Player Already Exists",
-          description: `A player with license number ${nationalPlayer.license_number} already exists in your roster.`,
+          title: "Cannot Add Player",
+          description: result.error || 'Unknown error',
           variant: "destructive",
         });
         return;
       }
-
-      // Handle license number format for national players
-      let licenseNumber = nationalPlayer.license_number;
-      
-      // If license number is too short, pad it with zeros
-      if (licenseNumber.length < 7) {
-        licenseNumber = licenseNumber.padStart(7, '0');
-      }
-      // If license number is too long, truncate it
-      else if (licenseNumber.length > 8) {
-        licenseNumber = licenseNumber.substring(0, 8);
-      }
-
-      // Convert national player to local player format
-      const newPlayer = {
-        license_number: licenseNumber,
-        first_name: nationalPlayer.first_name,
-        last_name: nationalPlayer.last_name,
-        ranking: nationalPlayer.ranking,
-        email: '', // National players don't have email
-        phone: '', // National players don't have phone
-        club: nationalPlayer.club,
-        year_of_birth: nationalPlayer.birth_year,
-        date_of_birth: '', // National players don't have date_of_birth
-        gender: nationalPlayer.gender === 'men' ? 'Mr' : 'Mme' as 'Mr' | 'Mme',
-        organizer_id: userId,
-        owner_id: userId,
-      };
-
-      storage.players.create(newPlayer);
       
       toast({
         title: "Player Added",
         description: `${nationalPlayer.first_name} ${nationalPlayer.last_name} has been added to your roster.`,
       });
+      // Update local cache to hide the button
+      setMyLicences(prev => Array.from(new Set([...prev, nationalPlayer.license_number])));
     } catch (error) {
       console.error('Error adding player:', error);
       
@@ -268,6 +238,21 @@ export default function TenUpPage() {
           variant: "destructive",
         });
       }
+    } finally {
+      setAddingPlayer(null);
+    }
+  };
+
+  const removePlayerFromList = async (nationalPlayer: SupabaseNationalPlayer) => {
+    setAddingPlayer(nationalPlayer.id);
+    try {
+      const res = await playersAPI.deleteByLicenceForCurrentUser(nationalPlayer.license_number);
+      if (!res.ok) {
+        toast({ title: 'Error', description: res.error || 'Failed to remove player', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Removed', description: `${nationalPlayer.first_name} ${nationalPlayer.last_name} removed from your roster.` });
+      setMyLicences(prev => prev.filter(l => l !== nationalPlayer.license_number));
     } finally {
       setAddingPlayer(null);
     }
@@ -388,6 +373,61 @@ export default function TenUpPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Clubs</Label>
+                  <Popover
+                    open={clubOpen}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setClubBaseline([...clubFilter]);
+                      } else {
+                        const same = clubBaseline.length === clubFilter.length && clubFilter.every(c => new Set(clubBaseline).has(c));
+                        if (!same) {
+                          // Commit selection: trigger a fresh server search
+                          void searchPlayers();
+                        }
+                      }
+                      setClubOpen(open);
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" aria-expanded={clubOpen} className="w-full justify-between">
+                        {clubFilter.length > 0 ? `${clubFilter.length} selected` : 'All Clubs'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-2" align="start">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Search clubs..."
+                          value={clubSearch}
+                          onChange={(e) => setClubSearch(e.target.value)}
+                        />
+                        <div className="max-h-64 overflow-auto pr-1">
+                          {clubs
+                            .filter(c => c.toLowerCase().includes(clubSearch.toLowerCase()))
+                            .map(c => {
+                              const checked = clubFilter.includes(c);
+                              return (
+                                <label key={c} className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-gray-50 rounded">
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(v) =>
+                                      setClubFilter(prev => (v ? [...prev, c] : prev.filter(x => x !== c)))
+                                    }
+                                  />
+                                  <span className="text-sm text-gray-800 truncate" title={c}>{c}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                        <div className="flex justify-between pt-1">
+                          <Button type="button" variant="ghost" size="sm" onClick={() => { setClubFilter([]); setClubOpen(false); }}>Clear</Button>
+                          <Button type="button" size="sm" onClick={() => setClubOpen(false)}>Done</Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="flex items-end space-x-2">
                   <Button 
                     onClick={searchPlayers}
@@ -414,6 +454,7 @@ export default function TenUpPage() {
                       setRankingMin('');
                       setRankingMax('');
                       setLeagueFilter('all');
+                      setClubFilter([]);
                       fetchAllPlayers();
                     }}
                   >
@@ -461,12 +502,42 @@ export default function TenUpPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">License</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Ranking</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Club</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">League</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Birth Year</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('name')}>
+                              <span>Name</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('license')}>
+                              <span>License</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('ranking')}>
+                              <span>Ranking</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('club')}>
+                              <span>Club</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('league')}>
+                              <span>League</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('birth_year')}>
+                              <span>Birth Year</span>
+                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                            </button>
+                          </th>
                           <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
                         </tr>
                       </thead>
@@ -503,6 +574,27 @@ export default function TenUpPage() {
                               {player.birth_year}
                             </td>
                             <td className="py-3 px-4 text-right">
+                              {myLicences.includes(player.license_number) ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => removePlayerFromList(player)}
+                                  disabled={addingPlayer === player.id}
+                                  className="flex items-center space-x-2 text-red-600"
+                                >
+                                  {addingPlayer === player.id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      <span>Removing...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Remove from My Players</span>
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
                               <Button
                                 size="sm"
                                 onClick={() => addPlayerToLocal(player)}
@@ -521,6 +613,7 @@ export default function TenUpPage() {
                                   </>
                                 )}
                               </Button>
+                              )}
                             </td>
                           </tr>
                         ))}

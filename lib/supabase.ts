@@ -99,6 +99,7 @@ export const nationalPlayersAPI = {
       rankingMin?: number;
       rankingMax?: number;
       league?: string;
+      clubs?: string[];
     }
   ): Promise<SupabaseNationalPlayer[]> => {
     type RankingRow = {
@@ -128,15 +129,17 @@ export const nationalPlayersAPI = {
         'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month'
       );
 
-    if (tokens.length > 1) {
-      // AND all tokens within the name field (handles "first last" or any spacing)
-      for (const t of tokens) {
-        supabaseQuery = supabaseQuery.ilike('nom', `%${t}%`);
+    if (trimmed) {
+      if (tokens.length > 1) {
+        // Require ALL tokens to match in ANY of the key fields (name, licence, club)
+        for (const t of tokens) {
+          supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
+        }
+      } else {
+        // Single-token broad match across key fields
+        const t = trimmed;
+        supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
       }
-    } else {
-      // Single-token broad match across key fields (PostgREST or-group prefers * wildcards)
-      const t = trimmed;
-      supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
     }
 
     // Apply filters at DB level where possible
@@ -153,6 +156,9 @@ export const nationalPlayersAPI = {
     if (filters?.league) {
       supabaseQuery = supabaseQuery.eq('ligue', filters.league);
     }
+    if (filters?.clubs && Array.isArray(filters.clubs) && (filters.clubs as string[]).length > 0) {
+      supabaseQuery = supabaseQuery.in('club', filters.clubs as string[]);
+    }
 
     const { data, error } = await supabaseQuery;
 
@@ -163,7 +169,7 @@ export const nationalPlayersAPI = {
 
     let rows: RankingRow[] = (data as any[]) || [];
 
-    // For multi-token queries, also enforce AND semantics on the client side as a safety net
+    // For multi-token queries, also enforce AND semantics on the client side as a safety net across name/licence/club
     if (tokens.length > 1) {
       const lowerTokens = tokens.map(t => t.toLowerCase());
       rows = rows.filter(r => {
@@ -269,6 +275,159 @@ export const nationalPlayersAPI = {
 
     const uniqueLeagues = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.ligue).filter(Boolean) as string[]));
     return uniqueLeagues.sort();
+  },
+
+  // Get unique clubs for filtering
+  getClubs: async (): Promise<string[]> => {
+    type Row = { licence: string; club: string | null; ranking_year: number; ranking_month: number };
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('licence, club, ranking_year, ranking_month')
+      .not('club', 'is', null);
+
+    if (error) {
+      console.error('Error fetching clubs from rankings:', error);
+      return [];
+    }
+
+    const rows: Row[] = (data as any[]) || [];
+
+    const latestByLicence = new Map<string, Row>();
+    for (const row of rows) {
+      const existing = latestByLicence.get(row.licence);
+      if (!existing) {
+        latestByLicence.set(row.licence, row);
+        continue;
+      }
+      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
+      const currentKey = row.ranking_year * 100 + row.ranking_month;
+      if (currentKey > existingKey) {
+        latestByLicence.set(row.licence, row);
+      }
+    }
+
+    const uniqueClubs = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.club).filter(Boolean) as string[]));
+    return uniqueClubs.sort();
+  },
+};
+
+// Players (user-scoped) API
+export interface SupabasePlayerRow {
+  id: string;
+  user_id: string;
+  licence: string;
+  created_at: string;
+}
+
+export interface SupabasePlayersEnrichedRow {
+  player_id: string;
+  user_id: string;
+  licence: string;
+  created_at: string;
+  id_unique: string | null;
+  nom: string | null;
+  genre: string | null; // 'Homme' | 'Femme'
+  rang: number | null;
+  evolution: number | null;
+  meilleur_classement: number | null;
+  nationalite: string | null;
+  annee_naissance: number | null;
+  points: number | null;
+  nb_tournois: number | null;
+  ligue: string | null;
+  club: string | null;
+  ranking_year: number | null;
+  ranking_month: number | null;
+}
+
+export const playersAPI = {
+  // Fetch current user's players enriched with latest rankings
+  getMyPlayersEnriched: async (): Promise<SupabasePlayersEnrichedRow[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('players_enriched')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching players_enriched:', error);
+      return [];
+    }
+    return (data as unknown as SupabasePlayersEnrichedRow[]) || [];
+  },
+
+  // Fetch just the licences for the current user's players
+  getMyLicences: async (): Promise<string[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('players')
+      .select('licence')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching player licences:', error);
+      return [];
+    }
+    return ((data as Array<{ licence: string }>).map(r => r.licence) as string[]) || [];
+  },
+
+  // Insert a player by licence for the current user
+  addLicenceForCurrentUser: async (licence: string): Promise<{ ok: boolean; error?: string; id?: string }> => {
+    const trimmed = (licence || '').trim();
+    if (!trimmed) return { ok: false, error: 'Licence is required' };
+
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return { ok: false, error: 'Not signed in' };
+
+    const { data, error } = await supabase
+      .from('players')
+      .insert({ user_id: userId, licence: trimmed })
+      .select('id')
+      .single();
+
+    if (error) {
+      // 23505 unique_violation
+      if ((error as any).code === '23505') {
+        return { ok: false, error: 'This licence is already in your list' };
+      }
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true, id: (data as any).id as string };
+  },
+
+  deleteById: async (playerId: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('players')
+      .delete()
+      .eq('id', playerId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
+  deleteByLicenceForCurrentUser: async (licence: string): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = (licence || '').trim();
+    if (!trimmed) return { ok: false, error: 'Licence is required' };
+
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return { ok: false, error: 'Not signed in' };
+
+    const { error } = await supabase
+      .from('players')
+      .delete()
+      .eq('user_id', userId)
+      .eq('licence', trimmed);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
   },
 };
 
