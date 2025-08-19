@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ensureProfileExists } from '@/lib/profile';
 
 export default function SignUpPage() {
   const searchParams = useSearchParams();
@@ -17,11 +16,6 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [country, setCountry] = useState('');
   const [phone, setPhone] = useState('');
 
   useEffect(() => {
@@ -37,10 +31,40 @@ export default function SignUpPage() {
       setMessage('Passwords do not match');
       return;
     }
+    // Check duplicate email on server
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.exists) {
+          setLoading(false);
+          setMessage('An account with this email already exists. Please sign in.');
+          return;
+        }
+      } else {
+        console.warn('Email existence check returned non-OK');
+      }
+    } catch (e) {
+      console.warn('Email existence check failed', e);
+      // proceed to sign up and rely on Supabase error if duplicate
+    }
+
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${location.origin}/dashboard/tournaments` }
+      options: {
+        emailRedirectTo: `${location.origin}/dashboard/tournaments`,
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          display_name: `${firstName || ''} ${lastName || ''}`.trim(),
+        },
+      }
     });
     setLoading(false);
     if (error) {
@@ -50,28 +74,12 @@ export default function SignUpPage() {
       if (!data.session) {
         setMessage('Account created. Please check your email to confirm your address.');
       } else {
-        const userId = data.user?.id;
-        if (userId) {
-          await ensureProfileExists({
-            userId,
-            firstName,
-            lastName,
-            dateOfBirth: dateOfBirth || null,
-            address: address || null,
-            city: city || null,
-            postalCode: postalCode || null,
-            country: country || null,
-            phone: phone || null,
-          });
-        }
         router.replace('/dashboard/tournaments');
       }
     }
   };
 
-  const signUpWith = async (provider: 'google' | 'github' | 'facebook') => {
-    await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/dashboard/tournaments` } });
-  };
+  // OAuth disabled for now
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
@@ -89,16 +97,6 @@ export default function SignUpPage() {
             <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             <Label htmlFor="lastName">Nom</Label>
             <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            <Label htmlFor="dob">Date de naissance</Label>
-            <Input id="dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
-            <Label htmlFor="address">Adresse</Label>
-            <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
-            <Label htmlFor="city">Ville</Label>
-            <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
-            <Label htmlFor="postal">Code postal</Label>
-            <Input id="postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-            <Label htmlFor="country">Pays</Label>
-            <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} />
             <Label htmlFor="phone">Téléphone</Label>
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <Label htmlFor="email">Email</Label>
@@ -113,8 +111,6 @@ export default function SignUpPage() {
             {message && <p className="text-sm text-gray-600">{message}</p>}
           </div>
           <div className="h-px bg-gray-200" />
-          <Button className="w-full" onClick={() => signUpWith('google')}>Continue with Google</Button>
-          <Button variant="outline" className="w-full" onClick={() => signUpWith('github')}>Continue with GitHub</Button>
         </div>
       </div>
     </div>

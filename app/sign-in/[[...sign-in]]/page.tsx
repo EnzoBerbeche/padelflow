@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -30,25 +31,28 @@ export default function SignInPage() {
       return;
     }
     if (data.session) {
+      // Backfill display_name if missing
+      const displayName = data.user?.user_metadata?.display_name as string | undefined;
+      if (!displayName) {
+        const given = (data.user?.user_metadata?.first_name || data.user?.user_metadata?.given_name || '').trim();
+        const family = (data.user?.user_metadata?.last_name || data.user?.user_metadata?.family_name || '').trim();
+        const name = (data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || '').trim();
+        const computed = `${given || ''} ${family || ''}`.trim() || name;
+        if (computed) {
+          await supabase.auth.updateUser({ data: { display_name: computed } });
+        }
+      }
       router.replace('/dashboard/tournaments');
     }
   };
-
-  const signInWith = async (provider: 'google' | 'github' | 'facebook') => {
-    await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/dashboard/tournaments` } });
-  };
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Welcome to PadelFlow
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to manage your tournaments
-          </p>
-        </div>
-        <div className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle>Welcome to PadelFlow</CardTitle>
+          <CardDescription>Sign in to manage your tournaments</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -67,7 +71,24 @@ export default function SignInPage() {
                 className="text-gray-600 hover:text-gray-900"
                 onClick={async () => {
                   if (!email) { setMessage('Enter your email to reset your password.'); return; }
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/sign-in` });
+                  setMessage(null);
+                  try {
+                    const res = await fetch('/api/auth/check-email', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email }),
+                    });
+                    if (res.ok) {
+                      const json = await res.json();
+                      if (!json?.exists) {
+                        setMessage('No account found with this email. Please sign up.');
+                        return;
+                      }
+                    }
+                  } catch {
+                    // If check fails, continue to call reset to avoid blocking
+                  }
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
                   setMessage(error ? error.message : 'Check your email to reset your password.');
                 }}
               >
@@ -75,11 +96,8 @@ export default function SignInPage() {
               </button>
             </div>
           </div>
-          <div className="h-px bg-gray-200" />
-          <Button className="w-full" onClick={() => signInWith('google')}>Continue with Google</Button>
-          <Button variant="outline" className="w-full" onClick={() => signInWith('github')}>Continue with GitHub</Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

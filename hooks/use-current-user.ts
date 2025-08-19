@@ -21,9 +21,31 @@ export function useSupabaseUser(): { user: import('@supabase/supabase-js').User 
       setIsLoaded(true);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    let didBackfill = false;
+    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       setIsLoaded(true);
+
+      // Backfill display_name once per mount if missing
+      try {
+        if (!didBackfill && currentUser) {
+          const md: any = currentUser.user_metadata || {};
+          const displayName: string | undefined = md.display_name;
+          if (!displayName) {
+            const given = (md.first_name || md.given_name || '').trim();
+            const family = (md.last_name || md.family_name || '').trim();
+            const name = (md.full_name || md.name || '').trim();
+            const computed = `${given || ''} ${family || ''}`.trim() || name;
+            if (computed) {
+              didBackfill = true;
+              await supabase.auth.updateUser({ data: { display_name: computed } });
+            }
+          }
+        }
+      } catch {
+        // noop
+      }
     });
 
     return () => {
