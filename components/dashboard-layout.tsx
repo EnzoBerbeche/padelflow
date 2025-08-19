@@ -1,12 +1,17 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSupabaseUser } from '@/hooks/use-current-user';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 const navigation = [
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
@@ -22,6 +27,28 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Start closed on mobile
+  const { user } = useSupabaseUser();
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const md: any = user?.user_metadata || {};
+    const dn = (md.display_name || '').toString();
+    const ph = (md.phone || '').toString();
+    setDisplayName(dn);
+    setPhone(ph);
+  }, [user]);
+
+  const updateAccount = async () => {
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ data: { display_name: displayName, phone } });
+    setSaving(false);
+    if (!error) setIsAccountOpen(false);
+    // Optionally add toast here in future
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,8 +69,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              {/** Simple sign out button using Supabase **/}
-              <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>Sign out</Button>
+              <DropdownMenu open={isUserMenuOpen} onOpenChange={setIsUserMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <UserIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{(user?.user_metadata as any)?.display_name || user?.email || 'Account'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="max-w-[240px] truncate">{user?.email || 'Not signed in'}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { setIsUserMenuOpen(false); setIsAccountOpen(true); }}>Account settings</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => supabase.auth.signOut()} className="text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" /> Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -97,6 +139,37 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+      <Dialog open={isAccountOpen} onOpenChange={(open) => {
+        setIsAccountOpen(open);
+        if (!open) setIsUserMenuOpen(false);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Account settings</DialogTitle>
+            <DialogDescription>Update your display name and phone number.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <Input value={user?.email || ''} disabled />
+            </div>
+            <div className="space-y-1">
+              <Label>Display name</Label>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setIsAccountOpen(false)}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={updateAccount} disabled={saving || !user}>{saving ? 'Saving…' : 'Save changes'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
