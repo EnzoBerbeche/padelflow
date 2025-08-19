@@ -111,6 +111,9 @@ export default function SignUpPage() {
             {message && <p className="text-sm text-gray-600">{message}</p>}
           </div>
           <div className="h-px bg-gray-200" />
+          <div className="text-center text-base mt-2">
+            <a href="/" className="text-gray-700 hover:text-gray-900 font-medium">Back to home</a>
+          </div>
         </div>
       </div>
     </div>
