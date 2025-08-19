@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { storage, Tournament } from '@/lib/storage';
+import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
@@ -21,7 +21,7 @@ const DEMO_USER_ID = 'demo-user-123';
 export default function TournamentsPage() {
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournaments, setTournaments] = useState<AppTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
 
@@ -29,14 +29,14 @@ export default function TournamentsPage() {
     fetchTournaments();
   }, [currentUserId]);
 
-  const fetchTournaments = () => {
+  const fetchTournaments = async () => {
     try {
       if (!currentUserId) {
         setLoading(false);
         return;
       }
-      
-      const data = storage.tournaments.getCurrentUserTournaments(currentUserId);
+
+      const data = await tournamentsAPI.listMy();
       setTournaments(data);
     } catch (error) {
       console.error('Error fetching tournaments:', error);
@@ -45,22 +45,32 @@ export default function TournamentsPage() {
     }
   };
 
-  const duplicateTournament = (tournament: Tournament) => {
+  const duplicateTournament = async (tournament: AppTournament) => {
     try {
-      const newTournament = {
-        ...tournament,
-        id: `tournament_${Date.now()}`,
+      const createdTournament = await tournamentsAPI.create({
         name: `${tournament.name} (Copy)`,
-        public_id: `public_${Date.now()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      const createdTournament = storage.tournaments.create(newTournament);
-      
-      // Update state immediately to prevent UI issues
-      setTournaments(prev => [...prev, createdTournament]);
-      
+        location: tournament.location,
+        date: tournament.date,
+        organizer_id: currentUserId || '',
+        teams_locked: false,
+        level: tournament.level,
+        start_time: tournament.start_time,
+        number_of_courts: tournament.number_of_courts,
+        number_of_teams: tournament.number_of_teams,
+        conditions: tournament.conditions,
+        type: tournament.type,
+        format_id: tournament.format_id,
+        bracket: tournament.bracket,
+        format_json: tournament.format_json,
+        random_assignments: tournament.random_assignments,
+        registration_enabled: false,
+        registration_link_id: undefined,
+      });
+
+      if (createdTournament) {
+        setTournaments(prev => [createdTournament, ...prev]);
+      }
+
       toast({
         title: "Success",
         description: "Tournament duplicated successfully!",
@@ -75,26 +85,24 @@ export default function TournamentsPage() {
     }
   };
 
-  const deleteTournament = useCallback((tournamentId: string) => {
+  const deleteTournament = useCallback(async (tournamentId: string) => {
     if (deletingTournamentId) return; // Prevent multiple deletions
     
     setDeletingTournamentId(tournamentId);
     
     try {
-      const success = storage.tournaments.delete(tournamentId);
-      
-      if (success) {
+      const res = await tournamentsAPI.delete(tournamentId);
+      if (res.ok) {
         toast({
           title: "Success",
           description: "Tournament deleted successfully!",
         });
         
-        // Refresh the page after successful deletion
-        window.location.reload();
+        setTournaments(prev => prev.filter(t => t.id !== tournamentId));
       } else {
         toast({
           title: "Error",
-          description: "Tournament not found or could not be deleted",
+          description: res.error || "Tournament not found or could not be deleted",
           variant: "destructive",
         });
       }

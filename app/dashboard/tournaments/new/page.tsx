@@ -12,15 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, ArrowLeft, Clock, MapPin, Trophy, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { storage, Tournament } from '@/lib/storage';
+import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 
-// Demo user ID for testing (fallback)
-const DEMO_USER_ID = 'demo-user-123';
+// Supabase RLS enforces ownership; no demo owner fallback
 
 function TournamentForm() {
   const router = useRouter();
@@ -29,24 +28,11 @@ function TournamentForm() {
   const currentUserId = useCurrentUserId();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  const [editingTournament, setEditingTournament] = useState<AppTournament | null>(null);
   
-  // Debug current user and check available tournaments
+  // Debug current user only
   useEffect(() => {
     console.log('🔍 Current user ID changed:', currentUserId);
-    
-    // Check available tournaments for debugging
-    if (typeof window !== 'undefined') {
-      try {
-        const tournamentsData = localStorage.getItem('padelflow_tournaments');
-        if (tournamentsData) {
-          const tournaments = JSON.parse(tournamentsData);
-          console.log('🔍 Available tournaments:', tournaments);
-        }
-      } catch (error) {
-        console.error('🔍 Error reading tournaments:', error);
-      }
-    }
   }, [currentUserId]);
   const [formData, setFormData] = useState({
     name: '',
@@ -110,66 +96,32 @@ function TournamentForm() {
     if (editId && editId !== processedEditId.current) {
       console.log('🔍 Processing edit request...');
       processedEditId.current = editId;
-      
-      // Ensure storage is initialized
-      if (typeof window === 'undefined') {
-        console.log('🔍 Window not available, skipping edit processing');
-        return;
-      }
-      
-      const tournament = storage.tournaments.getById(editId);
-      console.log('🔍 Found tournament:', tournament);
-      
-      if (tournament) {
-        // Check if user can edit this tournament
-        // Allow editing if:
-        // 1. User is the organizer
-        // 2. Tournament belongs to demo user
-        // 3. User is the owner
-        // 4. No current user (fallback for demo)
-        const canEdit = tournament.organizer_id === currentUserId || 
-                       tournament.organizer_id === DEMO_USER_ID ||
-                       tournament.owner_id === currentUserId ||
-                       tournament.owner_id === DEMO_USER_ID ||
-                       !currentUserId; // Allow editing if no current user (fallback)
-        
-        console.log('🔍 Can edit:', canEdit);
-        console.log('🔍 tournament.organizer_id:', tournament.organizer_id);
-        console.log('🔍 DEMO_USER_ID:', DEMO_USER_ID);
-        
-        if (canEdit) {
-          console.log('🔍 Setting form data...');
-          setIsEditing(true);
-          setEditingTournament(tournament);
-          
-          setFormData({
-            name: tournament.name,
-            location: tournament.location,
-            date: new Date(tournament.date),
-            level: tournament.level,
-            start_time: tournament.start_time,
-            number_of_courts: tournament.number_of_courts.toString(),
-            number_of_teams: tournament.number_of_teams.toString(),
-            conditions: tournament.conditions,
-            type: tournament.type,
-          });
-          console.log('🔍 Form data set:', {
-            name: tournament.name,
-            location: tournament.location,
-            date: tournament.date,
-            level: tournament.level,
-            start_time: tournament.start_time,
-            number_of_courts: tournament.number_of_courts.toString(),
-            number_of_teams: tournament.number_of_teams.toString(),
-            conditions: tournament.conditions,
-            type: tournament.type,
-          });
+      (async () => {
+        const tournament = await tournamentsAPI.getById(editId);
+        console.log('🔍 Found tournament:', tournament);
+        if (tournament) {
+          const canEdit = tournament.owner_id === currentUserId;
+          console.log('🔍 Can edit:', canEdit);
+          if (canEdit) {
+            console.log('🔍 Setting form data...');
+            setIsEditing(true);
+            setEditingTournament(tournament);
+            setFormData({
+              name: tournament.name,
+              location: tournament.location,
+              date: new Date(tournament.date),
+              level: tournament.level,
+              start_time: tournament.start_time,
+              number_of_courts: tournament.number_of_courts.toString(),
+              number_of_teams: tournament.number_of_teams.toString(),
+              conditions: tournament.conditions,
+              type: tournament.type,
+            });
+          }
         } else {
-          console.log('🔍 User cannot edit this tournament');
+          console.log('🔍 Tournament not found');
         }
-      } else {
-        console.log('🔍 Tournament not found');
-      }
+      })();
     } else {
       console.log('🔍 Not processing edit - conditions not met');
     }
@@ -190,8 +142,8 @@ function TournamentForm() {
     setLoading(true);
     try {
       if (isEditing && editingTournament) {
-        // Update existing tournament
-        storage.tournaments.update(editingTournament.id, {
+        // Update existing tournament in Supabase
+        await tournamentsAPI.update(editingTournament.id, {
           name: formData.name,
           location: formData.location,
           date: formData.date.toISOString().split('T')[0],
@@ -210,13 +162,12 @@ function TournamentForm() {
 
         router.push(`/dashboard/tournaments/${editingTournament.id}`);
       } else {
-        // Create new tournament
-        const tournament = storage.tournaments.create({
+        // Create new tournament in Supabase
+        const tournament = await tournamentsAPI.create({
           name: formData.name,
           location: formData.location,
           date: formData.date.toISOString().split('T')[0],
-          organizer_id: currentUserId || DEMO_USER_ID,
-          owner_id: currentUserId || DEMO_USER_ID, // Link to current user
+          organizer_id: currentUserId || '',
           teams_locked: false,
           level: formData.level,
           start_time: formData.start_time,
@@ -224,7 +175,7 @@ function TournamentForm() {
           number_of_teams: parseInt(formData.number_of_teams),
           conditions: formData.conditions,
           type: formData.type,
-          registration_enabled: false, // Default to disabled
+          registration_enabled: false,
         });
 
         toast({
@@ -232,7 +183,9 @@ function TournamentForm() {
           description: "Tournament created successfully!",
         });
 
-        router.push(`/dashboard/tournaments/${tournament.id}`);
+        if (tournament) {
+          router.push(`/dashboard/tournaments/${tournament.id}`);
+        }
       }
     } catch (error) {
       console.error('Error saving tournament:', error);

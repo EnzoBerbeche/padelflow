@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { storage, Player, Team, TeamWithPlayers, Tournament } from '@/lib/storage';
+import { storage, Player, Team, TeamWithPlayers } from '@/lib/storage';
+import { tournamentsAPI } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,8 +18,16 @@ import { useCurrentUserId } from '@/hooks/use-current-user';
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
 
+interface UITournament {
+  id: string;
+  teams_locked: boolean;
+  number_of_teams: number;
+  format_id?: string;
+  type: 'All' | 'Men' | 'Women' | 'Mixed';
+}
+
 interface TournamentTeamsProps {
-  tournament: Tournament;
+  tournament: UITournament;
   teams: TeamWithPlayers[];
   onTeamsUpdate: () => void;
 }
@@ -147,7 +156,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     }
   };
 
-  const toggleTeamsLock = () => {
+  const toggleTeamsLock = async () => {
     if (!tournament.teams_locked && teams.length === 0) {
       toast({
         title: "Error",
@@ -167,7 +176,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
         }
       } else {
         // When unlocking teams, reset format and delete matches
-        storage.tournaments.update(tournament.id, { format_id: undefined });
+        await tournamentsAPI.update(tournament.id, { format_id: undefined });
         storage.matches.deleteByTournament(tournament.id);
         
         // Reset seed numbers
@@ -176,7 +185,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
         }
       }
 
-      storage.tournaments.update(tournament.id, { 
+      await tournamentsAPI.update(tournament.id, { 
         teams_locked: !tournament.teams_locked 
       });
 

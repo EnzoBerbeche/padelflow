@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { storage, Tournament, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
+import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
+import { storage, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Calendar, MapPin, Users, Clock, Share2, Target, Crown, Settings } from 'lucide-react';
@@ -10,8 +11,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Bracket } from 'react-tournament-bracket';
 
-// Demo user ID for testing
-const DEMO_USER_ID = 'demo-user-123';
+// Public view (policies for public viewing can be added later)
 
 interface PublicTournamentPageProps {
   params: Promise<{ publicId: string }>;
@@ -19,7 +19,7 @@ interface PublicTournamentPageProps {
 
 export default function PublicTournamentPage({ params }: PublicTournamentPageProps) {
   const router = useRouter();
-  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [tournament, setTournament] = useState<AppTournament | null>(null);
   const [teams, setTeams] = useState<TeamWithPlayers[]>([]);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,9 +32,10 @@ export default function PublicTournamentPage({ params }: PublicTournamentPagePro
     fetchTournamentData();
   }, [publicId]);
 
-  const fetchTournamentData = () => {
+  const fetchTournamentData = async () => {
     try {
-      const tournamentData = storage.tournaments.getByPublicId(publicId);
+      // For now, fetch by publicId via Supabase (will work for owner until public policy is added)
+      const tournamentData = await tournamentsAPI.getByPublicId(publicId);
       if (!tournamentData) {
         throw new Error('Tournament not found');
       }
@@ -42,7 +43,7 @@ export default function PublicTournamentPage({ params }: PublicTournamentPagePro
       setTournament(tournamentData);
       
       // Check if current user is the organizer
-      setIsOrganizer(tournamentData.organizer_id === DEMO_USER_ID);
+      setIsOrganizer(false);
       
       const teamsData = storage.getTeamsWithPlayers(tournamentData.id);
       setTeams(teamsData);

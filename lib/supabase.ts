@@ -480,3 +480,211 @@ function mapRankingRowToNationalPlayer(row: {
     last_updated: lastUpdated,
   };
 }
+
+// Tournaments API
+export interface SupabaseTournamentRow {
+  id: string;
+  owner_id: string;
+  name: string;
+  date: string; // ISO date (yyyy-mm-dd)
+  location: string;
+  organizer_id: string | null;
+  public_id: string;
+  teams_locked: boolean;
+  format_id: string | null;
+  level: 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000';
+  start_time: string; // HH:MM:SS or HH:MM
+  number_of_courts: number;
+  number_of_teams: number;
+  conditions: 'inside' | 'outside' | 'both';
+  type: 'All' | 'Men' | 'Women' | 'Mixed';
+  bracket: any | null;
+  format_json: any | null;
+  random_assignments: Record<string, any> | null;
+  registration_enabled: boolean;
+  registration_link_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Return shape compatible with the app's existing Tournament interface used in pages
+export type AppTournament = {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  organizer_id: string;
+  owner_id?: string;
+  public_id: string;
+  teams_locked: boolean;
+  format_id?: string;
+  level: 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000';
+  start_time: string;
+  number_of_courts: number;
+  number_of_teams: number;
+  conditions: 'inside' | 'outside' | 'both';
+  type: 'All' | 'Men' | 'Women' | 'Mixed';
+  bracket?: any;
+  created_at: string;
+  updated_at: string;
+  format_json?: any;
+  random_assignments?: Record<string, any>;
+  registration_enabled: boolean;
+  registration_link_id?: string;
+};
+
+function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
+  return {
+    id: row.id,
+    name: row.name,
+    date: row.date,
+    location: row.location,
+    organizer_id: row.organizer_id || '',
+    owner_id: row.owner_id,
+    public_id: row.public_id,
+    teams_locked: row.teams_locked,
+    format_id: row.format_id || undefined,
+    level: row.level,
+    start_time: (row.start_time || '').slice(0, 5),
+    number_of_courts: row.number_of_courts,
+    number_of_teams: row.number_of_teams,
+    conditions: row.conditions,
+    type: row.type,
+    bracket: row.bracket ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    format_json: row.format_json ?? undefined,
+    random_assignments: row.random_assignments ?? undefined,
+    registration_enabled: row.registration_enabled,
+    registration_link_id: row.registration_link_id ?? undefined,
+  };
+}
+
+export const tournamentsAPI = {
+  // List current user's tournaments
+  listMy: async (): Promise<AppTournament[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching tournaments:', error);
+      return [];
+    }
+    return ((data as unknown as SupabaseTournamentRow[]) || []).map(mapTournamentRow);
+  },
+
+  // Get by id (owner-only via RLS)
+  getById: async (id: string): Promise<AppTournament | null> => {
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching tournament by id:', error);
+      return null;
+    }
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
+  // Get by public_id (requires future public policy; will work only for owner until then)
+  getByPublicId: async (publicId: string): Promise<AppTournament | null> => {
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('public_id', publicId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching tournament by public_id:', error);
+      return null;
+    }
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
+  // Create a tournament (owner enforced by RLS/default)
+  create: async (input: Omit<AppTournament, 'id' | 'public_id' | 'created_at' | 'updated_at'>): Promise<AppTournament | null> => {
+    const payload: Partial<SupabaseTournamentRow> = {
+      name: input.name,
+      date: input.date,
+      location: input.location,
+      organizer_id: input.organizer_id || null,
+      teams_locked: input.teams_locked,
+      format_id: input.format_id ?? null,
+      level: input.level,
+      start_time: input.start_time,
+      number_of_courts: input.number_of_courts,
+      number_of_teams: input.number_of_teams,
+      conditions: input.conditions,
+      type: input.type,
+      bracket: input.bracket ?? null,
+      format_json: input.format_json ?? null,
+      random_assignments: input.random_assignments ?? null,
+      registration_enabled: input.registration_enabled,
+      registration_link_id: input.registration_link_id ?? null,
+    } as Partial<SupabaseTournamentRow>;
+
+    const { data, error } = await supabase
+      .from('tournaments')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating tournament:', error);
+      return null;
+    }
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
+  // Update tournament (RLS owner-only)
+  update: async (id: string, patch: Partial<AppTournament>): Promise<AppTournament | null> => {
+    const payload: Partial<SupabaseTournamentRow> = {
+      name: patch.name,
+      date: patch.date,
+      location: patch.location,
+      organizer_id: patch.organizer_id ?? undefined,
+      teams_locked: patch.teams_locked,
+      format_id: patch.format_id ?? undefined,
+      level: patch.level,
+      start_time: patch.start_time,
+      number_of_courts: patch.number_of_courts,
+      number_of_teams: patch.number_of_teams,
+      conditions: patch.conditions,
+      type: patch.type,
+      bracket: patch.bracket,
+      format_json: patch.format_json,
+      random_assignments: patch.random_assignments,
+      registration_enabled: patch.registration_enabled,
+      registration_link_id: patch.registration_link_id,
+    } as Partial<SupabaseTournamentRow>;
+
+    const { data, error } = await supabase
+      .from('tournaments')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating tournament:', error);
+      return null;
+    }
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
+  // Delete tournament (RLS owner-only)
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase.from('tournaments').delete().eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+};

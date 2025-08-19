@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { storage, Tournament, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
+import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
+import { storage, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +19,7 @@ import { TournamentFormats } from '@/components/tournament-formats';
 import { TournamentMatches } from '@/components/tournament-matches';
 import { ProtectedRoute } from '@/components/protected-route';
 
-// Demo user ID for testing
-const DEMO_USER_ID = 'demo-user-123';
+// Owner-only access via Supabase RLS
 
 interface TournamentPageProps {
   params: Promise<{ id: string }>;
@@ -58,7 +58,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   const router = useRouter();
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
-  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [tournament, setTournament] = useState<AppTournament | null>(null);
   const [teams, setTeams] = useState<TeamWithPlayers[]>([]);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,22 +75,14 @@ export default function TournamentPage({ params }: TournamentPageProps) {
     }
   }, [id, currentUserId]);
 
-  const fetchTournament = () => {
+  const fetchTournament = async () => {
     try {
-      const tournamentData = storage.tournaments.getById(id);
+      const tournamentData = await tournamentsAPI.getById(id);
       if (!tournamentData) {
         throw new Error('Tournament not found');
       }
       
-      // Check if user can access this tournament
-      const canAccess = 
-        tournamentData.owner_id === currentUserId || // User owns the tournament
-        !tournamentData.owner_id || // Legacy tournament (no owner_id)
-        tournamentData.organizer_id === DEMO_USER_ID; // Demo tournament
-      
-      if (!canAccess) {
-        throw new Error('Tournament not found');
-      }
+      // RLS ensures only owner can read
       
       setTournament(tournamentData);
       
@@ -153,7 +145,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       setRegistrationLink(link.link_id);
       
       // Update tournament to enable registration
-      storage.tournaments.update(tournament.id, {
+      tournamentsAPI.update(tournament.id, {
         registration_enabled: true,
         registration_link_id: link.link_id,
       });
@@ -186,7 +178,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       setRegistrationLink(null);
       
       // Update tournament to disable registration
-      storage.tournaments.update(tournament.id, {
+      tournamentsAPI.update(tournament.id, {
         registration_enabled: false,
         registration_link_id: undefined,
       });
