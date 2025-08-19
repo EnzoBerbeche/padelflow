@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { storage, Player, Team, TeamWithPlayers } from '@/lib/storage';
-import { tournamentsAPI } from '@/lib/supabase';
+import { storage, Player, TeamWithPlayers } from '@/lib/storage';
+import { tournamentTeamsAPI, playersAPI, tournamentsAPI } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,17 +47,50 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     fetchPlayers();
   }, [currentUserId]);
 
-  const fetchPlayers = () => {
+  const fetchPlayers = async () => {
     try {
-      const userId = currentUserId || DEMO_USER_ID;
-      const data = storage.players.getCurrentUserPlayers(userId);
-      setPlayers(data);
+      // Pull the user's players from Supabase (enriched view) and map to UI Player shape
+      const enriched = await playersAPI.getMyPlayersEnriched();
+      const mapped: Player[] = (enriched || []).map((r) => {
+        const fullName = (r.nom || '').trim();
+        let firstName = '';
+        let lastName = '';
+        if (fullName) {
+          const parts = fullName.split(/\s+/);
+          if (parts.length === 1) {
+            lastName = parts[0];
+          } else {
+            lastName = parts.pop() as string;
+            firstName = parts.join(' ');
+          }
+        }
+
+        return {
+          id: r.player_id,
+          license_number: r.licence,
+          first_name: firstName,
+          last_name: lastName,
+          ranking: r.rang ?? 9999,
+          email: undefined,
+          phone: undefined,
+          club: r.club || '',
+          year_of_birth: r.annee_naissance || 0,
+          date_of_birth: '',
+          gender: r.genre === 'Homme' ? 'Mr' : 'Mme',
+          organizer_id: '',
+          owner_id: undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as Player;
+      });
+      setPlayers(mapped);
     } catch (error) {
-      console.error('Error fetching players:', error);
+      console.error('Error fetching players from Supabase:', error);
+      setPlayers([]);
     }
   };
 
-  const addSelectedTeam = () => {
+  const addSelectedTeam = async () => {
     if (selectedPlayers.length !== 2) {
       toast({
         title: "Error",
@@ -102,23 +135,14 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
 
     setLoading(true);
     try {
-      const weight = player1.ranking + player2.ranking;
-      const teamName = `${player1.last_name} - ${player2.last_name}`;
+      const newTeam = await tournamentTeamsAPI.createWithTwoPlayersFromLocal(
+        tournament.id,
+        player1,
+        player2
+      );
+      if (!newTeam) throw new Error('Team creation failed');
 
-      // Create team
-      const team = storage.teams.create({
-        name: teamName,
-        weight,
-      });
-
-      // Link team to tournament
-      storage.tournamentTeams.create(tournament.id, team.id);
-
-      // Link players to team
-      storage.teamPlayers.create(team.id, player1.id);
-      storage.teamPlayers.create(team.id, player2.id);
-
-      // Clear selection and continue
+      // Clear selection and refresh
       setSelectedPlayers([]);
       onTeamsUpdate();
 
@@ -138,9 +162,10 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     }
   };
 
-  const removeTeam = (teamId: string) => {
+  const removeTeam = async (teamId: string) => {
     try {
-      storage.teams.delete(teamId);
+      const res = await tournamentTeamsAPI.deleteTeam(teamId);
+      if (!res.ok) throw new Error(res.error || 'Delete failed');
       onTeamsUpdate();
       toast({
         title: "Success",
@@ -167,34 +192,32 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     }
 
     try {
+      const nextLocked = !tournament.teams_locked;
+
       // Update seed numbers based on weight when locking
-      if (!tournament.teams_locked) {
+      if (nextLocked) {
         const sortedTeams = [...teams].sort((a, b) => a.weight - b.weight);
-        
         for (let i = 0; i < sortedTeams.length; i++) {
-          storage.teams.update(sortedTeams[i].id, { seed_number: i + 1 });
+          await tournamentTeamsAPI.updateTeam(sortedTeams[i].id, { seed_number: i + 1 });
         }
       } else {
-        // When unlocking teams, reset format and delete matches
-        await tournamentsAPI.update(tournament.id, { format_id: undefined });
+        // When unlocking teams, reset format and delete matches locally
         storage.matches.deleteByTournament(tournament.id);
-        
         // Reset seed numbers
         for (const team of teams) {
-          storage.teams.update(team.id, { seed_number: undefined });
+          await tournamentTeamsAPI.updateTeam(team.id, { seed_number: null });
         }
       }
 
-      await tournamentsAPI.update(tournament.id, { 
-        teams_locked: !tournament.teams_locked 
-      });
+      // Persist teams_locked on tournament
+      await tournamentsAPI.update(tournament.id, { teams_locked: nextLocked });
 
       onTeamsUpdate();
       toast({
         title: "Success",
-        description: tournament.teams_locked 
-          ? "Teams unlocked! Format and matches have been reset." 
-          : "Teams locked successfully!",
+        description: nextLocked
+          ? "Teams locked!"
+          : "Teams unlocked! Format and matches have been reset.",
       });
     } catch (error) {
       console.error('Error toggling teams lock:', error);
@@ -207,10 +230,13 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
   };
 
   const getAvailablePlayers = () => {
-    const existingPlayerIds = teams.flatMap(team => team.players.map(p => p.id));
-    
-    // Filter players based on tournament type
-    let filteredPlayers = players.filter(player => !existingPlayerIds.includes(player.id));
+    // Do not allow selecting a player already assigned to any team in this tournament
+    const assignedLicences = new Set<string>(
+      teams.flatMap(team => team.players.map(p => p.license_number))
+    );
+
+    // Filter players based on tournament type and remove already assigned ones
+    let filteredPlayers = players.filter(player => !assignedLicences.has(player.license_number));
     
     // Apply gender filter based on tournament type
     switch (tournament.type) {
@@ -358,11 +384,6 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
               {showPlayerSelection ? "Close Selection" : "Add Teams"}
             </Button>
           )}
-          {teams.length >= tournament.number_of_teams && !tournament.teams_locked && (
-            <div className="text-sm text-orange-600 font-medium">
-              Team limit reached ({tournament.number_of_teams} teams)
-            </div>
-          )}
           <Button 
             variant={tournament.teams_locked ? "destructive" : "default"}
             onClick={toggleTeamsLock}
@@ -390,17 +411,14 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
             <CardDescription>
               Search and select exactly 2 players to create a team. You can add multiple teams without leaving this page.
             </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Team Limit Warning */}
             {teams.length >= tournament.number_of_teams && (
-              <div className="mb-4 p-3 bg-orange-100 border border-orange-300 rounded-lg">
-                <div className="flex items-center space-x-2 text-orange-800">
-                  <span className="text-sm font-medium">⚠️ Team limit reached</span>
-                  <span className="text-sm">You cannot add more teams. Tournament limit is {tournament.number_of_teams} teams.</span>
-                </div>
+              <div className="mt-2 px-3 py-2 rounded-md bg-orange-100 border border-orange-300 text-orange-800 text-sm w-fit">
+                Team limit reached ({tournament.number_of_teams} teams)
               </div>
             )}
+          </CardHeader>
+          <CardContent>
+            {/* Team Limit Warning inside card header now; keep spacing here */}
             {/* Search Bar */}
             <div className="mb-4">
               <div className="relative">

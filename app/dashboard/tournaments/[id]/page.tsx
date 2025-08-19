@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
+import { tournamentsAPI, tournamentTeamsAPI, type AppTournament } from '@/lib/supabase';
 import { storage, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
@@ -86,8 +86,35 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       
       setTournament(tournamentData);
       
-      const teamsData = storage.getTeamsWithPlayers(id);
-      setTeams(teamsData);
+      // Load teams with players from Supabase and map to UI shape
+      const supaTeams = await tournamentTeamsAPI.listWithPlayers(id);
+      const mappedTeams: TeamWithPlayers[] = supaTeams.map(t => ({
+        id: t.id,
+        name: t.name,
+        weight: t.weight,
+        seed_number: t.seed_number,
+        is_wo: t.is_wo,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        players: t.players.map(p => ({
+          id: p.id,
+          license_number: p.license_number,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          ranking: p.ranking,
+          email: undefined,
+          phone: undefined,
+          club: p.club,
+          year_of_birth: p.year_of_birth ?? 0,
+          date_of_birth: '',
+          gender: p.gender as any,
+          organizer_id: tournamentData.owner_id || '',
+          owner_id: tournamentData.owner_id,
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        })),
+      }));
+      setTeams(mappedTeams);
 
       const matchesData = storage.getMatchesWithTeams(id);
       setMatches(matchesData);

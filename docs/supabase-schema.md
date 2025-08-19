@@ -198,6 +198,103 @@ left join public.rankings_latest rl on rl.licence = p.licence;
 
 ---
 
+### public.tournaments
+- Purpose: owner-scoped tournaments. Only the creating user can read/update/delete.
+- RLS: enabled (owner-only policies via `owner_id = auth.uid()`).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - UNIQUE (public_id)
+- Columns (name, type, nullability, default):
+  - id uuid not null default gen_random_uuid()
+  - owner_id uuid not null default auth.uid() references `auth.users(id)` on delete cascade
+  - name text not null
+  - date date not null
+  - location text not null
+  - organizer_id text null
+  - public_id text not null unique
+  - teams_locked boolean not null default false
+  - format_id text null
+  - level enum('P25','P100','P250','P500','P1000','P1500','P2000') not null
+  - start_time time not null
+  - number_of_courts integer not null check (number_of_courts >= 1)
+  - number_of_teams integer not null check (number_of_teams >= 1)
+  - conditions enum('inside','outside','both') not null
+  - type enum('All','Men','Women','Mixed') not null
+  - bracket jsonb null
+  - format_json jsonb null
+  - random_assignments jsonb null
+  - registration_enabled boolean not null default false
+  - registration_link_id text null
+  - created_at timestamptz not null default now()
+  - updated_at timestamptz not null default now()
+
+- RLS policies (all restricted to `auth.uid()`):
+  - Select/Insert/Update/Delete restricted to rows where `owner_id = auth.uid()`
+
+---
+
+### public.tournament_players
+- Purpose: snapshot of players per tournament. This decouples tournament rosters from global player changes.
+- RLS: enabled (owner-only via `owner_id`).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - UNIQUE (tournament_id, license_number)
+- Columns:
+  - id uuid not null default gen_random_uuid()
+  - tournament_id uuid not null references `public.tournaments(id)` on delete cascade
+  - owner_id uuid not null default auth.uid() references `auth.users(id)` on delete cascade
+  - license_number text not null
+  - first_name text not null
+  - last_name text not null
+  - ranking integer not null
+  - club text null
+  - gender text not null -- 'Mr' | 'Mme'
+  - birth_year integer null
+  - created_at timestamptz not null default now()
+  - updated_at timestamptz not null default now()
+
+- RLS policies (owner-only): Select/Insert/Update/Delete where `owner_id = auth.uid()`
+
+---
+
+### public.tournament_teams
+- Purpose: teams scoped to a tournament (no global teams). Each team is linked to players via `team_players`.
+- RLS: enabled (owner-only via `owner_id`).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+- Columns:
+  - id uuid not null default gen_random_uuid()
+  - tournament_id uuid not null references `public.tournaments(id)` on delete cascade
+  - owner_id uuid not null default auth.uid() references `auth.users(id)` on delete cascade
+  - name text not null
+  - weight integer not null
+  - seed_number integer null
+  - is_wo boolean not null default false
+  - created_at timestamptz not null default now()
+  - updated_at timestamptz not null default now()
+
+- RLS policies (owner-only): Select/Insert/Update/Delete where `owner_id = auth.uid()`
+
+---
+
+### public.team_players
+- Purpose: join table linking each team to two `tournament_players` (enforces composition, not identity).
+- RLS: enabled; access is allowed if the team belongs to the current user.
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - UNIQUE (team_id, player_id)
+- Columns:
+  - id uuid not null default gen_random_uuid()
+  - team_id uuid not null references `public.tournament_teams(id)` on delete cascade
+  - player_id uuid not null references `public.tournament_players(id)` on delete cascade
+  - created_at timestamptz not null default now()
+
+- RLS policies:
+  - Select/Delete allowed if the associated team has `owner_id = auth.uid()`
+  - Insert allowed only if team and player belong to same tournament and both have `owner_id = auth.uid()`
+
+---
+
 ### Notes
 - `auth.users` is system-managed. Use Supabase Auth APIs for mutations; do not write tokens/confirmation columns directly.
 - No `public.profiles` table exists; any code referencing it should be treated as unused until created.
