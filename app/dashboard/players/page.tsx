@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { storage, Player } from '@/lib/storage';
+import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Users, Plus, Edit, Trash2, MoreVertical, Search, Circle, CircleDot, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
-import { useCurrentUserId } from '@/hooks/use-current-user';
+import { useCurrentUserId, useSupabaseAuth } from '@/hooks/use-current-user';
 
 // Demo user ID for testing
 const DEMO_USER_ID = 'demo-user-123';
@@ -22,7 +24,9 @@ const DEMO_USER_ID = 'demo-user-123';
 export default function PlayersPage() {
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
+  const { isSignedIn } = useSupabaseAuth();
   const [players, setPlayers] = useState<Player[]>([]);
+  const [cloudPlayers, setCloudPlayers] = useState<SupabasePlayersEnrichedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -48,11 +52,15 @@ export default function PlayersPage() {
     fetchPlayers();
   }, [currentUserId]);
 
-  const fetchPlayers = () => {
+  const fetchPlayers = async () => {
     try {
       const userId = currentUserId || DEMO_USER_ID;
       const data = storage.players.getCurrentUserPlayers(userId);
       setPlayers(data);
+
+      // Also fetch Supabase players enriched (if signed in)
+      const enriched = await playersAPI.getMyPlayersEnriched();
+      setCloudPlayers(enriched);
     } catch (error) {
       console.error('Error fetching players:', error);
     } finally {
@@ -77,13 +85,39 @@ export default function PlayersPage() {
     setLicenseError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
+      // When signed in, add to Supabase by licence only
+      if (isSignedIn && !editingPlayer) {
+        const licence = (formData.license_number || '').trim();
+        if (!licence) {
+          setLicenseError('License number is required');
+          return;
+        }
+
+        const result = await playersAPI.addLicenceForCurrentUser(licence);
+        if (!result.ok) {
+          setLicenseError(result.error || 'Failed to add player');
+          toast({
+            title: 'Error',
+            description: result.error || 'Failed to add player',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        toast({ title: 'Success', description: 'Player added to your cloud list.' });
+        await fetchPlayers();
+        setIsDialogOpen(false);
+        resetForm();
+        return;
+      }
+
       const userId = currentUserId || DEMO_USER_ID;
       if (editingPlayer) {
-        // Update existing player
+        // Update existing player (local storage)
         storage.players.update(editingPlayer.id, {
           ...formData,
           ranking: parseInt(formData.ranking) || 0,
@@ -91,24 +125,24 @@ export default function PlayersPage() {
           organizer_id: userId,
         });
         toast({
-          title: "Success",
-          description: "Player updated successfully!",
+          title: 'Success',
+          description: 'Player updated successfully!',
         });
         fetchPlayers();
         setIsDialogOpen(false);
         resetForm();
       } else {
-        // Create new player
+        // Create new local player (when not signed in)
         storage.players.create({
           ...formData,
           ranking: parseInt(formData.ranking) || 0,
           year_of_birth: parseInt(formData.year_of_birth) || new Date().getFullYear() - 25,
           organizer_id: userId,
-          owner_id: userId, // Set owner_id for new players
+          owner_id: userId,
         });
         toast({
-          title: "Success",
-          description: "Player created successfully!",
+          title: 'Success',
+          description: 'Player created successfully!',
         });
         fetchPlayers();
         setIsDialogOpen(false);
@@ -194,6 +228,21 @@ export default function PlayersPage() {
     }
   };
 
+  const handleCloudDelete = async (playerId: string) => {
+    try {
+      const res = await playersAPI.deleteById(playerId);
+      if (!res.ok) {
+        toast({ title: 'Error', description: res.error || 'Failed to delete player', variant: 'destructive' });
+        return;
+      }
+      await fetchPlayers();
+      toast({ title: 'Success', description: 'Player removed from your list.' });
+    } catch (error) {
+      console.error('Error deleting cloud player:', error);
+      toast({ title: 'Error', description: 'Failed to delete player', variant: 'destructive' });
+    }
+  };
+
   const getRankingColor = (ranking: number) => {
     const validRanking = ranking || 0;
     if (validRanking <= 25) return 'bg-green-100 text-green-800';
@@ -253,29 +302,37 @@ export default function PlayersPage() {
               <h1 className="text-3xl font-bold text-gray-900">Players</h1>
               <p className="text-gray-600 mt-1">Manage your padel players</p>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center space-x-2" onClick={resetForm}>
+            {isSignedIn ? (
+              <Link href="/dashboard/ten-up">
+                <Button className="flex items-center space-x-2">
                   <Plus className="h-4 w-4" />
-                  <span>New Player</span>
+                  <span>Add from Ten'Up</span>
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>{editingPlayer ? 'Edit Player' : 'New Player'}</DialogTitle>
-                  <DialogDescription>
-                    {editingPlayer ? 'Update player information.' : 'Add a new player to your roster.'}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
+              </Link>
+            ) : (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center space-x-2" onClick={resetForm}>
+                    <Plus className="h-4 w-4" />
+                    <span>New Player</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{editingPlayer ? 'Edit Player' : 'New Player'}</DialogTitle>
+                    <DialogDescription>
+                      {editingPlayer ? 'Update player information.' : 'Add a new player to your roster.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="gender">Gender *</Label>
+                    <Label htmlFor="gender">Gender {isSignedIn ? '' : '*'}</Label>
                     <select
                       id="gender"
                       value={formData.gender}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Mr' | 'Mme' })}
                       className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full"
-                      required
+                      required={!isSignedIn}
                     >
                       <option value="Mr">Mr</option>
                       <option value="Mme">Mme</option>
@@ -283,21 +340,21 @@ export default function PlayersPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="first_name">First Name *</Label>
+                      <Label htmlFor="first_name">First Name {isSignedIn ? '' : '*'}</Label>
                       <Input
                         id="first_name"
                         value={formData.first_name}
                         onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        required
+                        required={!isSignedIn}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="last_name">Last Name *</Label>
+                      <Label htmlFor="last_name">Last Name {isSignedIn ? '' : '*'}</Label>
                       <Input
                         id="last_name"
                         value={formData.last_name}
                         onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        required
+                        required={!isSignedIn}
                       />
                     </div>
                   </div>
@@ -318,26 +375,26 @@ export default function PlayersPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ranking">Ranking *</Label>
+                    <Label htmlFor="ranking">Ranking {isSignedIn ? '' : '*'}</Label>
                     <Input
                       id="ranking"
                       type="number"
                       value={formData.ranking}
                       onChange={(e) => setFormData({ ...formData, ranking: e.target.value })}
-                      required
+                      required={!isSignedIn}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="club">Club *</Label>
+                    <Label htmlFor="club">Club {isSignedIn ? '' : '*'}</Label>
                     <Input
                       id="club"
                       value={formData.club}
                       onChange={(e) => setFormData({ ...formData, club: e.target.value })}
-                      required
+                      required={!isSignedIn}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="year_of_birth">Year of Birth *</Label>
+                    <Label htmlFor="year_of_birth">Year of Birth {isSignedIn ? '' : '*'}</Label>
                     <Input
                       id="year_of_birth"
                       type="number"
@@ -345,7 +402,7 @@ export default function PlayersPage() {
                       max={new Date().getFullYear() - 1}
                       value={formData.year_of_birth}
                       onChange={(e) => setFormData({ ...formData, year_of_birth: e.target.value })}
-                      required
+                      required={!isSignedIn}
                     />
                   </div>
                   <div className="space-y-2">
@@ -366,20 +423,97 @@ export default function PlayersPage() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">
-                      {editingPlayer ? 'Update' : 'Create'} Player
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+                    <div className="flex justify-end space-x-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        {editingPlayer ? 'Update' : 'Create'} Player
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
 
-          {/* Local Players Section */}
+          {/* Cloud Players (Supabase) Section */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>My Players (Supabase)</CardTitle>
+                    <CardDescription>Players linked by licence and enriched from latest rankings</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {cloudPlayers.length === 0 ? (
+                  <div className="text-gray-500">No players yet in the cloud list.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Licence</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Ranking</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Club</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">League</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Birth Year</th>
+                          <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cloudPlayers.map((p) => (
+                          <tr key={p.player_id} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4 text-gray-900">{p.nom || '-'}</td>
+                            <td className="py-3 px-4 text-gray-600">{p.licence}</td>
+                            <td className="py-3 px-4">
+                              <Badge className={getRankingColor(p.rang || 0)}>P{p.rang || 0}</Badge>
+                            </td>
+                            <td className="py-3 px-4 text-gray-600">{p.club || '-'}</td>
+                            <td className="py-3 px-4 text-gray-600">{p.ligue || '-'}</td>
+                            <td className="py-3 px-4 text-gray-600">{p.annee_naissance || '-'}</td>
+                            <td className="py-3 px-4 text-right">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 px-2 text-red-600 hover:text-red-700">
+                                    <Trash2 className="h-4 w-4 mr-1" /> Remove
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove Player</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove this player from your list?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleCloudDelete(p.player_id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Remove
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Local Players Section (shown only when not signed in) */}
+          {!isSignedIn && (
           <div className="space-y-6">
             {/* Search */}
             <Card>
@@ -630,6 +764,7 @@ export default function PlayersPage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
       </DashboardLayout>
     </ProtectedRoute>

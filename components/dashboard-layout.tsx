@@ -81,7 +81,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => { setIsUserMenuOpen(false); setIsAccountOpen(true); }}>Account settings</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => supabase.auth.signOut()} className="text-red-600">
+                  <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" /> Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
