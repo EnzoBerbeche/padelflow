@@ -8,6 +8,12 @@
   - `public.players` (user-owned licences; RLS enabled)
   - `public.rankings_latest` (view: latest ranking per licence)
   - `public.players_enriched` (view: `players` joined to `rankings_latest`)
+- Tournament system:
+  - `public.tournaments` (tournament metadata; RLS enabled)
+  - `public.tournament_players` (player snapshots per tournament; RLS enabled)
+  - `public.tournament_teams` (teams per tournament; RLS enabled)
+  - `public.team_players` (team composition; RLS enabled)
+  - `public.tournament_matches` (match data and results; RLS enabled)
 
 ---
 
@@ -292,6 +298,52 @@ left join public.rankings_latest rl on rl.licence = p.licence;
 - RLS policies:
   - Select/Delete allowed if the associated team has `owner_id = auth.uid()`
   - Insert allowed only if team and player belong to same tournament and both have `owner_id = auth.uid()`
+
+---
+
+### public.tournament_matches
+- Purpose: stores all match data for tournaments including brackets, scores, winners, and team assignments.
+- RLS: enabled (owner-only via `owner_id`).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - UNIQUE (tournament_id, json_match_id)
+- Columns:
+  - id uuid not null default gen_random_uuid()
+  - tournament_id uuid not null references `public.tournaments(id)` on delete cascade
+  - owner_id uuid not null default auth.uid() references `auth.users(id)` on delete cascade
+  - json_match_id integer not null -- corresponds to match ID in format template
+  - round text not null -- e.g., "1/4 de finale", "1/2 finale", "Finale"
+  - team_1_id uuid null references `public.tournament_teams(id)` -- resolved team ID
+  - team_2_id uuid null references `public.tournament_teams(id)` -- resolved team ID
+  - winner_team_id uuid null references `public.tournament_teams(id)` -- winner after match completion
+  - score text null -- e.g., "21-19"
+  - order_index integer not null -- display order in bracket
+  - terrain_number integer null -- court assignment
+  - match_type text not null -- 'main' | 'classification'
+  - bracket_type text not null -- 'main' | 'ranking'
+  - rotation_group text null -- e.g., "Rotation 1", "Rotation 2"
+  - stage text not null -- e.g., "1/4 de finale", "Classement 5-8"
+  - bracket_location text not null -- location in bracket structure
+  - ranking_game boolean not null default false -- true for classification matches
+  - ranking_label text null -- e.g., "Classement 5-6"
+  - team1_source text null -- source reference (e.g., "2", "W_1", "L_3", "random_5_8_1")
+  - team2_source text null -- source reference (e.g., "8", "W_2", "L_4", "random_3_4_2")
+  - created_at timestamptz not null default now()
+  - updated_at timestamptz not null default now()
+
+- Indexes:
+  - PRIMARY KEY (id)
+  - UNIQUE (tournament_id, json_match_id)
+  - INDEX on (tournament_id) for efficient tournament queries
+  - INDEX on (owner_id) for RLS enforcement
+
+- RLS policies (owner-only): Select/Insert/Update/Delete where `owner_id = auth.uid()`
+
+- Source resolution patterns:
+  - Seeded teams: "1", "2", "3", "4" (direct team numbers)
+  - Winner references: "W_1", "W_2" (winner of match 1, 2)
+  - Loser references: "L_1", "L_2" (loser of match 1, 2)
+  - Random assignments: "random_5_8_1", "random_3_4_2" (indexed random keys)
 
 ---
 

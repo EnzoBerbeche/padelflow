@@ -1,11 +1,14 @@
 # PadelFlow - Tournament Management Platform
 
-A professional padel tournament organization and management platform built with Next.js, TypeScript, and Clerk authentication.
+A professional padel tournament organization and management platform built with Next.js, TypeScript, and Supabase backend.
 
 ## Features
 
-- **User Authentication**: Secure sign-in/sign-up with Clerk
-- **Tournament Management**: Create, edit, and manage tournaments
+- **User Authentication**: Secure sign-in/sign-up with Supabase Auth
+- **Tournament Management**: Create, edit, and manage tournaments with persistent data
+- **Team Management**: Create teams from available players with automatic player snapshotting
+- **Match Generation**: Automatic bracket generation from tournament formats
+- **Real-time Scoring**: Enter scores and select winners with automatic propagation to dependent matches
 - **Player Management**: Add, edit, and organize players with detailed information
 - **Advanced Filtering**: Excel-style column filters and search functionality
 - **Responsive Design**: Modern UI with Tailwind CSS
@@ -16,6 +19,7 @@ A professional padel tournament organization and management platform built with 
 
 - Node.js 18+ 
 - npm or yarn
+- Supabase account and project
 
 ### Installation
 
@@ -35,23 +39,19 @@ npm install
 Create a `.env.local` file in the root directory with the following variables:
 
 ```env
-# Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key_here
-CLERK_SECRET_KEY=your_secret_key_here
-
-# Clerk URLs (for development)
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-### Setting up Clerk Authentication
+### Setting up Supabase
 
-1. Go to [Clerk Dashboard](https://dashboard.clerk.com/)
-2. Create a new application
-3. Get your API keys from the dashboard
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Create a new project
+3. Get your project URL and API keys from the dashboard
 4. Replace the placeholder values in `.env.local` with your actual keys
+5. Run the SQL schema from `docs/supabase-schema.md` in your Supabase SQL editor
 
 ### Development
 
@@ -75,56 +75,80 @@ npm start
 ```
 ├── app/                    # Next.js app directory
 │   ├── dashboard/         # Protected dashboard routes
+│   │   ├── tournaments/   # Tournament management
+│   │   ├── players/       # Player management
+│   │   └── settings/      # User settings
 │   ├── sign-in/          # Authentication pages
 │   ├── sign-up/          # Authentication pages
-│   └── layout.tsx        # Root layout with ClerkProvider
+│   └── layout.tsx        # Root layout
 ├── components/            # Reusable components
+│   ├── tournament-*.tsx  # Tournament-specific components
 │   ├── dashboard-layout.tsx
 │   ├── protected-route.tsx
 │   └── ui/               # UI components
-├── lib/                  # Utilities and storage
-│   └── storage.ts        # Local storage management
-├── middleware.ts         # Authentication middleware
+├── lib/                  # Utilities and API services
+│   ├── supabase.ts       # Supabase client and API services
+│   ├── storage.ts        # Legacy local storage (deprecated)
+│   └── formats/          # Tournament format definitions
+├── docs/                 # Documentation
+│   └── supabase-schema.md # Database schema documentation
 └── .env.local           # Environment variables
 ```
 
-## Authentication Flow
+## Architecture
 
-- **Public Routes**: Home page, sign-in, sign-up
-- **Protected Routes**: All dashboard pages require authentication
-- **Automatic Redirects**: Unauthenticated users are redirected to sign-in
-- **User Management**: Built-in user profile and sign-out functionality
+### Backend (Supabase)
+- **Authentication**: Supabase Auth with Row-Level Security (RLS)
+- **Database**: PostgreSQL with real-time capabilities
+- **Storage**: File storage for tournament assets
+- **API**: Auto-generated REST and GraphQL APIs
 
-## Deployment
+### Frontend (Next.js)
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript for type safety
+- **Styling**: Tailwind CSS for responsive design
+- **State Management**: React hooks with Supabase real-time subscriptions
 
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Add your Clerk environment variables in Vercel dashboard
-4. Deploy!
-
-### Other Platforms
-
-Make sure to set the environment variables in your hosting platform's dashboard.
+### Data Models
+- **Tournaments**: Tournament metadata and configuration
+- **Tournament Players**: Snapshot copies of players per tournament
+- **Tournament Teams**: Teams composed of tournament players
+- **Tournament Matches**: Match data, results, and bracket progression
 
 ## Features in Detail
 
 ### Tournament Management
-- Create tournaments with detailed information
-- Manage tournament formats and brackets
-- Track tournament progress and results
+- Create tournaments with detailed information (date, location, level, format)
+- Manage tournament formats and automatic bracket generation
+- Track tournament progress with real-time updates
+- Public tournament pages with registration links
+
+### Team Management
+- Create teams from available players
+- Automatic player snapshotting to prevent external changes
+- Team seeding and locking mechanisms
+- Support for various tournament formats (elimination, round-robin)
+
+### Match System
+- Automatic match generation from tournament formats
+- Real-time score entry and winner selection
+- Automatic propagation of results to dependent matches
+- Court assignment and management
+- Support for both main bracket and classification matches
 
 ### Player Management
 - Add players with comprehensive information (name, license, ranking, club, etc.)
 - Advanced filtering and search capabilities
 - Visual gender indicators and ranking badges
+- Integration with external ranking data
 
-### User Interface
-- Modern, responsive design
-- Excel-style column filters
-- Real-time search functionality
-- Professional dashboard layout
+## Database Schema
+
+The complete database schema is documented in `docs/supabase-schema.md`, including:
+- Table structures and relationships
+- Row-Level Security policies
+- Indexes and constraints
+- Data flow patterns
 
 ## Contributing
 
