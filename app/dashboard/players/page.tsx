@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Users, Plus, Edit, Trash2, MoreVertical, Search, Circle, CircleDot, ChevronDown, Target } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, Plus, Edit, Trash2, MoreVertical, Search, Circle, CircleDot, ChevronDown, Target, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -48,6 +49,8 @@ export default function PlayersPage() {
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [clubFilter, setClubFilter] = useState<string>('all');
   const [licenseError, setLicenseError] = useState<string>('');
+  const [sortField, setSortField] = useState<string>('nom');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchPlayers();
@@ -258,8 +261,11 @@ export default function PlayersPage() {
     return gender === 'Mr' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />;
   };
 
-  // Get unique clubs for filter
-  const uniqueClubs = Array.from(new Set(players.map(p => p.club))).sort();
+  // Get unique clubs for filter (from both local and cloud players)
+  const uniqueClubs = Array.from(new Set([
+    ...players.map(p => p.club),
+    ...cloudPlayers.map(p => p.club)
+  ].filter((club): club is string => club !== null && club !== undefined && club.trim() !== ''))).sort();
 
   const filteredPlayers = players.filter(player => {
     const searchTermLower = searchTerm.toLowerCase();
@@ -282,6 +288,61 @@ export default function PlayersPage() {
     
     return matchesSearch && matchesRanking && matchesGender && matchesClub;
   });
+
+  // Filter cloud players based on search criteria
+  const filteredCloudPlayers = cloudPlayers.filter(player => {
+    const searchTermLower = playerSearchTerm.toLowerCase();
+    const matchesSearch = 
+      (player.nom?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.licence?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.club?.toLowerCase() || '').includes(searchTermLower);
+    
+    const matchesRanking = rankingFilter === 'all' || 
+      (rankingFilter === 'top25' && (player.rang || 0) <= 25) ||
+      (rankingFilter === 'top100' && (player.rang || 0) <= 100) ||
+      (rankingFilter === 'top250' && (player.rang || 0) <= 250) ||
+      (rankingFilter === 'top500' && (player.rang || 0) <= 500) ||
+      (rankingFilter === 'top1000' && (player.rang || 0) <= 1000);
+    
+    const matchesGender = genderFilter === 'all' || player.genre === genderFilter;
+    const matchesClub = clubFilter === 'all' || player.club === clubFilter;
+    
+    return matchesSearch && matchesRanking && matchesGender && matchesClub;
+  });
+
+  // Sort filtered cloud players
+  const sortedCloudPlayers = [...filteredCloudPlayers].sort((a, b) => {
+    let aValue: any = a[sortField as keyof SupabasePlayersEnrichedRow];
+    let bValue: any = b[sortField as keyof SupabasePlayersEnrichedRow];
+    
+    // Handle null/undefined values
+    if (aValue === null || aValue === undefined) aValue = '';
+    if (bValue === null || bValue === undefined) bValue = '';
+    
+    // Handle numeric values
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+    
+    // Handle string values
+    const aStr = String(aValue).toLowerCase();
+    const bStr = String(bValue).toLowerCase();
+    
+    if (sortDirection === 'asc') {
+      return aStr.localeCompare(bStr);
+    } else {
+      return bStr.localeCompare(aStr);
+    }
+  });
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   if (loading) {
     return (
@@ -438,32 +499,93 @@ export default function PlayersPage() {
             )}
           </div>
 
-          {/* Player Search */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Search Any Player</CardTitle>
-              <CardDescription>Search for any player by licence number to view their statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Enter licence number..."
-                  value={playerSearchTerm}
-                  onChange={(e) => setPlayerSearchTerm(e.target.value)}
-                  className="flex-1"
-                />
-                <Link href={`/dashboard/players/${playerSearchTerm.trim()}`}>
-                  <Button disabled={!playerSearchTerm.trim()}>
-                    <Search className="h-4 w-4 mr-2" />
-                    View Statistics
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Cloud Players (Supabase) Section */}
-          <div className="space-y-6">
+                     {/* Cloud Players (Supabase) Section */}
+           <div className="space-y-6">
+             {/* Player Search */}
+             <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center space-x-2">
+                   <Search className="h-5 w-5" />
+                   <span>Search My Players</span>
+                 </CardTitle>
+                 <CardDescription>
+                   Search and filter through your own players list
+                 </CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                   <div className="space-y-2">
+                     <Label htmlFor="player-search">Search</Label>
+                     <Input
+                       id="player-search"
+                       placeholder="Name, license, or club..."
+                       value={playerSearchTerm}
+                       onChange={(e) => setPlayerSearchTerm(e.target.value)}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="player-gender">Gender</Label>
+                     <Select value={genderFilter} onValueChange={(value: string) => setGenderFilter(value)}>
+                       <SelectTrigger>
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="all">All</SelectItem>
+                         <SelectItem value="Homme">Men</SelectItem>
+                         <SelectItem value="Femme">Women</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="player-ranking-min">Min Ranking</Label>
+                     <Input
+                       id="player-ranking-min"
+                       type="number"
+                       placeholder="0"
+                       value={rankingFilter === 'all' ? '' : rankingFilter === 'top25' ? '1' : rankingFilter === 'top100' ? '26' : rankingFilter === 'top250' ? '101' : rankingFilter === 'top500' ? '251' : rankingFilter === 'top1000' ? '501' : ''}
+                       onChange={(e) => {
+                         const value = parseInt(e.target.value);
+                         if (value <= 25) setRankingFilter('top25');
+                         else if (value <= 100) setRankingFilter('top100');
+                         else if (value <= 250) setRankingFilter('top250');
+                         else if (value <= 500) setRankingFilter('top500');
+                         else if (value <= 1000) setRankingFilter('top1000');
+                         else setRankingFilter('all');
+                       }}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="player-club">Club</Label>
+                     <Select value={clubFilter} onValueChange={setClubFilter}>
+                       <SelectTrigger>
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="all">All Clubs</SelectItem>
+                         {uniqueClubs.map(club => (
+                           <SelectItem key={club} value={club}>{club || 'Unknown Club'}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 </div>
+                 <div className="flex justify-end">
+                   <Button 
+                     variant="outline"
+                     onClick={() => {
+                       setPlayerSearchTerm('');
+                       setGenderFilter('all');
+                       setRankingFilter('all');
+                       setClubFilter('all');
+                     }}
+                   >
+                     <Filter className="h-4 w-4 mr-2" />
+                     Clear Filters
+                   </Button>
+                 </div>
+               </CardContent>
+             </Card>
+            
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -474,33 +596,98 @@ export default function PlayersPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {cloudPlayers.length === 0 ? (
-                  <div className="text-gray-500">No players yet in the cloud list.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Licence</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Ranking</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Club</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">League</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Birth Year</th>
-                          <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cloudPlayers.map((p) => (
-                          <tr key={p.player_id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4 text-gray-900">
-                              <Link 
-                                href={`/dashboard/players/${p.licence}`}
-                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                                                   {sortedCloudPlayers.length === 0 ? (
+                   <div className="text-gray-500">
+                     {cloudPlayers.length === 0 ? "No players yet in the cloud list." : "No players match your current filters."}
+                   </div>
+                 ) : (
+                   <div className="overflow-x-auto">
+                     <table className="w-full">
+                                               <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('nom')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
-                                {p.nom || `Player ${p.licence}`}
-                              </Link>
-                            </td>
+                                <span>Name</span>
+                                {sortField === 'nom' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('licence')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Licence</span>
+                                {sortField === 'licence' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('rang')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Ranking</span>
+                                {sortField === 'rang' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('club')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Club</span>
+                                {sortField === 'club' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('ligue')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>League</span>
+                                {sortField === 'ligue' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('annee_naissance')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Birth Year</span>
+                                {sortField === 'annee_naissance' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
+                          </tr>
+                        </thead>
+                                               <tbody>
+                          {sortedCloudPlayers.map((p) => (
+                          <tr key={p.player_id} className="border-b hover:bg-gray-50">
+                                                         <td className="py-3 px-4 text-gray-900">
+                               <div className="flex items-center space-x-2">
+                                 {p.genre === 'Homme' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
+                                 <Link 
+                                   href={`/dashboard/players/${p.licence}`}
+                                   className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                 >
+                                   {p.nom || `Player ${p.licence}`}
+                                 </Link>
+                               </div>
+                             </td>
                             <td className="py-3 px-4 text-gray-600">{p.licence}</td>
                             <td className="py-3 px-4">
                               <Badge className={getRankingColor(p.rang || 0)}>P{p.rang || 0}</Badge>
