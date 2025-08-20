@@ -41,13 +41,13 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
   
   const points = data.map((d, i) => {
     const x = padding + (i / (data.length - 1)) * chartWidth;
-    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
+    const y = padding + ((maxRanking - d.ranking) / range) * chartHeight;
     return { x, y, ...d };
   });
 
   const comparisonPoints = comparisonData?.map((d, i) => {
     const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
-    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
+    const y = padding + ((maxRanking - d.ranking) / range) * chartHeight;
     return { x, y, ...d };
   }) || [];
   
