@@ -7,7 +7,6 @@
 - User-scoped list and read models:
   - `public.players` (user-owned licences; RLS enabled)
   - `public.rankings_latest` (view: latest ranking per licence)
-  - `public.players_enriched` (view: `players` joined to `rankings_latest`)
 - Tournament system:
   - `public.tournaments` (tournament metadata; RLS enabled)
   - `public.tournament_players` (player snapshots per tournament; RLS enabled)
@@ -166,39 +165,6 @@ create or replace view public.rankings_latest as
 select distinct on (licence) r.*
 from public.rankings r
 order by r.licence, r.ranking_year desc, r.ranking_month desc;
-```
-- Grants: allow `SELECT` to `anon, authenticated`.
-
----
-
-### public.players_enriched (view)
-- Purpose: denormalized read model for the app. Joins `public.players` with `public.rankings_latest` and coalesces to user-provided fields when a licence has no rankings row yet.
-- Columns (selected):
-  - player_id, user_id, licence, created_at
-  - id_unique, nom, genre, rang, evolution, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month
-- Definition (conceptual):
-```sql
-create view public.players_enriched as
-select
-  p.id as player_id,
-  p.user_id,
-  p.licence,
-  p.created_at,
-  rl.id_unique,
-  coalesce(rl.nom, p.display_name)               as nom,
-  coalesce(rl.genre, p.gender)                   as genre,
-  coalesce(rl.rang, p.local_ranking)             as rang,
-  rl.evolution,
-  coalesce(rl.nationalite, null)                 as nationalite,
-  coalesce(rl.annee_naissance, p.birth_year)     as annee_naissance,
-  coalesce(rl.points, null)                      as points,
-  coalesce(rl.nb_tournois, null)                 as nb_tournois,
-  coalesce(rl.ligue, null)                       as ligue,
-  coalesce(rl.club, p.club)                      as club,
-  rl.ranking_year,
-  rl.ranking_month
-from public.players p
-left join public.rankings_latest rl on rl.licence = p.licence;
 ```
 - Grants: allow `SELECT` to `anon, authenticated`.
 

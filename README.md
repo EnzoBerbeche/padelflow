@@ -110,10 +110,20 @@ npm start
 - **State Management**: React hooks with Supabase real-time subscriptions
 
 ### Data Models
+
+#### Core Tables
 - **Tournaments**: Tournament metadata and configuration
-- **Tournament Players**: Snapshot copies of players per tournament
+- **Tournament Players**: Snapshot copies of players per tournament (prevents external changes)
 - **Tournament Teams**: Teams composed of tournament players
 - **Tournament Matches**: Match data, results, and bracket progression
+
+#### User Management
+- **Players**: User-scoped list of licenses the user follows (NOT global - each user has their own list)
+- **Team Players**: Join table linking tournament teams to tournament players (enforces team composition)
+
+#### Ranking System  
+- **Rankings**: Global ranking snapshots from external source (feeds the ten'up page with national rankings)
+- **Rankings Latest** (View): Latest ranking per license from the rankings table
 
 ## Features in Detail
 
@@ -149,6 +159,20 @@ The complete database schema is documented in `docs/supabase-schema.md`, includi
 - Row-Level Security policies
 - Indexes and constraints
 - Data flow patterns
+
+### Complete Table/View List
+
+| Name | Type | Purpose |
+|------|------|---------|
+| `auth.users` | Table | Supabase Auth user accounts |
+| `public.rankings` | Table | Global ranking snapshots (external source) |
+| `public.players` | Table | User-scoped list of licenses to follow |
+| `public.rankings_latest` | View | Latest ranking per license |
+| `public.tournaments` | Table | Tournament metadata and configuration |
+| `public.tournament_players` | Table | Player snapshots per tournament |
+| `public.tournament_teams` | Table | Teams per tournament |
+| `public.team_players` | Table | Team composition (teams ↔ tournament players) |
+| `public.tournament_matches` | Table | Match data, results, and bracket progression |
 
 ## Contributing
 

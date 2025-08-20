@@ -319,44 +319,55 @@ export interface SupabasePlayerRow {
   created_at: string;
 }
 
-export interface SupabasePlayersEnrichedRow {
-  player_id: string;
-  user_id: string;
-  licence: string;
-  created_at: string;
-  id_unique: string | null;
-  nom: string | null;
-  genre: string | null; // 'Homme' | 'Femme'
-  rang: number | null;
-  evolution: number | null;
-  meilleur_classement: number | null;
-  nationalite: string | null;
-  annee_naissance: number | null;
-  points: number | null;
-  nb_tournois: number | null;
-  ligue: string | null;
-  club: string | null;
-  ranking_year: number | null;
-  ranking_month: number | null;
-}
-
 export const playersAPI = {
-  // Fetch current user's players enriched with latest rankings
-  getMyPlayersEnriched: async (): Promise<SupabasePlayersEnrichedRow[]> => {
+  // Fetch current user's players with latest rankings via direct join
+  getMyPlayersEnriched: async (): Promise<any[]> => {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
     if (!userId) return [];
 
-    const { data, error } = await supabase
-      .from('players_enriched')
-      .select('*')
+    // First get the user's license numbers
+    const { data: playerData, error: playerError } = await supabase
+      .from('players')
+      .select('id, user_id, licence, created_at')
       .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error fetching players_enriched:', error);
+    if (playerError) {
+      console.error('Error fetching player licenses:', playerError);
       return [];
     }
-    return (data as unknown as SupabasePlayersEnrichedRow[]) || [];
+
+    if (!playerData || playerData.length === 0) {
+      return [];
+    }
+
+    // Get the license numbers
+    const licenses = playerData.map(p => p.licence);
+
+    // Fetch rankings for these licenses
+    const { data: rankingData, error: rankingError } = await supabase
+      .from('rankings_latest')
+      .select('*')
+      .in('licence', licenses);
+
+    if (rankingError) {
+      console.error('Error fetching rankings:', rankingError);
+      return [];
+    }
+
+    // Combine the data
+    const enriched = playerData.map(player => {
+      const ranking = rankingData?.find(r => r.licence === player.licence);
+      return {
+        player_id: player.id,
+        user_id: player.user_id,
+        licence: player.licence,
+        created_at: player.created_at,
+        ...ranking
+      };
+    });
+
+    return enriched;
   },
 
   // Fetch just the licences for the current user's players
