@@ -319,9 +319,31 @@ export interface SupabasePlayerRow {
   created_at: string;
 }
 
+// Enriched player data combining players table with rankings_latest view
+export interface SupabasePlayersEnrichedRow {
+  player_id: string;
+  user_id: string;
+  licence: string;
+  created_at: string;
+  // Fields from rankings_latest view
+  nom: string | null;
+  genre: 'Homme' | 'Femme';
+  rang: number | null;
+  evolution: number | null;
+  meilleur_classement: number | null;
+  nationalite: string | null;
+  annee_naissance: number | null;
+  points: number | null;
+  nb_tournois: number | null;
+  ligue: string | null;
+  club: string | null;
+  ranking_year: number | null;
+  ranking_month: number | null;
+}
+
 export const playersAPI = {
   // Fetch current user's players with latest rankings via direct join
-  getMyPlayersEnriched: async (): Promise<any[]> => {
+  getMyPlayersEnriched: async (): Promise<SupabasePlayersEnrichedRow[]> => {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
     if (!userId) return [];
