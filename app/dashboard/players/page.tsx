@@ -43,6 +43,7 @@ export default function PlayersPage() {
     gender: 'Mr' as 'Mr' | 'Mme',
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   const [rankingFilter, setRankingFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [clubFilter, setClubFilter] = useState<string>('all');
@@ -437,6 +438,30 @@ export default function PlayersPage() {
             )}
           </div>
 
+          {/* Player Search */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Search Any Player</CardTitle>
+              <CardDescription>Search for any player by licence number to view their statistics</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Enter licence number..."
+                  value={playerSearchTerm}
+                  onChange={(e) => setPlayerSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+                <Link href={`/dashboard/players/${playerSearchTerm.trim()}`}>
+                  <Button disabled={!playerSearchTerm.trim()}>
+                    <Search className="h-4 w-4 mr-2" />
+                    View Statistics
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Cloud Players (Supabase) Section */}
           <div className="space-y-6">
             <Card>
@@ -468,7 +493,14 @@ export default function PlayersPage() {
                       <tbody>
                         {cloudPlayers.map((p) => (
                           <tr key={p.player_id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4 text-gray-900">{p.nom || '-'}</td>
+                            <td className="py-3 px-4 text-gray-900">
+                              <Link 
+                                href={`/dashboard/players/${p.licence}`}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                              >
+                                {p.nom || `Player ${p.licence}`}
+                              </Link>
+                            </td>
                             <td className="py-3 px-4 text-gray-600">{p.licence}</td>
                             <td className="py-3 px-4">
                               <Badge className={getRankingColor(p.rang || 0)}>P{p.rang || 0}</Badge>
@@ -715,6 +747,12 @@ export default function PlayersPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/dashboard/players/${player.license_number}`}>
+                                      <Target className="h-4 w-4 mr-2" />
+                                      View Statistics
+                                    </Link>
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleEdit(player)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit

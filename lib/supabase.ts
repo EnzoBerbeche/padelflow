@@ -442,6 +442,108 @@ export const playersAPI = {
   },
 };
 
+// Player Statistics API
+export interface PlayerStatistics {
+  licence: string;
+  nom: string | null;
+  genre: 'Homme' | 'Femme';
+  current_ranking: number | null;
+  ranking_evolution: number | null;
+  best_ranking: number | null;
+  nationality: string | null;
+  birth_year: number | null;
+  current_points: number | null;
+  current_tournaments_count: number | null;
+  ligue: string | null;
+  club: string | null;
+  ranking_history: {
+    year: number;
+    month: number;
+    ranking: number | null;
+    points: number | null;
+    tournaments_count: number | null;
+  }[];
+}
+
+export const playerStatisticsAPI = {
+  // Get detailed statistics for a specific player by licence
+  getPlayerStatistics: async (licence: string): Promise<PlayerStatistics | null> => {
+    // Get all ranking data for this player
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('*')
+      .eq('licence', licence)
+      .order('ranking_year', { ascending: false })
+      .order('ranking_month', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching player statistics:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    // Get the latest ranking (first row due to ordering)
+    const latest = data[0];
+    
+    // Build ranking history
+    const rankingHistory = data.map(row => ({
+      year: row.ranking_year,
+      month: row.ranking_month,
+      ranking: row.rang,
+      points: row.points,
+      tournaments_count: row.nb_tournois,
+    }));
+
+    return {
+      licence: latest.licence,
+      nom: latest.nom,
+      genre: latest.genre,
+      current_ranking: latest.rang,
+      ranking_evolution: latest.evolution,
+      best_ranking: latest.meilleur_classement,
+      nationality: latest.nationalite,
+      birth_year: latest.annee_naissance,
+      current_points: latest.points,
+      current_tournaments_count: latest.nb_tournois,
+      ligue: latest.ligue,
+      club: latest.club,
+      ranking_history: rankingHistory,
+    };
+  },
+
+  // Get all players with basic info (for search/listing)
+  getAllPlayersBasic: async (): Promise<Array<{
+    licence: string;
+    nom: string | null;
+    genre: 'Homme' | 'Femme';
+    current_ranking: number | null;
+    club: string | null;
+    ligue: string | null;
+  }>> => {
+    const { data, error } = await supabase
+      .from('rankings_latest')
+      .select('licence, nom, genre, rang, club, ligue')
+      .order('rang', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching all players basic info:', error);
+      return [];
+    }
+
+    return (data || []).map(row => ({
+      licence: row.licence,
+      nom: row.nom,
+      genre: row.genre,
+      current_ranking: row.rang,
+      club: row.club,
+      ligue: row.ligue,
+    }));
+  },
+};
+
 function mapRankingRowToNationalPlayer(row: {
   id_unique: string;
   licence: string;
