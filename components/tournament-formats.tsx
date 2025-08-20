@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { storage, Tournament, TeamWithPlayers } from '@/lib/storage';
+import { tournamentsAPI, tournamentMatchesAPI } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Calendar, X, AlertTriangle, Shuffle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getAvailableJsonFormats, getFormatByKey, TournamentFormatConfig } from '@/lib/tournament-formats-json';
+import { getAvailableJsonFormats, getFormatByKey, TournamentFormatConfig, parseTeamSource } from '@/lib/tournament-formats-json';
 import { JsonBracketGenerator, RandomAssignments, generate8TeamBracketTree } from '@/lib/json-bracket-generator';
 import { resolveTeamSource } from '@/lib/team-source-resolver';
 import { RandomDrawDialog } from './random-draw-dialog';
@@ -103,28 +104,72 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
       const format = await getFormatByKey(formatKey);
       if (!format) throw new Error('Format not found');
 
-      // Dupliquer le JSON du format et le stocker dans le tournoi
+      // Dupliquer le JSON du format et le stocker dans le tournoi (Supabase)
       const formatJsonCopy = JSON.parse(JSON.stringify(format.format_data));
-      storage.tournaments.update(tournament.id, { format_id: formatKey, format_json: formatJsonCopy });
+      await tournamentsAPI.update(tournament.id, { format_id: formatKey, format_json: formatJsonCopy });
 
       // Stocker les random_assignments si besoin
       if (randomAssignments) {
-        storage.tournaments.update(tournament.id, { random_assignments: randomAssignments });
+        await tournamentsAPI.update(tournament.id, { random_assignments: randomAssignments as any });
       }
 
       // Générer les matchs comme avant
       if (format.format_data.bracket) {
         const bracketTree = generateBracketTreeFromFormat(format.format_data, teams, randomAssignments);
-        storage.tournaments.update(tournament.id, { bracket: bracketTree });
-        generateMatchesFromBracketTree(tournament.id, bracketTree, teams);
+        await tournamentsAPI.update(tournament.id, { bracket: bracketTree as any });
+        await generateMatchesFromBracketTreeSupabase(tournament.id, bracketTree, teams);
       } else if (format.format_data.matches) {
-        const generator = new JsonBracketGenerator(
+        // Clear existing and generate into Supabase
+        await tournamentMatchesAPI.deleteByTournament(tournament.id);
+        // Resolve team ids for each JSON match
+        const rows: any[] = [];
+        (format.format_data.matches || []).forEach((m) => {
+          // Handle random sources with indexed keys (random_X_Y_N)
+          const src1 = computeIndexedRandomKey(m.team1_source, m, format.format_data);
+          const src2 = computeIndexedRandomKey(m.team2_source, m, format.format_data);
+          const parsed1 = parseTeamSource(src1);
+          const parsed2 = parseTeamSource(src2);
+          const seedToId = (seed?: number) => teams.find(t => t.seed_number === seed)?.id;
+          const randToId = (key?: string) => (randomAssignments && (randomAssignments as any)[key || '']?.id) || undefined;
+          const team1_id = parsed1.type === 'seed' ? seedToId(parsed1.value as number)
+                         : parsed1.type === 'random' ? randToId(parsed1.value as string)
+                         : undefined;
+          const team2_id = parsed2.type === 'seed' ? seedToId(parsed2.value as number)
+                         : parsed2.type === 'random' ? randToId(parsed2.value as string)
+                         : undefined;
+          const isClassificationMatch = m.bracket_location === 'Classement bracket' || m.ranking_game;
+          const match_type = isClassificationMatch ? 'classification' : 'main';
+          const bracket_type = isClassificationMatch ? 'ranking' : 'main';
+          rows.push({
+            tournament_id: tournament.id,
+            round: m.stage,
+            team_1_id: team1_id ?? null,
+            team_2_id: team2_id ?? null,
+            order_index: m.order_index,
+            match_type,
+            bracket_type,
+            json_match_id: m.id,
+            rotation_group: m.rotation_group,
+            stage: m.stage,
+            ranking_game: m.ranking_game,
+            ranking_label: m.ranking_label || null,
+            team1_source: src1,
+            team2_source: src2,
+            winner_team_id: null,
+            score: null,
+            terrain_number: null,
+            bracket_location: m.bracket_location || null,
+          });
+        });
+        const ok = await tournamentMatchesAPI.createMany(rows);
+        if (!ok) throw new Error('Failed to create matches');
+      } else if (format.format_data.rotations) {
+        await generateMatchesFromRotationsSupabase(
           tournament.id,
-          teams,
           format.format_data,
-          randomAssignments || {}
+          teams,
+          (randomAssignments || {}) as any
         );
-        generator.generateMatches();
       }
       onFormatSelect();
       toast({
@@ -154,36 +199,94 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
     return formatData.bracket;
   };
 
+  // Compute the indexed random key for a given match based on its position in the template
+  function computeIndexedRandomKey(source: string, match: any, templateData: any): string {
+    if (!source || !source.startsWith('random_')) return source;
+    let count = 0;
+    for (const rotation of templateData.rotations || []) {
+      for (const phase of rotation.phases || []) {
+        for (const m of phase.matches || []) {
+          if (m.source_team_1 === source || m.source_team_2 === source) {
+            count++;
+            if (m === match || m.id === match.id) {
+              return `${source}_${count}`;
+            }
+          }
+        }
+      }
+    }
+    return source;
+  }
+
   // Helper function to generate matches from bracket tree for storage
-  const generateMatchesFromBracketTree = (tournamentId: string, bracketTree: any, teams: TeamWithPlayers[]) => {
-    // Clear existing matches
-    storage.matches.deleteByTournament(tournamentId);
-    
-    // Extract matches from the bracket tree
+  const generateMatchesFromBracketTreeSupabase = async (tournamentId: string, bracketTree: any, teams: TeamWithPlayers[]) => {
+    await tournamentMatchesAPI.deleteByTournament(tournamentId);
     const matches: any[] = [];
     extractMatchesFromBracketTreeForStorage(bracketTree, matches, 1);
-    
-    // Create match records in storage
-    matches.forEach((match, index) => {
-      const homeTeam = teams.find(t => t.id === match.home_team_id);
-      const visitorTeam = teams.find(t => t.id === match.visitor_team_id);
-      
-      storage.matches.create({
-        tournament_id: tournamentId,
-        round: match.name,
-        team_1_id: match.home_team_id,
-        team_2_id: match.visitor_team_id,
-        order_index: index + 1,
-        match_type: 'main',
-        bracket_type: 'main',
-        json_match_id: match.id,
-        stage: match.name,
-        bracket_location: 'Main bracket',
-        ranking_game: false,
-        team1_source: `team_${match.home_team_id}`,
-        team2_source: `team_${match.visitor_team_id}`,
-      });
-    });
+    const rows = matches.map((match, index) => ({
+      tournament_id: tournamentId,
+      round: match.name,
+      team_1_id: match.home_team_id,
+      team_2_id: match.visitor_team_id,
+      order_index: index + 1,
+      match_type: 'main',
+      bracket_type: 'main',
+      json_match_id: null,
+      stage: match.name,
+      bracket_location: 'Main bracket',
+      ranking_game: false,
+      team1_source: `team_${match.home_team_id}`,
+      team2_source: `team_${match.visitor_team_id}`,
+      winner_team_id: null,
+      score: null,
+      terrain_number: null,
+      rotation_group: null,
+      ranking_label: null,
+    }));
+    await tournamentMatchesAPI.createMany(rows);
+  };
+
+  // Generate matches from rotations JSON (phases/matches) into Supabase
+  const generateMatchesFromRotationsSupabase = async (
+    tournamentId: string,
+    formatData: any,
+    teams: TeamWithPlayers[],
+    randomAssignments: Record<string, string>
+  ) => {
+    await tournamentMatchesAPI.deleteByTournament(tournamentId);
+    const rows: any[] = [];
+    for (const rotation of formatData.rotations || []) {
+      for (const phase of rotation.phases || []) {
+        for (const m of phase.matches || []) {
+          const src1 = computeIndexedRandomKey(String(m.source_team_1 || ''), m, formatData);
+          const src2 = computeIndexedRandomKey(String(m.source_team_2 || ''), m, formatData);
+          const t1 = resolveTeamSource(src1, teams, [], randomAssignments);
+          const t2 = resolveTeamSource(src2, teams, [], randomAssignments);
+          const isClassification = String(phase.name || '').toLowerCase().includes('classement');
+          rows.push({
+            tournament_id: tournamentId,
+            round: phase.name || 'Match',
+            team_1_id: t1?.id ?? null,
+            team_2_id: t2?.id ?? null,
+            winner_team_id: null,
+            score: null,
+            order_index: m.ordre_match ?? 0,
+            terrain_number: null,
+            match_type: isClassification ? 'classification' : 'main',
+            bracket_type: isClassification ? 'ranking' : 'main',
+            json_match_id: m.id ?? null,
+            rotation_group: rotation.name ?? null,
+            stage: phase.name ?? null,
+            bracket_location: phase.name ?? null,
+            ranking_game: isClassification,
+            ranking_label: null,
+            team1_source: src1,
+            team2_source: src2,
+          });
+        }
+      }
+    }
+    await tournamentMatchesAPI.createMany(rows);
   };
 
   // Helper function to extract matches from bracket tree for storage
@@ -215,8 +318,8 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
 
   const handleRandomDrawComplete = (randomAssignments: RandomAssignments) => {
     if (pendingFormatKey) {
-      // Stocker les random_assignments dans le tournoi
-      storage.tournaments.update(tournament.id, { random_assignments: randomAssignments });
+      // Stocker les random_assignments dans le tournoi (Supabase)
+      tournamentsAPI.update(tournament.id, { random_assignments: randomAssignments as any });
       // Mettre à jour le template JSON avec les équipes tirées
       const tournamentData = storage.tournaments.getById(tournament.id);
       const template = tournamentData?.format_json;
@@ -231,20 +334,20 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
             }
           }
         }
-        storage.tournaments.update(tournament.id, { format_json: template });
+        tournamentsAPI.update(tournament.id, { format_json: template as any });
       }
       proceedWithFormatSelection(pendingFormatKey, randomAssignments);
       setPendingFormatKey(null);
     }
   };
 
-  const unselectFormat = () => {
+  const unselectFormat = async () => {
     setLoading(true);
     try {
-      // Remove format and format_json from tournament
-      storage.tournaments.update(tournament.id, { format_id: undefined, format_json: undefined, random_assignments: undefined });
-      // Delete all matches for this tournament
-      storage.matches.deleteByTournament(tournament.id);
+      // Remove format and format_json from tournament in Supabase
+      await tournamentsAPI.update(tournament.id, { format_id: null as any, format_json: null as any, random_assignments: null as any, bracket: null as any });
+      // Delete all matches for this tournament in Supabase
+      await tournamentMatchesAPI.deleteByTournament(tournament.id);
       onFormatSelect();
       toast({
         title: "Success",

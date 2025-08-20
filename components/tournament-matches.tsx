@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { storage, Tournament, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
 import { BracketFromJsonTemplate } from './bracket-from-json-template';
 import { RandomAssignments, MatchResult, resolveTeamSource } from '@/lib/team-source-resolver';
+import { tournamentMatchesAPI } from '@/lib/supabase';
 import { useCourtManagement } from '@/hooks/use-court-management';
 import { CourtStatusHeader } from './court-status-header';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
@@ -21,21 +22,196 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
 
+  // Helper: compute indexed random key for a match within a template
+  function computeIndexedRandomKey(source: string, match: any, templateData: any): string {
+    if (!source || !source.startsWith('random_')) return source;
+    let count = 0;
+    for (const rotation of templateData?.rotations || []) {
+      for (const phase of rotation.phases || []) {
+        for (const m of phase.matches || []) {
+          if (m.source_team_1 === source || m.source_team_2 === source) {
+            count++;
+            if (m === match || m.id === match.id) {
+              return `${source}_${count}`;
+            }
+          }
+        }
+      }
+    }
+    return source;
+  }
+
   useEffect(() => {
-    // Charger la copie du format stockée dans le tournoi
-    const tournamentData = storage.tournaments.getById(tournament.id);
-    setTemplate(tournamentData?.format_json || null);
-    setRandomAssignments(tournamentData?.random_assignments || {});
-    // Charger les matchs du tournoi (avec terrain_number)
-    setMatches(tournamentData?.format_json?.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
-  }, [tournament.id]);
+    // Use tournament props (Supabase-backed) instead of local storage
+    setTemplate((tournament as any)?.format_json || null);
+    setRandomAssignments((tournament as any)?.random_assignments || {});
+    // Derive matches from template if available
+    const tpl = (tournament as any)?.format_json;
+    setMatches(tpl?.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
+    // Overlay DB winners/scores into template so refresh reflects persisted results
+    (async () => {
+      try {
+        const rows = await tournamentMatchesAPI.listByTournament(tournament.id);
+        if ((!tpl || Object.keys(tpl || {}).length === 0) && rows && rows.length > 0) {
+          // Build a minimal template from DB rows so the tab can render even if format_json is missing
+          const rotationsMap = new Map<string, any>();
+          const byRotation = (rows as any[]).reduce((acc, r) => {
+            const rot = r.rotation_group || 'Rotation';
+            if (!acc.has(rot)) acc.set(rot, [] as any[]);
+            acc.get(rot)!.push(r);
+            return acc;
+          }, new Map<string, any[]>());
+          const rotations: any[] = [];
+          (Array.from(byRotation.entries()) as Array<[string, any[]]>).forEach(([rotName, rotRows]) => {
+            // Group by stage/phase name
+            const phasesMap = new Map<string, any[]>();
+            for (const rr of rotRows) {
+              const phaseName = rr.stage || rr.round || 'Match';
+              if (!phasesMap.has(phaseName)) phasesMap.set(phaseName, []);
+              phasesMap.get(phaseName)!.push(rr);
+            }
+            const phases: any[] = [];
+            (Array.from(phasesMap.entries()) as Array<[string, any[]]>).forEach(([phaseName, phaseRows]) => {
+              const matches = phaseRows
+                .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+                .map((r: any) => ({
+                  id: r.json_match_id ?? r.id,
+                  ordre_match: r.order_index,
+                  stage: r.stage || r.round || 'Match',
+                  source_team_1: r.team1_source || '',
+                  source_team_2: r.team2_source || '',
+                }));
+              phases.push({ name: phaseName, matches });
+            });
+            rotations.push({ name: rotName, phases });
+          });
+          const reconstructed = { rotations };
+          setTemplate(reconstructed);
+          setMatches(rotations.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
+          return; // skip overlay on first pass; next render will overlay using reconstructed tpl
+        }
+        if (!tpl || !rows || rows.length === 0) return;
+        const byJson = new Map<number, typeof rows[number]>();
+        rows.forEach(r => { if (typeof r.json_match_id === 'number') byJson.set(r.json_match_id, r as any); });
+
+        const newTpl = JSON.parse(JSON.stringify(tpl));
+        // Build results progressively to resolve W_X/L_X sources
+        const allMatches = newTpl.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || [];
+        allMatches.sort((a: any, b: any) => (a.ordre_match || 0) - (b.ordre_match || 0));
+        const results: MatchResult[] = [];
+        for (const m of allMatches) {
+          const row = byJson.get(m.id);
+          if (row) {
+            const src1 = computeIndexedRandomKey(String(m.source_team_1 || ''), m, newTpl);
+            const src2 = computeIndexedRandomKey(String(m.source_team_2 || ''), m, newTpl);
+            const team1 = resolveTeamSource(src1, teams, results, (tournament as any)?.random_assignments || {});
+            const team2 = resolveTeamSource(src2, teams, results, (tournament as any)?.random_assignments || {});
+            if (row.winner_team_id && team1?.id && row.winner_team_id === team1.id) {
+              m.winner = '1'; m.looser = '2';
+            } else if (row.winner_team_id && team2?.id && row.winner_team_id === team2.id) {
+              m.winner = '2'; m.looser = '1';
+            }
+            if (typeof row.terrain_number === 'number') {
+              m.terrain_number = row.terrain_number;
+            }
+            if (row.score && typeof row.score === 'string' && row.score.includes('-')) {
+              const [s1, s2] = row.score.split('-').map((x: string) => Number(x.trim()));
+              if (!Number.isNaN(s1)) m.score_team_1 = s1; else m.score_team_1 = null;
+              if (!Number.isNaN(s2)) m.score_team_2 = s2; else m.score_team_2 = null;
+            }
+          }
+          // push computed winner to feed downstream W_X/L_X resolutions
+          let winner_team_id: string | undefined;
+          let looser_team_id: string | undefined;
+          const s1x = computeIndexedRandomKey(String(m.source_team_1 || ''), m, newTpl);
+          const s2x = computeIndexedRandomKey(String(m.source_team_2 || ''), m, newTpl);
+          const t1x = resolveTeamSource(s1x, teams, results, (tournament as any)?.random_assignments || {});
+          const t2x = resolveTeamSource(s2x, teams, results, (tournament as any)?.random_assignments || {});
+          if (m.winner === '1') {
+            winner_team_id = t1x?.id;
+            looser_team_id = t2x?.id;
+          } else if (m.winner === '2') {
+            winner_team_id = t2x?.id;
+            looser_team_id = t1x?.id;
+          }
+          results.push({ id: m.id, winner_team_id, looser_team_id });
+        }
+
+        // Backfill team_1_id/team_2_id for dependents using DB winners (W_X/L_X)
+        const winnerByJson = new Map<number, string>();
+        rows.forEach(r => {
+          if (r.winner_team_id && typeof r.json_match_id === 'number') {
+            winnerByJson.set(r.json_match_id as number, r.winner_team_id as string);
+          }
+        });
+
+        const matchById = new Map<number, any>();
+        allMatches.forEach((m: any) => matchById.set(m.id, m));
+
+        const resolveTeamIdFromSource = (src: string | undefined, srcMatch: any): string | undefined => {
+          if (!src) return undefined;
+          const indexed = computeIndexedRandomKey(String(src), srcMatch, newTpl);
+          const team = resolveTeamSource(indexed, teams, results, (tournament as any)?.random_assignments || {});
+          return team?.id;
+        };
+        const resolveLoserId = (srcMatchId: number): string | null => {
+          const src = matchById.get(srcMatchId);
+          if (!src) return null;
+          const t1 = resolveTeamIdFromSource(src.source_team_1, src);
+          const t2 = resolveTeamIdFromSource(src.source_team_2, src);
+          const w = winnerByJson.get(srcMatchId);
+          if (!w) return null;
+          if (t1 && t1 !== w) return t1;
+          if (t2 && t2 !== w) return t2;
+          return null;
+        };
+
+        for (const dep of allMatches) {
+          const dbRow = byJson.get(dep.id);
+          const patch: any = {};
+          const w1 = /^(winner_|W_)(\d+)$/.exec(dep.source_team_1 || '');
+          const w2 = /^(winner_|W_)(\d+)$/.exec(dep.source_team_2 || '');
+          const l1 = /^(loser_|L_)(\d+)$/.exec(dep.source_team_1 || '');
+          const l2 = /^(loser_|L_)(\d+)$/.exec(dep.source_team_2 || '');
+          if (w1) {
+            const mid = Number(w1[2]);
+            const id = winnerByJson.get(mid);
+            if (id) patch.team_1_id = id;
+          }
+          if (w2) {
+            const mid = Number(w2[2]);
+            const id = winnerByJson.get(mid);
+            if (id) patch.team_2_id = id;
+          }
+          if (l1) {
+            const mid = Number(l1[2]);
+            const id = resolveLoserId(mid);
+            if (id) patch.team_1_id = id;
+          }
+          if (l2) {
+            const mid = Number(l2[2]);
+            const id = resolveLoserId(mid);
+            if (id) patch.team_2_id = id;
+          }
+          if (Object.keys(patch).length > 0) {
+            // only write if missing in DB
+            if (!dbRow || (patch.team_1_id && !dbRow.team_1_id) || (patch.team_2_id && !dbRow.team_2_id)) {
+              await tournamentMatchesAPI.updateByJsonMatch(tournament.id, dep.id, patch);
+            }
+          }
+        }
+        setTemplate(newTpl);
+        setMatches(newTpl.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
+      } catch {
+        // noop
+      }
+    })();
+  }, [tournament]);
 
   // Nouvelle fonction pour mettre à jour le template du tournoi (bracket)
   const handleUpdateTemplate = (newTemplate: any) => {
-    storage.tournaments.update(tournament.id, { format_json: newTemplate });
-    // Relire la version à jour depuis le localStorage
-    let updated = storage.tournaments.getById(tournament.id);
-    let templateToUpdate = updated?.format_json;
+    // Update in memory; the page is responsible for persisting
+    let templateToUpdate = newTemplate;
     // Libération automatique des terrains pour les matchs terminés
     let changed = false;
     const allMatches = templateToUpdate?.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || [];
@@ -45,12 +221,8 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
         changed = true;
       }
     });
-    if (changed) {
-      storage.tournaments.update(tournament.id, { format_json: templateToUpdate });
-      updated = storage.tournaments.getById(tournament.id);
-    }
-    setTemplate(updated?.format_json || null);
-    setMatches(updated?.format_json?.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
+    setTemplate(templateToUpdate || null);
+    setMatches(templateToUpdate?.rotations?.flatMap((r: any) => r.phases.flatMap((p: any) => p.matches)) || []);
   };
 
   // Gestion des terrains
@@ -156,6 +328,7 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
   return (
     <div className="space-y-6">
       <CourtStatusHeader
+        tournamentId={tournament.id}
         totalCourts={totalCourts}
         matches={matches}
         teams={teams}
@@ -174,6 +347,7 @@ export function TournamentMatches({ tournament, teams }: TournamentMatchesProps)
         randomAssignments={randomAssignments}
       />
       <BracketFromJsonTemplate
+        tournamentId={tournament.id}
         template={template}
         teams={teams}
         randomAssignments={randomAssignments}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { storage, Player, TeamWithPlayers } from '@/lib/storage';
-import { tournamentTeamsAPI, playersAPI, tournamentsAPI } from '@/lib/supabase';
+import { tournamentTeamsAPI, playersAPI, tournamentsAPI, tournamentMatchesAPI } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -201,16 +201,26 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
           await tournamentTeamsAPI.updateTeam(sortedTeams[i].id, { seed_number: i + 1 });
         }
       } else {
-        // When unlocking teams, reset format and delete matches locally
-        storage.matches.deleteByTournament(tournament.id);
-        // Reset seed numbers
+        // When unlocking teams, reset format and delete matches in Supabase
+        await tournamentsAPI.update(tournament.id, { 
+          teams_locked: nextLocked, 
+          format_id: undefined, 
+          format_json: undefined, 
+          random_assignments: undefined, 
+          bracket: undefined as any,
+        });
+        // Reset seed numbers in Supabase
         for (const team of teams) {
           await tournamentTeamsAPI.updateTeam(team.id, { seed_number: null });
         }
+        // Clear matches in Supabase
+        await tournamentMatchesAPI.deleteByTournament(tournament.id);
       }
 
-      // Persist teams_locked on tournament
-      await tournamentsAPI.update(tournament.id, { teams_locked: nextLocked });
+      // Persist teams_locked on tournament when locking
+      if (nextLocked) {
+        await tournamentsAPI.update(tournament.id, { teams_locked: nextLocked });
+      }
 
       onTeamsUpdate();
       toast({

@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { tournamentsAPI, tournamentTeamsAPI, type AppTournament } from '@/lib/supabase';
 import { storage, TeamWithPlayers, MatchWithTeams } from '@/lib/storage';
+import { tournamentMatchesAPI } from '@/lib/supabase';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,8 +117,36 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       }));
       setTeams(mappedTeams);
 
-      const matchesData = storage.getMatchesWithTeams(id);
-      setMatches(matchesData);
+      // Load matches from Supabase and map to UI shape using teams
+      const matchesRows = await tournamentMatchesAPI.listByTournament(id);
+      const teamById = new Map(teams.map((t) => [t.id, t] as const));
+      const mappedMatches: MatchWithTeams[] = matchesRows.map(r => ({
+        id: r.id,
+        tournament_id: r.tournament_id,
+        round: r.round,
+        team_1_id: r.team_1_id || undefined,
+        team_2_id: r.team_2_id || undefined,
+        winner_team_id: r.winner_team_id || undefined,
+        score: r.score || undefined,
+        order_index: r.order_index,
+        terrain_number: r.terrain_number || undefined,
+        match_type: r.match_type,
+        bracket_type: (r.bracket_type as any) || undefined,
+        json_match_id: r.json_match_id || undefined,
+        rotation_group: r.rotation_group || undefined,
+        stage: r.stage || undefined,
+        bracket_location: r.bracket_location || undefined,
+        ranking_game: r.ranking_game || undefined,
+        ranking_label: r.ranking_label || undefined,
+        team1_source: r.team1_source || undefined,
+        team2_source: r.team2_source || undefined,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        team_1: r.team_1_id ? (teamById.get(r.team_1_id) as any) : undefined,
+        team_2: r.team_2_id ? (teamById.get(r.team_2_id) as any) : undefined,
+        winner_team: r.winner_team_id ? (teamById.get(r.winner_team_id) as any) : undefined,
+      }));
+      setMatches(mappedMatches);
 
       // Fetch registration link if enabled
       if (tournamentData.registration_enabled) {

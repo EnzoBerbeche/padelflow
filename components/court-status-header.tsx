@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { MatchWithTeams } from '@/lib/storage';
+import { tournamentMatchesAPI } from '@/lib/supabase';
 import { resolveTeamSource } from '@/lib/team-source-resolver';
 
 interface CourtStatus {
@@ -15,6 +16,7 @@ interface CourtStatus {
 }
 
 interface CourtStatusHeaderProps {
+  tournamentId?: string;
   totalCourts: number;
   matches: any[];
   teams: any[];
@@ -24,7 +26,7 @@ interface CourtStatusHeaderProps {
   onUpdateTemplate?: (newTemplate: any) => void;
 }
 
-export function CourtStatusHeader({ totalCourts, matches, teams, template, randomAssignments, onCourtClick, onUpdateTemplate }: CourtStatusHeaderProps) {
+export function CourtStatusHeader({ tournamentId, totalCourts, matches, teams, template, randomAssignments, onCourtClick, onUpdateTemplate }: CourtStatusHeaderProps) {
   const [courtStatuses, setCourtStatuses] = useState<CourtStatus[]>([]);
   const [scoreDialog, setScoreDialog] = useState<{ open: boolean; match: any | null }>({ open: false, match: null });
   const [scoreInputs, setScoreInputs] = useState<{ score1: string; score2: string }>({ score1: '', score2: '' });
@@ -107,7 +109,7 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
   };
 
   // Handle score submission
-  const handleScoreSubmit = () => {
+  const handleScoreSubmit = async () => {
     if (!scoreDialog.match) return;
     const score1 = scoreInputs.score1 !== '' ? Number(scoreInputs.score1) : null;
     const score2 = scoreInputs.score2 !== '' ? Number(scoreInputs.score2) : null;
@@ -121,6 +123,23 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
       }
     }
     updateMatch(scoreDialog.match.id, { score_team_1: score1, score_team_2: score2, winner, looser });
+    // Persist winner/score in Supabase tournament_matches by json_match_id if available
+    const jsonId = (scoreDialog.match as any).id;
+    const tId = tournamentId || (scoreDialog.match as any).tournament_id || '';
+    const currentResults = buildMatchResults();
+    const winnerTeam = winner === '1'
+      ? resolveTeamSource((scoreDialog.match as any).source_team_1, teams, currentResults, randomAssignments)?.id
+      : winner === '2'
+        ? resolveTeamSource((scoreDialog.match as any).source_team_2, teams, currentResults, randomAssignments)?.id
+        : undefined;
+    if (tId && jsonId) {
+      await tournamentMatchesAPI.updateByJsonMatch(tId, jsonId, {
+        score: score1 !== null && score2 !== null ? `${score1}-${score2}` : null,
+        winner_team_id: winnerTeam ?? null,
+      });
+      // Server-side propagation to dependents (handles W_X/L_X in DB)
+      await tournamentMatchesAPI.updateDependentMatches(tId, jsonId);
+    }
     setScoreDialog({ open: false, match: null });
   };
 
@@ -300,9 +319,30 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
                           (court.match as any).looser === '1' ? "text-gray-400" : 
                           "text-gray-700 hover:text-gray-900"
                         }`}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           updateMatch((court.match as any).id, { winner: '1', looser: '2' });
+                          const jsonId = (court.match as any).id;
+                          const tId = tournamentId || '';
+                          const currentResults = buildMatchResults();
+                          const winnerTeam = resolveTeamSource((court.match as any).source_team_1, teams, currentResults, randomAssignments)?.id;
+                          if (tId && jsonId) {
+                            await tournamentMatchesAPI.updateByJsonMatch(tId, jsonId, { winner_team_id: winnerTeam ?? null });
+                            // propagate to dependents
+                            const winnerKeys = [`winner_${jsonId}`, `W_${jsonId}`];
+                            const loserKeys = [`loser_${jsonId}`, `L_${jsonId}`];
+                            const loserTeam = resolveTeamSource((court.match as any).source_team_2, teams, currentResults, randomAssignments)?.id;
+                            const dependents = (template?.rotations || []).flatMap((r: any) => r.phases.flatMap((p: any) => p.matches))
+                              .filter((m: any) => winnerKeys.includes(m.source_team_1) || winnerKeys.includes(m.source_team_2) || loserKeys.includes(m.source_team_1) || loserKeys.includes(m.source_team_2));
+                            for (const dep of dependents) {
+                              const patch: any = {};
+                              if (winnerKeys.includes(dep.source_team_1)) patch.team_1_id = winnerTeam ?? null;
+                              if (winnerKeys.includes(dep.source_team_2)) patch.team_2_id = winnerTeam ?? null;
+                              if (loserKeys.includes(dep.source_team_1)) patch.team_1_id = loserTeam ?? null;
+                              if (loserKeys.includes(dep.source_team_2)) patch.team_2_id = loserTeam ?? null;
+                              await tournamentMatchesAPI.updateByJsonMatch(tId, dep.id, patch);
+                            }
+                          }
                         }}
                         title="Click to select as winner"
                       >
@@ -319,9 +359,29 @@ export function CourtStatusHeader({ totalCourts, matches, teams, template, rando
                           (court.match as any).looser === '2' ? "text-gray-400" : 
                           "text-gray-700 hover:text-gray-900"
                         }`}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           updateMatch((court.match as any).id, { winner: '2', looser: '1' });
+                          const jsonId = (court.match as any).id;
+                          const tId = tournamentId || '';
+                          const currentResults = buildMatchResults();
+                          const winnerTeam = resolveTeamSource((court.match as any).source_team_2, teams, currentResults, randomAssignments)?.id;
+                          if (tId && jsonId) {
+                            await tournamentMatchesAPI.updateByJsonMatch(tId, jsonId, { winner_team_id: winnerTeam ?? null });
+                            const winnerKeys = [`winner_${jsonId}`, `W_${jsonId}`];
+                            const loserKeys = [`loser_${jsonId}`, `L_${jsonId}`];
+                            const loserTeam = resolveTeamSource((court.match as any).source_team_1, teams, currentResults, randomAssignments)?.id;
+                            const dependents = (template?.rotations || []).flatMap((r: any) => r.phases.flatMap((p: any) => p.matches))
+                              .filter((m: any) => winnerKeys.includes(m.source_team_1) || winnerKeys.includes(m.source_team_2) || loserKeys.includes(m.source_team_1) || loserKeys.includes(m.source_team_2));
+                            for (const dep of dependents) {
+                              const patch: any = {};
+                              if (winnerKeys.includes(dep.source_team_1)) patch.team_1_id = winnerTeam ?? null;
+                              if (winnerKeys.includes(dep.source_team_2)) patch.team_2_id = winnerTeam ?? null;
+                              if (loserKeys.includes(dep.source_team_1)) patch.team_1_id = loserTeam ?? null;
+                              if (loserKeys.includes(dep.source_team_2)) patch.team_2_id = loserTeam ?? null;
+                              await tournamentMatchesAPI.updateByJsonMatch(tId, dep.id, patch);
+                            }
+                          }
                         }}
                         title="Click to select as winner"
                       >

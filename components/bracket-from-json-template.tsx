@@ -38,6 +38,7 @@ interface BracketJsonTemplate {
 }
 
 interface BracketFromJsonTemplateProps {
+  tournamentId?: string;
   template: BracketJsonTemplate;
   teams: TeamWithPlayers[];
   randomAssignments: RandomAssignments;
@@ -58,6 +59,7 @@ function getTeamDisplay(team?: TeamWithPlayers, fallbackSource?: string) {
 }
 
 export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = ({
+  tournamentId,
   template,
   teams,
   randomAssignments,
@@ -180,7 +182,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
   };
 
   // Gère la validation du score
-  const handleScoreSubmit = () => {
+  const handleScoreSubmit = async () => {
     if (!scoreDialog.match) return;
     const score1 = scoreInputs.score1 !== '' ? Number(scoreInputs.score1) : null;
     const score2 = scoreInputs.score2 !== '' ? Number(scoreInputs.score2) : null;
@@ -194,7 +196,46 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
       }
     }
     updateMatch(scoreDialog.match.id, { score_team_1: score1, score_team_2: score2, winner, looser });
+    // Persist to Supabase
+    try {
+      const currentResults = buildMatchResults();
+      const winnerTeam = winner === '1'
+        ? resolveTeamSource(scoreDialog.match.source_team_1, teams, currentResults, randomAssignments)?.id
+        : winner === '2'
+          ? resolveTeamSource(scoreDialog.match.source_team_2, teams, currentResults, randomAssignments)?.id
+          : undefined;
+      const tId = tournamentId as string | undefined;
+      if (tId) {
+        const { tournamentMatchesAPI } = await import('@/lib/supabase');
+        await tournamentMatchesAPI.updateByJsonMatch(tId, scoreDialog.match.id, {
+          score: score1 !== null && score2 !== null ? `${score1}-${score2}` : null,
+          winner_team_id: winnerTeam ?? null,
+        });
+        await tournamentMatchesAPI.updateDependentMatches(tId, scoreDialog.match.id);
+      }
+    } catch {}
     setScoreDialog({ open: false, match: null });
+  };
+
+  // Persist winner on click and propagate team assignments to dependent matches in Supabase
+  const persistWinnerAndPropagateClick = (jsonMatchId: number, winner: '1' | '2') => {
+    (async () => {
+      const tId = tournamentId as string | undefined;
+      if (!tId) return;
+      const currentResults = buildMatchResults();
+      const match = template.rotations
+        .flatMap((r: any) => r.phases.flatMap((p: any) => p.matches))
+        .find((m: any) => m.id === jsonMatchId);
+      if (!match) return;
+      const winnerTeamId = winner === '1'
+        ? resolveTeamSource(match.source_team_1, teams, currentResults, randomAssignments)?.id
+        : resolveTeamSource(match.source_team_2, teams, currentResults, randomAssignments)?.id;
+      try {
+        const { tournamentMatchesAPI } = await import('@/lib/supabase');
+        await tournamentMatchesAPI.updateByJsonMatch(tId, jsonMatchId, { winner_team_id: winnerTeamId ?? null });
+        await tournamentMatchesAPI.updateDependentMatches(tId, jsonMatchId);
+      } catch {}
+    })();
   };
 
   // Génère dynamiquement la liste des résultats de match à partir du template local, dans l'ordre global
@@ -392,7 +433,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                 isLooser1 ? "text-gray-400" : 
                 "text-gray-700 hover:text-gray-900"
               }`}
-              onClick={() => updateMatch(match.id, { winner: '1', looser: '2' })}
+              onClick={() => { updateMatch(match.id, { winner: '1', looser: '2' }); persistWinnerAndPropagateClick(match.id, '1'); }}
               title="Cliquez pour sélectionner comme vainqueur"
             >
               {team1Display}
@@ -408,7 +449,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
                 isLooser2 ? "text-gray-400" : 
                 "text-gray-700 hover:text-gray-900"
               }`}
-              onClick={() => updateMatch(match.id, { winner: '2', looser: '1' })}
+              onClick={() => { updateMatch(match.id, { winner: '2', looser: '1' }); persistWinnerAndPropagateClick(match.id, '2'); }}
               title="Cliquez pour sélectionner comme vainqueur"
             >
               {team2Display}
