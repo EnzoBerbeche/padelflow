@@ -7,6 +7,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { LogIn, Mail, Lock, UserPlus, ArrowLeft, Home } from 'lucide-react';
+import { ensureProfileExists } from '@/lib/profile';
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
@@ -22,11 +24,7 @@ export default function SignInPage() {
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      // If the user does not exist, send them to sign-up with email prefilled
-      if (error.message.toLowerCase().includes('invalid') || error.message.toLowerCase().includes('not found')) {
-        router.push(`/sign-up?email=${encodeURIComponent(email)}`);
-        return;
-      }
+      // Show error message instead of redirecting to sign-up
       setMessage(error.message);
       return;
     }
@@ -42,33 +40,97 @@ export default function SignInPage() {
           await supabase.auth.updateUser({ data: { display_name: computed } });
         }
       }
+
+      // Ensure profile exists with phone captured from metadata
+      try {
+        const md: any = data.user?.user_metadata || {};
+        await ensureProfileExists({
+          userId: data.user!.id,
+          firstName: (md.first_name || md.given_name || '').trim(),
+          lastName: (md.last_name || md.family_name || '').trim(),
+          phone: (md.phone || null) as string | null,
+        });
+      } catch {
+        // no-op: don't block sign-in on profile creation failure
+      }
+
       router.replace('/dashboard/tournaments');
     }
   };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>Welcome to PadelFlow</CardTitle>
-          <CardDescription>Sign in to manage your tournaments</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50 p-4">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <CardHeader className="text-center pb-6">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+            <LogIn className="w-8 h-8 text-white" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-gray-600 text-base">
+            Sign in to manage your tournaments
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Button className="w-full" onClick={signInWithPassword} disabled={loading || !email || !password}>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center">
+                <Mail className="w-4 h-4 mr-2" />
+                Email
+              </Label>
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="you@example.com" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700 flex items-center">
+                <Lock className="w-4 h-4 mr-2" />
+                Password
+              </Label>
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+              />
+            </div>
+
+            {message && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600">{message}</p>
+              </div>
+            )}
+
+            <Button 
+              className="w-full h-11 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" 
+              onClick={signInWithPassword} 
+              disabled={loading || !email || !password}
+            >
               {loading ? 'Signing in…' : 'Sign In'}
             </Button>
-            {message && <p className="text-sm text-red-600">{message}</p>}
-            <div className="flex justify-between text-sm">
-              <Link href={`/sign-up?email=${encodeURIComponent(email || '')}`} className="text-primary">
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center text-sm">
+              <Link 
+                href={`/sign-up?email=${encodeURIComponent(email || '')}`} 
+                className="text-green-600 hover:text-green-700 font-medium flex items-center hover:underline"
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
                 Create an account
               </Link>
               <button
                 type="button"
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 hover:text-gray-900 flex items-center hover:underline"
                 onClick={async () => {
                   if (!email) { setMessage('Enter your email to reset your password.'); return; }
                   setMessage(null);
@@ -95,8 +157,14 @@ export default function SignInPage() {
                 Forgot password?
               </button>
             </div>
-            <div className="text-center text-base mt-2">
-              <Link href="/" className="text-gray-700 hover:text-gray-900 font-medium">Back to home</Link>
+            
+            <div className="h-px bg-gray-200" />
+            
+            <div className="flex flex-col space-y-2">
+              <Link href="/" className="text-gray-700 hover:text-gray-900 font-medium flex items-center justify-center hover:underline">
+                <Home className="w-4 h-4 mr-2" />
+                Back to home
+              </Link>
             </div>
           </div>
         </CardContent>
