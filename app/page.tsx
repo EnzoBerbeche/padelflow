@@ -71,7 +71,7 @@ export default function Home() {
               Professional Padel Tournament Management
             </h2>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Organize, manage, and share padel tournaments with ease. From player registration 
+              Organize, manage, and share padel tournaments with ease. From player management 
               to bracket generation and live scoring - everything you need in one platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

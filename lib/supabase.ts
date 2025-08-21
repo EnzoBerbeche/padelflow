@@ -636,8 +636,7 @@ export interface SupabaseTournamentRow {
   bracket: any | null;
   format_json: any | null;
   random_assignments: Record<string, any> | null;
-  registration_enabled: boolean;
-  registration_link_id: string | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -664,8 +663,7 @@ export type AppTournament = {
   updated_at: string;
   format_json?: any;
   random_assignments?: Record<string, any>;
-  registration_enabled: boolean;
-  registration_link_id?: string;
+
 };
 
 function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
@@ -690,8 +688,7 @@ function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
     updated_at: row.updated_at,
     format_json: row.format_json ?? undefined,
     random_assignments: row.random_assignments ?? undefined,
-    registration_enabled: row.registration_enabled,
-    registration_link_id: row.registration_link_id ?? undefined,
+
   };
 }
 
@@ -763,8 +760,7 @@ export const tournamentsAPI = {
       bracket: input.bracket ?? null,
       format_json: input.format_json ?? null,
       random_assignments: input.random_assignments ?? null,
-      registration_enabled: input.registration_enabled,
-      registration_link_id: input.registration_link_id ?? null,
+
     } as Partial<SupabaseTournamentRow>;
 
     const { data, error } = await supabase
@@ -799,8 +795,7 @@ export const tournamentsAPI = {
     assign('bracket', patch.bracket ?? null);
     assign('format_json', patch.format_json ?? null);
     assign('random_assignments', patch.random_assignments ?? null);
-    assign('registration_enabled', patch.registration_enabled);
-    assign('registration_link_id', patch.registration_link_id as any);
+
 
     const { data, error } = await supabase
       .from('tournaments')

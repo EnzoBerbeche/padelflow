@@ -195,8 +195,7 @@ order by r.licence, r.ranking_year desc, r.ranking_month desc;
   - bracket jsonb null
   - format_json jsonb null
   - random_assignments jsonb null
-  - registration_enabled boolean not null default false
-  - registration_link_id text null
+
   - created_at timestamptz not null default now()
   - updated_at timestamptz not null default now()
 

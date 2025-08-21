@@ -62,8 +62,7 @@ export default function TournamentsPage() {
         bracket: tournament.bracket,
         format_json: tournament.format_json,
         random_assignments: tournament.random_assignments,
-        registration_enabled: false,
-        registration_link_id: undefined,
+
       });
 
       if (createdTournament) {
@@ -327,12 +326,7 @@ export default function TournamentsPage() {
                         <Calendar className="h-4 w-4 mr-2" />
                         Teams: {tournament.teams_locked ? 'Locked' : 'Open'}
                       </div>
-                      {tournament.registration_enabled && (
-                        <div className="flex items-center text-sm text-green-600">
-                          <LinkIcon className="h-4 w-4 mr-2" />
-                          Registration Active
-                        </div>
-                      )}
+
                     </div>
                     <div className="flex space-x-2 mt-4">
                       <Link href={`/dashboard/tournaments/${tournament.id}`} className="flex-1">

@@ -131,7 +131,7 @@ npm start
 - Create tournaments with detailed information (date, location, level, format)
 - Manage tournament formats and automatic bracket generation
 - Track tournament progress with real-time updates
-- Public tournament pages with registration links
+- Public tournament pages
 
 ### Team Management
 - Create teams from available players

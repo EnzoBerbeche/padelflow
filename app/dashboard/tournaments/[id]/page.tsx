@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Users, Calendar, MapPin, Share2, Lock, Settings, Clock, Target, Trophy, ExternalLink, Link as LinkIcon, Copy, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, MapPin, Share2, Lock, Settings, Clock, Target, Trophy, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/dashboard-layout';
@@ -64,8 +64,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teams');
-  const [registrationLink, setRegistrationLink] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+
 
   // Next.js 15: params is a Promise, need to unwrap it
   const { id } = use(params);
@@ -148,20 +147,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
       }));
       setMatches(mappedMatches);
 
-      // Fetch registration link if enabled
-      if (tournamentData.registration_enabled) {
-        console.log('Tournament has registration enabled, looking for link...');
-        const link = storage.registrationLinks.getByTournament(id);
-        console.log('Found registration link:', link);
-        if (link && link.is_active) {
-          console.log('Setting registration link:', link.link_id);
-          setRegistrationLink(link.link_id);
-        } else {
-          console.log('No active registration link found');
-        }
-      } else {
-        console.log('Tournament registration is disabled');
-      }
+
     } catch (error) {
       console.error('Error fetching tournament:', error);
       toast({
@@ -193,86 +179,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
     }
   };
 
-  const generateRegistrationLink = () => {
-    if (!tournament) return;
-    
-    try {
-      const link = storage.registrationLinks.create(tournament.id);
-      setRegistrationLink(link.link_id);
-      
-      // Update tournament to enable registration
-      tournamentsAPI.update(tournament.id, {
-        registration_enabled: true,
-        registration_link_id: link.link_id,
-      });
-      
-      setTournament(prev => prev ? {
-        ...prev,
-        registration_enabled: true,
-        registration_link_id: link.link_id,
-      } : null);
-      
-      toast({
-        title: "Success",
-        description: "Registration link generated successfully!",
-      });
-    } catch (error) {
-      console.error('Error generating registration link:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate registration link",
-        variant: "destructive",
-      });
-    }
-  };
 
-  const deactivateRegistrationLink = () => {
-    if (!tournament) return;
-    
-    try {
-      storage.registrationLinks.deactivate(tournament.id);
-      setRegistrationLink(null);
-      
-      // Update tournament to disable registration
-      tournamentsAPI.update(tournament.id, {
-        registration_enabled: false,
-        registration_link_id: undefined,
-      });
-      
-      setTournament(prev => prev ? {
-        ...prev,
-        registration_enabled: false,
-        registration_link_id: undefined,
-      } : null);
-      
-      toast({
-        title: "Success",
-        description: "Registration link deactivated successfully!",
-      });
-    } catch (error) {
-      console.error('Error deactivating registration link:', error);
-      toast({
-        title: "Error",
-        description: "Failed to deactivate registration link",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const copyRegistrationLink = () => {
-    if (!registrationLink) return;
-    
-    const registrationUrl = `${window.location.origin}/register/${registrationLink}`;
-    navigator.clipboard.writeText(registrationUrl);
-    setCopiedLink(true);
-    
-    toast({
-      title: "Success",
-      description: "Registration link copied to clipboard!",
-    });
-    
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
 
   const getLevelColor = (level: string) => {
     const colors = {
@@ -401,9 +308,8 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-3 gap-1">
             <TabsTrigger value="teams" className="text-xs lg:text-sm">Teams</TabsTrigger>
-            <TabsTrigger value="registration" className="text-xs lg:text-sm">Registration</TabsTrigger>
             <TabsTrigger value="format" disabled={!tournament.teams_locked} className="text-xs lg:text-sm">
               Format
             </TabsTrigger>
@@ -420,119 +326,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="registration" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <LinkIcon className="h-5 w-5" />
-                  <span>Player Registration</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold">Registration Link</h3>
-                      <p className="text-gray-600">
-                        Generate a link that allows players to register themselves for this tournament
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {tournament.registration_enabled ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          Inactive
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
 
-                  {tournament.registration_enabled && registrationLink ? (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-700 mb-1">Registration URL</p>
-                            <p className="text-sm text-gray-600 break-all">
-                              {`${window.location.origin}/register/${registrationLink}`}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={copyRegistrationLink}
-                            variant="outline"
-                            size="sm"
-                            className="ml-2"
-                          >
-                            {copiedLink ? (
-                              <>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Copy
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          onClick={deactivateRegistrationLink}
-                          variant="outline"
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Deactivate Link
-                        </Button>
-                        <Button
-                          onClick={() => window.open(`${window.location.origin}/register/${registrationLink}`, '_blank')}
-                          variant="outline"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Test Registration
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center">
-                          <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
-                          <div>
-                            <p className="text-sm font-medium text-yellow-800">
-                              Registration not enabled
-                            </p>
-                            <p className="text-sm text-yellow-700">
-                              Generate a registration link to allow players to register themselves
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <Button onClick={generateRegistrationLink}>
-                        <LinkIcon className="h-4 w-4 mr-2" />
-                        Generate Registration Link
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t pt-6">
-                  <h4 className="text-md font-semibold mb-3">How it works</h4>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>• Players can register themselves and their partners using the registration link</p>
-                    <p>• Each team will be automatically added to the tournament</p>
-                    <p>• Players will be created in your player database</p>
-                    <p>• You can deactivate the link at any time to stop new registrations</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="format" className="space-y-6 mt-6">
             <TournamentFormats 

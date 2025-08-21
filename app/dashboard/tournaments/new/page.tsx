@@ -175,7 +175,7 @@ function TournamentForm() {
           number_of_teams: parseInt(formData.number_of_teams),
           conditions: formData.conditions,
           type: formData.type,
-          registration_enabled: false,
+
         });
 
         toast({
