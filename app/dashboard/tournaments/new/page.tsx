@@ -19,7 +19,7 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 
-// Supabase RLS enforces ownership; no demo owner fallback
+// Supabase RLS enforces ownership
 
 function TournamentForm() {
   const router = useRouter();

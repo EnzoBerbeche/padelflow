@@ -88,11 +88,7 @@ export default function Home() {
                       Get Started
                     </Button>
                   </Link>
-                  <Link href="/public/demo123">
-                    <Button variant="outline" size="lg" className="text-lg px-8 py-3">
-                      View Demo Tournament
-                    </Button>
-                  </Link>
+
                 </>
               )}
             </div>
@@ -171,7 +167,7 @@ export default function Home() {
             Ready to Organize Your Next Tournament?
           </h3>
           <p className="text-xl mb-8 opacity-90">
-            Try our demo to see how easy tournament management can be
+            Start organizing your tournaments today
           </p>
           {isSignedIn ? (
             <Link href="/dashboard/tournaments">

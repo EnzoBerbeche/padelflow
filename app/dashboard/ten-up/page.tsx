@@ -17,8 +17,7 @@ import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { storage, Player } from '@/lib/storage';
 
-// Demo user ID for testing
-const DEMO_USER_ID = 'demo-user-123';
+
 
 const ITEMS_PER_PAGE = 100;
 

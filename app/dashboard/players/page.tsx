@@ -19,8 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId, useSupabaseAuth } from '@/hooks/use-current-user';
 
-// Demo user ID for testing
-const DEMO_USER_ID = 'demo-user-123';
+
 
 export default function PlayersPage() {
   const { toast } = useToast();
@@ -58,8 +57,11 @@ export default function PlayersPage() {
 
   const fetchPlayers = async () => {
     try {
-      const userId = currentUserId || DEMO_USER_ID;
-      const data = storage.players.getCurrentUserPlayers(userId);
+      if (!currentUserId) {
+        setPlayers([]);
+        return;
+      }
+      const data = storage.players.getCurrentUserPlayers(currentUserId);
       setPlayers(data);
 
       // Also fetch Supabase players enriched (if signed in)
@@ -119,14 +121,21 @@ export default function PlayersPage() {
         return;
       }
 
-      const userId = currentUserId || DEMO_USER_ID;
+      if (!currentUserId) {
+        toast({
+          title: 'Error',
+          description: 'You must be signed in to perform this action',
+          variant: 'destructive',
+        });
+        return;
+      }
       if (editingPlayer) {
         // Update existing player (local storage)
         storage.players.update(editingPlayer.id, {
           ...formData,
           ranking: parseInt(formData.ranking) || 0,
           year_of_birth: parseInt(formData.year_of_birth) || new Date().getFullYear() - 25,
-          organizer_id: userId,
+          organizer_id: currentUserId,
         });
         toast({
           title: 'Success',
@@ -141,8 +150,8 @@ export default function PlayersPage() {
           ...formData,
           ranking: parseInt(formData.ranking) || 0,
           year_of_birth: parseInt(formData.year_of_birth) || new Date().getFullYear() - 25,
-          organizer_id: userId,
-          owner_id: userId,
+          organizer_id: currentUserId,
+          owner_id: currentUserId,
         });
         toast({
           title: 'Success',

@@ -15,8 +15,8 @@ import { Users, Plus, Edit, Trash2, Lock, Unlock, Award, User, Mail, Phone, X, S
 import { useToast } from '@/hooks/use-toast';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 
-// Demo user ID for testing
-const DEMO_USER_ID = 'demo-user-123';
+
+
 
 interface UITournament {
   id: string;

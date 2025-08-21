@@ -165,11 +165,7 @@ export const BracketFromJsonTemplate: React.FC<BracketFromJsonTemplateProps> = (
       }
     }
     onUpdateTemplate(newTemplate);
-    const tournaments = storage.tournaments.getAll('demo-user-123');
-    const current = tournaments.find(t => t.format_json && t.format_json.rotations && t.format_json.rotations[0]?.phases[0]?.matches.some((m: any) => m.id === matchId));
-    if (current) {
-      storage.tournaments.update(current.id, { format_json: newTemplate });
-    }
+
   };
 
   // Ouvre le dialog de score
