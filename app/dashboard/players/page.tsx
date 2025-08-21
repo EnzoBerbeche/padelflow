@@ -701,7 +701,18 @@ export default function PlayersPage() {
                             <td className="py-3 px-4">
                               <Badge className={getRankingColor(p.rang || 0)}>P{p.rang || 0}</Badge>
                             </td>
-                            <td className="py-3 px-4 text-gray-600">{p.club || '-'}</td>
+                            <td className="py-3 px-4 text-gray-600">
+                          {p.club ? (
+                            <Link 
+                              href={`/dashboard/clubs/${encodeURIComponent(p.club)}`}
+                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              {p.club}
+                            </Link>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
                             <td className="py-3 px-4 text-gray-600">{p.ligue || '-'}</td>
                             <td className="py-3 px-4 text-gray-600">{p.annee_naissance || '-'}</td>
                             <td className="py-3 px-4 text-right">
@@ -924,7 +935,16 @@ export default function PlayersPage() {
                               {player.gender}
                             </td>
                             <td className="py-3 px-4 text-gray-600">
-                              {player.club}
+                              {player.club ? (
+                                <Link 
+                                  href={`/dashboard/clubs/${encodeURIComponent(player.club)}`}
+                                  className="text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                  {player.club}
+                                </Link>
+                              ) : (
+                                '-'
+                              )}
                             </td>
                             <td className="py-3 px-4 text-gray-600">
                               {player.year_of_birth || (player.date_of_birth ? new Date(player.date_of_birth).getFullYear() : '-')}
