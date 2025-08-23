@@ -61,13 +61,15 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
   
   const points = data.map((d, i) => {
     const x = padding + (i / (data.length - 1)) * chartWidth;
-    const y = padding + ((maxRanking - d.ranking) / range) * chartHeight;
+    // Reversed Y-axis: lower ranking (better) at top, higher ranking (worse) at bottom
+    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
     return { x, y, ...d };
   });
 
   const comparisonPoints = comparisonData?.map((d, i) => {
     const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
-    const y = padding + ((maxRanking - d.ranking) / range) * chartHeight;
+    // Reversed Y-axis: lower ranking (better) at top, higher ranking (worse) at bottom
+    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
     return { x, y, ...d };
   }) || [];
   
@@ -102,7 +104,8 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
         {/* Y-axis labels */}
         {Array.from({ length: 5 }, (_, i) => {
           const y = padding + (i / 4) * chartHeight;
-          const ranking = maxRanking - (i / 4) * range;
+          // Labels go from minRanking (better) at top to maxRanking (worse) at bottom
+          const ranking = minRanking + (i / 4) * range;
           return (
             <text
               key={i}
@@ -116,19 +119,17 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
           );
         })}
         
-        {/* X-axis labels */}
-        {points.map((p, i) => (
-          <text
-            key={i}
-            x={p.x}
-            y={height - padding + 20}
-            textAnchor="middle"
-            className="text-xs fill-gray-600"
-            transform={`rotate(-45 ${p.x} ${height - padding + 20})`}
-          >
-            {p.month}
-          </text>
-        ))}
+        {/* Additional Y-axis label for the bottom to prevent cutoff */}
+        <text
+          x={padding - 10}
+          y={height - padding + 4}
+          textAnchor="end"
+          className="text-xs fill-gray-600"
+        >
+          P{Math.round(maxRanking)}
+        </text>
+        
+        {/* X-axis labels removed for cleaner look */}
         
         {/* Comparison chart line (dashed) */}
         {comparisonData && comparisonData.length > 0 && (
@@ -270,19 +271,17 @@ const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonDa
           );
         })}
         
-        {/* X-axis labels */}
-        {points.map((p, i) => (
-          <text
-            key={i}
-            x={p.x}
-            y={height - padding + 20}
-            textAnchor="middle"
-            className="text-xs fill-gray-600"
-            transform={`rotate(-45 ${p.x} ${height - padding + 20})`}
-          >
-            {p.month}
-          </text>
-        ))}
+        {/* Additional Y-axis label for the bottom to prevent cutoff */}
+        <text
+          x={padding - 10}
+          y={height - padding + 4}
+          textAnchor="end"
+          className="text-xs fill-gray-500"
+        >
+          {Math.round(minPoints)}
+        </text>
+        
+        {/* X-axis labels removed for cleaner look */}
         
         {/* Comparison chart line (dashed) */}
         {comparisonData && comparisonData.length > 0 && (
@@ -424,19 +423,17 @@ const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; compari
           );
         })}
         
-        {/* X-axis labels */}
-        {points.map((p, i) => (
-          <text
-            key={i}
-            x={p.x}
-            y={height - padding + 20}
-            textAnchor="middle"
-            className="text-xs fill-gray-600"
-            transform={`rotate(-45 ${p.x} ${height - padding + 20})`}
-          >
-            {p.month}
-          </text>
-        ))}
+        {/* Additional Y-axis label for the bottom to prevent cutoff */}
+        <text
+          x={padding - 10}
+          y={height - padding + 4}
+          textAnchor="end"
+          className="text-xs fill-gray-600"
+        >
+          {Math.round(minTournaments)}
+        </text>
+        
+        {/* X-axis labels removed for cleaner look */}
         
         {/* Comparison chart line (dashed) */}
         {comparisonData && comparisonData.length > 0 && (
@@ -496,17 +493,32 @@ export default function PlayerStatisticsPage() {
   const [playerStats, setPlayerStats] = useState<PlayerStatistics | null>(null);
   const [comparisonPlayer, setComparisonPlayer] = useState<PlayerStatistics | null>(null);
   const [showComparisonPopup, setShowComparisonPopup] = useState(false);
-  const [userPlayers, setUserPlayers] = useState<any[]>([]);
+  const [allPlayers, setAllPlayers] = useState<any[]>([]);
   const [playerSearch, setPlayerSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (licence) {
       fetchPlayerStatistics();
-      fetchUserPlayers();
+      fetchAllPlayers();
     }
   }, [licence]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (playerSearch.trim()) {
+        searchPlayers(playerSearch);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [playerSearch]);
 
   const fetchPlayerStatistics = async () => {
     try {
@@ -525,13 +537,55 @@ export default function PlayerStatisticsPage() {
     }
   };
 
-  const fetchUserPlayers = async () => {
+  const fetchAllPlayers = async () => {
     try {
-      const { playersAPI } = await import('@/lib/supabase');
-      const players = await playersAPI.getMyPlayersEnriched();
-      setUserPlayers(players);
+      // Only fetch a small initial set for display
+      const { supabase } = await import('@/lib/supabase');
+      const { data, error } = await supabase
+        .from('rankings_latest')
+        .select('licence, nom, genre, club, rang, points')
+        .order('nom')
+        .limit(100); // Limit initial load for performance
+      
+      if (error) {
+        console.error('Error fetching initial players:', error);
+        return;
+      }
+      
+      setAllPlayers(data || []);
     } catch (err) {
-      console.error('Error fetching user players:', err);
+      console.error('Error fetching initial players:', err);
+    }
+  };
+
+  const searchPlayers = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      
+      // Use ILIKE for case-insensitive search across multiple fields
+      const { data, error } = await supabase
+        .from('rankings_latest')
+        .select('licence, nom, genre, club, rang, points')
+        .or(`nom.ilike.%${searchTerm}%,licence.ilike.%${searchTerm}%,club.ilike.%${searchTerm}%`)
+        .order('nom')
+        .limit(200); // Limit search results for performance
+      
+      if (error) {
+        console.error('Error searching players:', error);
+        return;
+      }
+      
+      setSearchResults(data || []);
+    } catch (err) {
+      console.error('Error searching players:', err);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -549,15 +603,8 @@ export default function PlayerStatisticsPage() {
     setComparisonPlayer(null);
   };
 
-  // Filter players based on search
-  const filteredUserPlayers = userPlayers.filter(player => {
-    const searchLower = playerSearch.toLowerCase();
-    return (
-      (player.nom && player.nom.toLowerCase().includes(searchLower)) ||
-      (player.licence && player.licence.toLowerCase().includes(searchLower)) ||
-      (player.club && player.club.toLowerCase().includes(searchLower))
-    );
-  });
+  // Use search results when available, otherwise show initial players
+  const displayPlayers = playerSearch.trim() ? searchResults : allPlayers;
 
   const getRankingColor = (ranking: number | null) => {
     if (!ranking) return 'bg-gray-100 text-gray-800';
@@ -571,8 +618,10 @@ export default function PlayerStatisticsPage() {
 
   const getEvolutionIcon = (evolution: number | null) => {
     if (!evolution) return <Minus className="h-4 w-4 text-gray-500" />;
-    if (evolution > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
-    if (evolution < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    // In padel: positive evolution = ranking got worse (should be red and down)
+    // negative evolution = ranking improved (should be green and up)
+    if (evolution > 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    if (evolution < 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
     return <Minus className="h-4 w-4 text-gray-500" />;
   };
 
@@ -585,9 +634,31 @@ export default function PlayerStatisticsPage() {
 
   const getEvolutionColor = (evolution: number | null) => {
     if (!evolution) return 'text-gray-600';
-    if (evolution > 0) return 'text-green-600';
-    if (evolution < 0) return 'text-red-600';
+    // In padel: positive evolution = ranking got worse (should be red)
+    // negative evolution = ranking improved (should be green)
+    if (evolution > 0) return 'text-red-600';
+    if (evolution < 0) return 'text-green-600';
     return 'text-gray-600';
+  };
+
+  // Separate function for Average Progression (opposite logic)
+  const getAverageProgressionColor = (progression: number | null) => {
+    if (!progression) return 'text-gray-600';
+    // For Average Progression: negative = ranking got worse (should be red)
+    // positive = ranking improved (should be green)
+    if (progression < 0) return 'text-red-600';
+    if (progression > 0) return 'text-green-600';
+    return 'text-gray-600';
+  };
+
+  // Separate function for Average Progression icon (opposite logic)
+  const getAverageProgressionIcon = (progression: number | null) => {
+    if (!progression) return <Minus className="h-4 w-4 text-gray-500" />;
+    // For Average Progression: negative = ranking got worse (should be red down arrow)
+    // positive = ranking improved (should be green up arrow)
+    if (progression < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    if (progression > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
+    return <Minus className="h-4 w-4 text-gray-500" />;
   };
 
   const formatMonthYear = (year: number, month: number) => {
@@ -782,8 +853,8 @@ export default function PlayerStatisticsPage() {
                      <p className="text-xs text-gray-400 mt-1">
                        {playerStats.ranking_evolution !== null && playerStats.ranking_evolution !== 0
                          ? playerStats.ranking_evolution > 0 
-                           ? 'Positive = ranking got worse' 
-                           : 'Negative = ranking improved'
+                           ? 'Positive = ranking got worse (higher number)' 
+                           : 'Negative = ranking improved (lower number)'
                          : 'No change from last month'
                        }
                      </p>
@@ -886,8 +957,8 @@ export default function PlayerStatisticsPage() {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-5 w-5 text-green-500" />
-                      <span className={`text-lg font-bold ${playerStats.average_progression && playerStats.average_progression > 0 ? 'text-green-600' : playerStats.average_progression && playerStats.average_progression < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {getAverageProgressionIcon(playerStats.average_progression)}
+                      <span className={`text-lg font-bold ${getAverageProgressionColor(playerStats.average_progression)}`}>
                         {playerStats.average_progression !== null ? 
                           (playerStats.average_progression > 0 ? `+${Math.round(playerStats.average_progression)}` : Math.round(playerStats.average_progression)) : 
                           'N/A'
@@ -896,8 +967,8 @@ export default function PlayerStatisticsPage() {
                     </div>
                     {comparisonPlayer && (
                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
-                        <TrendingUp className="h-4 w-4 text-green-400" />
-                        <span className={`text-sm font-bold ${comparisonPlayer.average_progression && comparisonPlayer.average_progression > 0 ? 'text-green-600' : comparisonPlayer.average_progression && comparisonPlayer.average_progression < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                        {getAverageProgressionIcon(comparisonPlayer.average_progression)}
+                        <span className={`text-sm font-bold ${getAverageProgressionColor(comparisonPlayer.average_progression)}`}>
                           {comparisonPlayer.average_progression !== null ? 
                             (comparisonPlayer.average_progression > 0 ? `+${Math.round(comparisonPlayer.average_progression)}` : Math.round(comparisonPlayer.average_progression)) : 
                             'N/A'
@@ -1021,7 +1092,7 @@ export default function PlayerStatisticsPage() {
                  <TrendingUp className="h-5 w-5" />
                  <span>Ranking Evolution</span>
                </CardTitle>
-               <CardDescription>Last 12 months ranking progression</CardDescription>
+               <CardDescription>Last 12 months ranking progression (lower = better)</CardDescription>
              </CardHeader>
              <CardContent>
                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -1052,7 +1123,7 @@ export default function PlayerStatisticsPage() {
                                    {/* Monthly Details */}
                   <div className="lg:col-span-1">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div>
                       {/* Header */}
                       <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
                         <span>Month</span>
@@ -1137,7 +1208,7 @@ export default function PlayerStatisticsPage() {
                                    {/* Monthly Details */}
                   <div className="lg:col-span-1">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div>
                       {/* Header */}
                       <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
                         <span>Month</span>
@@ -1212,7 +1283,7 @@ export default function PlayerStatisticsPage() {
                                    {/* Monthly Details */}
                   <div className="lg:col-span-1">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div>
                       {/* Header */}
                       <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
                         <span>Month</span>
@@ -1257,8 +1328,8 @@ export default function PlayerStatisticsPage() {
                <DialogTitle>Select Player to Compare</DialogTitle>
              </DialogHeader>
              
-             <div className="space-y-4">
-                               {/* Search Bar */}
+                           <div className="space-y-4">
+                {/* Search Bar */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
@@ -1267,106 +1338,132 @@ export default function PlayerStatisticsPage() {
                     onChange={(e) => setPlayerSearch(e.target.value)}
                     className="pl-10"
                   />
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    </div>
+                  )}
                 </div>
+                
+                {/* Search Status */}
+                {playerSearch.trim() && (
+                  <div className="text-sm text-gray-600">
+                    {isSearching ? 'Searching...' : `Found ${searchResults.length} players`}
+                  </div>
+                )}
 
-                {/* Players Table */}
+                                {/* Players Table */}
                 <div className="max-h-96 overflow-y-auto border rounded-lg">
-                  {/* Mobile Cards View */}
-                  <div className="block sm:hidden space-y-2 p-2">
-                    {filteredUserPlayers
-                      .filter(player => player.licence !== licence)
-                      .map((player) => (
-                        <Card key={player.player_id} className="p-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm">
-                                {player.nom || `Player ${player.licence}`}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {player.genre === 'Homme' ? 'Men' : 'Women'}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-gray-600 space-y-1">
-                              <div>License: {player.licence}</div>
-                              <div>Club: {player.club || 'N/A'}</div>
-                              <div>Ranking: {player.rang || 'N/A'}</div>
-                            </div>
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleComparisonSelect(player.licence)}
-                              disabled={player.licence === licence}
-                              className="w-full text-xs"
-                            >
-                              Compare
-                            </Button>
-                          </div>
-                        </Card>
-                      ))}
-                    {filteredUserPlayers.filter(player => player.licence !== licence).length === 0 && (
-                      <div className="text-center py-8 text-gray-500 text-sm">
-                        No players found matching your search
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block">
-                 <Table>
-                   <TableHeader>
-                     <TableRow>
-                       <TableHead>Name</TableHead>
-                       <TableHead>License</TableHead>
-                       <TableHead>Club</TableHead>
-                       <TableHead className="text-center">Ranking</TableHead>
-                       <TableHead className="text-center">Gender</TableHead>
-                       <TableHead className="text-center">Action</TableHead>
-                     </TableRow>
-                   </TableHeader>
-                   <TableBody>
-                     {filteredUserPlayers
-                       .filter(player => player.licence !== licence)
-                       .map((player) => (
-                         <TableRow key={player.player_id} className="hover:bg-gray-50">
-                           <TableCell className="font-medium">
-                             {player.nom || `Player ${player.licence}`}
-                           </TableCell>
-                           <TableCell className="font-mono text-sm">
-                             {player.licence}
-                           </TableCell>
-                           <TableCell>
-                             {player.club || 'N/A'}
-                           </TableCell>
-                           <TableCell className="text-center">
-                             <Badge variant="outline" className="font-mono">
-                               {player.rang || 'N/A'}
-                             </Badge>
-                           </TableCell>
-                           <TableCell className="text-center">
-                             <Badge variant="outline" className="text-xs">
-                               {player.genre === 'Homme' ? 'Men' : 'Women'}
-                             </Badge>
-                           </TableCell>
-                           <TableCell className="text-center">
-                             <Button 
-                               size="sm" 
-                               onClick={() => handleComparisonSelect(player.licence)}
-                               disabled={player.licence === licence}
-                             >
-                               Compare
-                             </Button>
-                           </TableCell>
-                         </TableRow>
-                       ))}
-                                           {filteredUserPlayers.filter(player => player.licence !== licence).length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  {/* Show initial state when no search */}
+                  {!playerSearch.trim() && (
+                    <div className="text-center py-16 text-gray-500">
+                      <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">Search for players to compare</p>
+                      <p className="text-sm">Enter a name, license number, or club to find players</p>
+                    </div>
+                  )}
+
+                  {/* Show search results when searching */}
+                  {playerSearch.trim() && (
+                    <>
+                      {/* Mobile Cards View */}
+                      <div className="block sm:hidden space-y-2 p-2">
+                        {displayPlayers
+                          .filter(player => player.licence !== licence)
+                          .map((player) => (
+                            <Card key={player.licence} className="p-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-sm">
+                                    {player.nom || `Player ${player.licence}`}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {player.genre === 'Homme' ? 'Men' : 'Women'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-gray-600 space-y-1">
+                                  <div>License: {player.licence}</div>
+                                  <div>Club: {player.club || 'N/A'}</div>
+                                  <div>Ranking: {player.rang || 'N/A'}</div>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => handleComparisonSelect(player.licence)}
+                                  disabled={player.licence === licence}
+                                  className="w-full text-xs"
+                                >
+                                  Compare
+                                </Button>
+                              </div>
+                            </Card>
+                          ))}
+                        {displayPlayers.filter(player => player.licence !== licence).length === 0 && (
+                          <div className="text-center py-8 text-gray-500 text-sm">
                             No players found matching your search
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                  </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                                             {/* Desktop Table View */}
+                       <div className="hidden sm:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>License</TableHead>
+                              <TableHead>Club</TableHead>
+                              <TableHead className="text-center">Ranking</TableHead>
+                              <TableHead className="text-center">Gender</TableHead>
+                              <TableHead className="text-center">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayPlayers
+                              .filter(player => player.licence !== licence)
+                              .map((player) => (
+                                <TableRow key={player.licence} className="hover:bg-gray-50">
+                                  <TableCell className="font-medium">
+                                    {player.nom || `Player ${player.licence}`}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    {player.licence}
+                                  </TableCell>
+                                  <TableCell>
+                                    {player.club || 'N/A'}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="outline" className="font-mono">
+                                      {player.rang || 'N/A'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="outline" className="text-xs">
+                                      {player.genre === 'Homme' ? 'Men' : 'Women'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => handleComparisonSelect(player.licence)}
+                                      disabled={player.licence === licence}
+                                    >
+                                      Compare
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            {displayPlayers.filter(player => player.licence !== licence).length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                  No players found matching your search
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
                 </div>
              </div>
            </DialogContent>
