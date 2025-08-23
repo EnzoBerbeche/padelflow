@@ -485,6 +485,11 @@ export interface PlayerStatistics {
     points: number | null;
     tournaments_count: number | null;
   }[];
+  // New performance metrics
+  average_progression: number | null;
+  participation_rate: number | null;
+  most_active_month: { year: number; month: number; tournaments: number } | null;
+  club_position: number | null;
 }
 
 export const playerStatisticsAPI = {
@@ -519,12 +524,100 @@ export const playerStatisticsAPI = {
       tournaments_count: row.nb_tournois,
     }));
 
+    // Calculate ranking evolution (current month vs previous month)
+    let rankingEvolution = null;
+    if (rankingHistory.length > 1) {
+      const currentRanking = rankingHistory[0].ranking;
+      const previousRanking = rankingHistory[1].ranking;
+      if (currentRanking !== null && previousRanking !== null) {
+        // In padel: higher number = worse ranking
+        // So positive evolution = worse ranking, negative evolution = better ranking
+        rankingEvolution = currentRanking - previousRanking;
+      }
+    }
+
+    // Calculate new performance metrics
+    const last12Months = rankingHistory.slice(0, 12);
+    
+    // Average progression (average variation in ranking over last 12 months)
+    let averageProgression = null;
+    if (last12Months.length > 1) {
+      const progressions = [];
+      for (let i = 1; i < last12Months.length; i++) {
+        const current = last12Months[i - 1].ranking;
+        const previous = last12Months[i].ranking;
+        if (current !== null && previous !== null) {
+          progressions.push(previous - current); // Positive = improvement
+        }
+      }
+      if (progressions.length > 0) {
+        averageProgression = progressions.reduce((sum, val) => sum + val, 0) / progressions.length;
+      }
+    }
+    
+    // Participation rate (% of months with at least 1 tournament)
+    let participationRate = null;
+    if (last12Months.length > 0) {
+      const monthsWithTournaments = last12Months.filter(month => 
+        month.tournaments_count !== null && month.tournaments_count > 0
+      ).length;
+      participationRate = (monthsWithTournaments / last12Months.length) * 100;
+    }
+    
+          // Most active month (calculate monthly tournament difference)
+      let mostActiveMonth = null;
+      if (last12Months.length > 1) {
+        let maxMonthlyTournaments = 0;
+        let maxMonth = null;
+        
+        for (let i = 0; i < last12Months.length - 1; i++) {
+          const current = last12Months[i].tournaments_count;
+          const next = last12Months[i + 1].tournaments_count;
+          
+          if (current !== null && next !== null) {
+            const monthlyTournaments = current - next;
+            if (monthlyTournaments > maxMonthlyTournaments) {
+              maxMonthlyTournaments = monthlyTournaments;
+              maxMonth = {
+                year: last12Months[i].year,
+                month: last12Months[i].month,
+                tournaments: monthlyTournaments
+              };
+            }
+          }
+        }
+        
+        if (maxMonth && maxMonthlyTournaments > 0) {
+          mostActiveMonth = maxMonth;
+        }
+      }
+    
+                  // Player position within their club (same gender)
+        let clubPosition = null;
+        if (latest.club && latest.rang && latest.genre) {
+          const { data: clubData, error: clubError } = await supabase
+            .from('rankings_latest')
+            .select('rang')
+            .eq('club', latest.club)
+            .eq('genre', latest.genre)
+            .not('rang', 'is', null)
+            .order('rang', { ascending: true });
+          
+          if (!clubError && clubData && clubData.length > 0) {
+            const playerRanking = latest.rang;
+            const position = clubData.findIndex(row => row.rang === playerRanking) + 1;
+            if (position > 0) {
+              clubPosition = position;
+            }
+          }
+        }
+
     return {
       licence: latest.licence,
       nom: latest.nom,
       genre: latest.genre,
       current_ranking: latest.rang,
-      ranking_evolution: latest.evolution,
+      ranking_evolution: rankingEvolution,
       best_ranking: latest.meilleur_classement,
       nationality: latest.nationalite,
       birth_year: latest.annee_naissance,
@@ -533,6 +626,10 @@ export const playerStatisticsAPI = {
       ligue: latest.ligue,
       club: latest.club,
       ranking_history: rankingHistory,
+      average_progression: averageProgression,
+      participation_rate: participationRate,
+      most_active_month: mostActiveMonth,
+      club_position: clubPosition,
     };
   },
 

@@ -43,10 +43,11 @@ const ClubChart = ({
   const minValue = Math.min(...allValues);
   const range = maxValue - minValue || 1;
   
-  // Make chart responsive
-  const width = 800;
-  const height = 200;
-  const padding = 40;
+  // Responsive dimensions for mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const width = isMobile ? 350 : 800;
+  const height = isMobile ? 150 : 200;
+  const padding = isMobile ? 30 : 40;
   const chartWidth = width - 2 * padding;
   const chartHeight = height - 2 * padding;
   
@@ -299,6 +300,14 @@ export default function ClubDetailsPage() {
     return 'text-gray-600';
   };
 
+  const getComparisonIndicator = (mainValue: number, comparisonValue: number, higherIsBetter: boolean = true) => {
+    if (mainValue === comparisonValue) return <Minus className="h-4 w-4 text-gray-500" />;
+    const isMainBetter = higherIsBetter ? mainValue > comparisonValue : mainValue < comparisonValue;
+    return isMainBetter ? 
+      <TrendingUp className="h-4 w-4 text-green-500" /> : 
+      <TrendingDown className="h-4 w-4 text-red-500" />;
+  };
+
   const formatMonthYear = (year: number, month: number) => {
     const date = new Date(year, month - 1);
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -349,16 +358,16 @@ export default function ClubDetailsPage() {
       <DashboardLayout>
         <div className="space-y-6">
           {/* Header Section */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-x-4">
               <Link href="/dashboard/players">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+              <div className="text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   {clubStats.club_name}
                 </h1>
                 <p className="text-gray-600 mt-1">Club Statistics & Analysis</p>
@@ -366,10 +375,10 @@ export default function ClubDetailsPage() {
             </div>
 
             {/* Club Comparison Button */}
-            <div className="flex justify-end">
+            <div className="flex justify-center sm:justify-end">
               {comparisonClub ? (
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
+                <div className="flex flex-col items-center space-y-2 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
+                  <div className="flex flex-col items-center space-y-1 sm:flex-row sm:items-center sm:space-x-2 sm:space-y-0">
                     <span className="text-sm text-gray-600">Comparing with:</span>
                     <Badge variant="outline" className="text-blue-600">
                       {comparisonClub.club_name}
@@ -380,7 +389,7 @@ export default function ClubDetailsPage() {
                   </Button>
                 </div>
               ) : (
-                <Button onClick={() => setShowComparisonPopup(true)}>
+                <Button onClick={() => setShowComparisonPopup(true)} className="w-full sm:w-auto">
                   <Users className="h-4 w-4 mr-2" />
                   Compare with Another Club
                 </Button>
@@ -397,7 +406,7 @@ export default function ClubDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                 <div className="flex items-center space-x-2">
                   <Users className="h-4 w-4 text-gray-500" />
                   <div>
@@ -448,7 +457,7 @@ export default function ClubDetailsPage() {
           </Card>
 
           {/* KPI Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Average Ranking */}
             <Card>
               <CardHeader className="pb-3">
@@ -504,7 +513,7 @@ export default function ClubDetailsPage() {
           </div>
 
           {/* Top Players Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Top 10 Male Players */}
             <Card>
               <CardHeader>
@@ -569,7 +578,7 @@ export default function ClubDetailsPage() {
           </div>
 
           {/* Special Players */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Most Active Male Player */}
             <Card>
               <CardHeader>
@@ -665,7 +674,7 @@ export default function ClubDetailsPage() {
               <CardDescription>Club performance over time</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                 {/* Total Points Chart */}
                 <ClubChart 
                   data={prepareChartData(clubStats.monthly_evolution, 'total_points')}
@@ -703,27 +712,133 @@ export default function ClubDetailsPage() {
                 />
               </div>
 
-              {/* Chart Legend */}
-              {comparisonClub && (
-                <div className="flex items-center justify-center space-x-6 text-sm mt-6">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-0.5 bg-blue-500"></div>
-                    <span className="text-gray-700 font-medium">{clubStats.club_name}</span>
+              {/* Chart Details and Legend */}
+              <div className="mt-6 space-y-4">
+                {/* Chart Legend */}
+                {comparisonClub && (
+                  <div className="flex items-center justify-center space-x-6 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-0.5 bg-gray-500"></div>
+                      <span className="text-gray-700 font-medium">{clubStats.club_name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-0.5 bg-orange-500 border-dashed border-orange-500"></div>
+                      <span className="text-gray-700 font-medium">{comparisonClub.club_name}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-0.5 bg-orange-500 border-dashed border-orange-500"></div>
-                    <span className="text-gray-700 font-medium">{comparisonClub.club_name}</span>
-                  </div>
+                )}
+
+                {/* Chart Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {/* Total Points Summary */}
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 mb-1">Total Points (12 months)</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">{clubStats.club_name}</span>
+                          <span className="font-bold text-green-600">
+                            {clubStats.monthly_evolution.reduce((sum, month) => sum + month.total_points, 0).toLocaleString()}
+                          </span>
+                        </div>
+                        {comparisonClub && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{comparisonClub.club_name}</span>
+                            <span className="font-bold text-orange-600">
+                              {comparisonClub.monthly_evolution.reduce((sum, month) => sum + month.total_points, 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Total Tournaments Summary */}
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 mb-1">Total Tournaments (12 months)</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">{clubStats.club_name}</span>
+                          <span className="font-bold text-purple-600">
+                            {clubStats.monthly_evolution.reduce((sum, month) => sum + month.total_tournaments, 0).toLocaleString()}
+                          </span>
+                        </div>
+                        {comparisonClub && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{comparisonClub.club_name}</span>
+                            <span className="font-bold text-orange-600">
+                              {comparisonClub.monthly_evolution.reduce((sum, month) => sum + month.total_tournaments, 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Average Active Players */}
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 mb-1">Avg Active Players</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">{clubStats.club_name}</span>
+                          <span className="font-bold text-blue-600">
+                            {(clubStats.monthly_evolution.reduce((sum, month) => sum + month.active_players, 0) / 12).toFixed(1)}
+                          </span>
+                        </div>
+                        {comparisonClub && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{comparisonClub.club_name}</span>
+                            <span className="font-bold text-orange-600">
+                              {(comparisonClub.monthly_evolution.reduce((sum, month) => sum + month.active_players, 0) / 12).toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Total Male Points */}
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 mb-1">Total Male Points (12 months)</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">{clubStats.club_name}</span>
+                          <span className="font-bold text-red-600">
+                            {clubStats.monthly_evolution.reduce((sum, month) => sum + month.male_points, 0).toLocaleString()}
+                          </span>
+                        </div>
+                        {comparisonClub && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{comparisonClub.club_name}</span>
+                            <span className="font-bold text-orange-600">
+                              {comparisonClub.monthly_evolution.reduce((sum, month) => sum + month.male_points, 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Club Comparison Section */}
           {comparisonClub && (
             <div className="space-y-6">
+              {/* Comparison Summary Header */}
+              <Card className="bg-gradient-to-r from-blue-50 to-orange-50 border-2 border-blue-200">
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl text-gray-800">Club Comparison: {clubStats.club_name} vs {comparisonClub.club_name}</CardTitle>
+                  <CardDescription className="text-gray-600">Side-by-side comparison of key metrics and performance indicators</CardDescription>
+                </CardHeader>
+              </Card>
+
               {/* Comparison KPIs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {/* Total Players Comparison */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -733,7 +848,10 @@ export default function ClubDetailsPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{clubStats.club_name}</span>
-                        <span className="text-lg font-bold">{clubStats.total_players}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg font-bold">{clubStats.total_players}</span>
+                          {getComparisonIndicator(clubStats.total_players, comparisonClub.total_players, true)}
+                        </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
@@ -752,9 +870,12 @@ export default function ClubDetailsPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{clubStats.club_name}</span>
-                        <Badge className={getRankingColor(clubStats.average_ranking)}>
-                          P{clubStats.average_ranking}
-                        </Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getRankingColor(clubStats.average_ranking)}>
+                            P{clubStats.average_ranking}
+                          </Badge>
+                          {getComparisonIndicator(clubStats.average_ranking, comparisonClub.average_ranking, false)}
+                        </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
@@ -775,7 +896,10 @@ export default function ClubDetailsPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{clubStats.club_name}</span>
-                        <span className="text-lg font-bold">{clubStats.top_10_count}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg font-bold">{clubStats.top_10_count}</span>
+                          {getComparisonIndicator(clubStats.top_10_count, comparisonClub.top_10_count, true)}
+                        </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
@@ -803,10 +927,67 @@ export default function ClubDetailsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Average Age Comparison */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Average Age</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{clubStats.club_name}</span>
+                        <span className="text-lg font-bold">{clubStats.average_age} years</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
+                        <span className="text-lg font-bold">{comparisonClub.average_age} years</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gender Distribution Comparison */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Gender Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{clubStats.club_name}</span>
+                        <span className="text-sm font-medium">{clubStats.male_players}M / {clubStats.female_players}F</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
+                        <span className="text-sm font-medium">{comparisonClub.male_players}M / {comparisonClub.female_players}F</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Most Active Player Comparison */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Most Active Player</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{clubStats.club_name}</span>
+                        <span className="text-sm font-medium">{clubStats.most_active_male_player.nom || `Player ${clubStats.most_active_male_player.licence}`}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{comparisonClub.club_name}</span>
+                        <span className="text-sm font-medium">{comparisonClub.most_active_male_player.nom || `Player ${comparisonClub.most_active_male_player.licence}`}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Top 10 Players Comparison */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Top 10 Male Players Comparison */}
                 <Card>
                   <CardHeader>
@@ -925,7 +1106,76 @@ export default function ClubDetailsPage() {
               <CardDescription>Complete list of players in the club</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              {/* Mobile Cards View */}
+              <div className="block sm:hidden space-y-3">
+                {getSortedPlayers().map((player) => (
+                  <Card key={player.licence} className="p-4">
+                    <div className="space-y-3">
+                      {/* Player Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs">
+                            {player.genre === 'Homme' ? 'Men' : 'Women'}
+                          </Badge>
+                          <Link 
+                            href={`/dashboard/players/${player.licence}`}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {player.nom || `Player ${player.licence}`}
+                          </Link>
+                        </div>
+                        <Badge className={getRankingColor(player.rang)}>
+                          P{player.rang || 'N/A'}
+                        </Badge>
+                      </div>
+                      
+                      {/* Player Details */}
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-500">License:</span>
+                          <span className="ml-2 font-mono">{player.licence}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Points:</span>
+                          <span className="ml-2">{player.points || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Best Ranking:</span>
+                          <span className="ml-2">
+                            {player.meilleur_classement ? (
+                              <Badge variant="outline" className={getRankingColor(player.meilleur_classement)}>
+                                P{player.meilleur_classement}
+                              </Badge>
+                            ) : (
+                              'N/A'
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Nationality:</span>
+                          <span className="ml-2">{player.nationalite || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Age:</span>
+                          <span className="ml-2">
+                            {player.annee_naissance 
+                              ? new Date().getFullYear() - player.annee_naissance 
+                              : 'N/A'
+                            }
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Tournaments:</span>
+                          <span className="ml-2">{player.nb_tournois || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1096,7 +1346,7 @@ export default function ClubDetailsPage() {
 
         {/* Club Comparison Popup */}
         <Dialog open={showComparisonPopup} onOpenChange={setShowComparisonPopup}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden w-[95vw] sm:w-auto">
             <DialogHeader>
               <DialogTitle>Select Club to Compare</DialogTitle>
             </DialogHeader>
@@ -1115,7 +1365,37 @@ export default function ClubDetailsPage() {
 
               {/* Clubs Table */}
               <div className="max-h-96 overflow-y-auto border rounded-lg">
-                <Table>
+                {/* Mobile Cards View */}
+                <div className="block sm:hidden space-y-2 p-2">
+                  {filteredClubs
+                    .filter(club => club !== clubName)
+                    .map((club) => (
+                      <Card key={club} className="p-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{club}</span>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleComparisonSelect(club)}
+                              disabled={club === clubName}
+                              className="text-xs"
+                            >
+                              Compare
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  {filteredClubs.filter(club => club !== clubName).length === 0 && (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      No clubs found matching your search
+                    </div>
+                  )}
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden sm:block">
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Club Name</TableHead>
@@ -1150,6 +1430,7 @@ export default function ClubDetailsPage() {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             </div>
           </DialogContent>

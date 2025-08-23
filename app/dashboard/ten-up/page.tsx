@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown } from 'lucide-react';
+import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
@@ -300,19 +301,19 @@ export default function TenUpPage() {
             </div>
           </div>
 
-          {/* Search Controls */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Database className="h-5 w-5" />
-                <span>Search Players</span>
-              </CardTitle>
-              <CardDescription>
-                Search and add players from the national database to your roster
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                     {/* Search Controls */}
+           <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center space-x-2">
+                 <Database className="h-5 w-5" />
+                 <span>Search Players</span>
+               </CardTitle>
+               <CardDescription>
+                 Search and add players from the national database to your roster
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="space-y-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="search">Search</Label>
                   <Input
@@ -357,7 +358,7 @@ export default function TenUpPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="league">League</Label>
                   <Select value={leagueFilter} onValueChange={setLeagueFilter}>
@@ -427,7 +428,7 @@ export default function TenUpPage() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="flex items-end space-x-2">
+                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
                   <Button 
                     onClick={searchPlayers}
                     disabled={searching}
@@ -497,185 +498,310 @@ export default function TenUpPage() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('name')}>
-                              <span>Name</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('license')}>
-                              <span>License</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('ranking')}>
-                              <span>Ranking</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('club')}>
-                              <span>Club</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('league')}>
-                              <span>League</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button className="inline-flex items-center gap-1" onClick={() => toggleSort('birth_year')}>
-                              <span>Birth Year</span>
-                              <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                            </button>
-                          </th>
-                          <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getCurrentPagePlayers().map((player) => (
-                          <tr key={player.id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-2">
-                                {player.gender === 'men' ? (
-                                  <Circle className="h-4 w-4 text-blue-500" />
-                                ) : (
-                                  <CircleDot className="h-4 w-4 text-pink-500" />
-                                )}
-                                <div className="font-medium text-gray-900">
-                                  {player.first_name} {player.last_name}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.license_number}
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge className={getRankingColor(player.ranking)}>
-                                P{player.ranking}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.club}
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.league}
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.birth_year}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              {myLicences.includes(player.license_number) ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => removePlayerFromList(player)}
-                                  disabled={addingPlayer === player.id}
-                                  className="flex items-center space-x-2 text-red-600"
-                                >
-                                  {addingPlayer === player.id ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                      <span>Removing...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Trash2 className="h-4 w-4" />
-                                      <span>Remove from My Players</span>
-                                    </>
-                                  )}
-                                </Button>
-                              ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => addPlayerToLocal(player)}
-                                disabled={addingPlayer === player.id}
-                                className="flex items-center space-x-2"
-                              >
-                                {addingPlayer === player.id ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Adding...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <UserPlus className="h-4 w-4" />
-                                    <span>Add to My Players</span>
-                                  </>
-                                )}
-                              </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                                     {/* Mobile Cards View */}
+                   <div className="block sm:hidden space-y-3">
+                     {getCurrentPagePlayers().map((player) => (
+                       <Card key={player.id} className="p-4">
+                         <div className="space-y-3">
+                           {/* Player Header */}
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center space-x-2">
+                               {player.gender === 'men' ? (
+                                 <Circle className="h-4 w-4 text-blue-500" />
+                               ) : (
+                                 <CircleDot className="h-4 w-4 text-pink-500" />
+                               )}
+                               <Link 
+                                 href={`/dashboard/players/${player.license_number}?from=ten-up`}
+                                 className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                               >
+                                 {player.first_name} {player.last_name}
+                               </Link>
+                             </div>
+                             <Badge className={getRankingColor(player.ranking)}>
+                               P{player.ranking}
+                             </Badge>
+                           </div>
+                           
+                           {/* Player Details */}
+                           <div className="grid grid-cols-2 gap-2 text-sm">
+                             <div>
+                               <span className="text-gray-500">License:</span>
+                               <span className="ml-2 font-mono">{player.license_number}</span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">Club:</span>
+                               <span className="ml-2">
+                                 {player.club ? (
+                                   <Link 
+                                     href={`/dashboard/clubs/${encodeURIComponent(player.club)}`}
+                                     className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                   >
+                                     {player.club}
+                                   </Link>
+                                 ) : (
+                                   'N/A'
+                                 )}
+                               </span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">League:</span>
+                               <span className="ml-2">{player.league}</span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">Birth Year:</span>
+                               <span className="ml-2">{player.birth_year}</span>
+                             </div>
+                           </div>
+                           
+                           {/* Action Button */}
+                           <div className="pt-2">
+                             {myLicences.includes(player.license_number) ? (
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => removePlayerFromList(player)}
+                                 disabled={addingPlayer === player.id}
+                                 className="w-full text-red-600"
+                               >
+                                 {addingPlayer === player.id ? (
+                                   <>
+                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                     Removing...
+                                   </>
+                                 ) : (
+                                   <>
+                                     <Trash2 className="h-4 w-4 mr-2" />
+                                     Remove from My Players
+                                   </>
+                                 )}
+                               </Button>
+                             ) : (
+                               <Button
+                                 size="sm"
+                                 onClick={() => addPlayerToLocal(player)}
+                                 disabled={addingPlayer === player.id}
+                                 className="w-full"
+                               >
+                                 {addingPlayer === player.id ? (
+                                   <>
+                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                     Adding...
+                                   </>
+                                 ) : (
+                                   <>
+                                     <UserPlus className="h-4 w-4 mr-2" />
+                                     Add to My Players
+                                   </>
+                                 )}
+                               </Button>
+                             )}
+                           </div>
+                         </div>
+                       </Card>
+                     ))}
+                   </div>
+                   
+                   {/* Desktop Table View */}
+                   <div className="hidden sm:block overflow-x-auto">
+                     <table className="w-full">
+                       <thead>
+                         <tr className="border-b">
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('name')}>
+                               <span>Name</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('license')}>
+                               <span>License</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('ranking')}>
+                               <span>Ranking</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('club')}>
+                               <span>Club</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('league')}>
+                               <span>League</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('birth_year')}>
+                               <span>Birth Year</span>
+                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                             </button>
+                           </th>
+                           <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
+                         </tr>
+                       </thead>
+                       <tbody>
+                         {getCurrentPagePlayers().map((player) => (
+                           <tr key={player.id} className="border-b hover:bg-gray-50">
+                             <td className="py-3 px-4">
+                               <div className="flex items-center space-x-2">
+                                 {player.gender === 'men' ? (
+                                   <Circle className="h-4 w-4 text-blue-500" />
+                                 ) : (
+                                   <CircleDot className="h-4 w-4 text-pink-500" />
+                                 )}
+                                 <Link 
+                                   href={`/dashboard/players/${player.license_number}?from=ten-up`}
+                                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                 >
+                                   {player.first_name} {player.last_name}
+                                 </Link>
+                               </div>
+                             </td>
+                             <td className="py-3 px-4 text-gray-600">
+                               {player.license_number}
+                             </td>
+                             <td className="py-3 px-4">
+                               <Badge className={getRankingColor(player.ranking)}>
+                                 P{player.ranking}
+                               </Badge>
+                             </td>
+                             <td className="py-3 px-4 text-gray-600">
+                               {player.club ? (
+                                 <Link 
+                                   href={`/dashboard/clubs/${player.club}`}
+                                   className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                 >
+                                   {player.club}
+                                 </Link>
+                               ) : (
+                                 'N/A'
+                               )}
+                             </td>
+                             <td className="py-3 px-4 text-gray-600">
+                               {player.league}
+                             </td>
+                             <td className="py-3 px-4 text-gray-600">
+                               {player.birth_year}
+                             </td>
+                             <td className="py-3 px-4 text-right">
+                               {myLicences.includes(player.license_number) ? (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => removePlayerFromList(player)}
+                                   disabled={addingPlayer === player.id}
+                                   className="flex items-center space-x-2 text-red-600"
+                                 >
+                                   {addingPlayer === player.id ? (
+                                     <>
+                                       <Loader2 className="h-4 w-4 animate-spin" />
+                                       <span>Removing...</span>
+                                     </>
+                                   ) : (
+                                     <>
+                                       <Trash2 className="h-4 w-4" />
+                                       <span>Remove from My Players</span>
+                                     </>
+                                   )}
+                                 </Button>
+                               ) : (
+                               <Button
+                                 size="sm"
+                                 onClick={() => addPlayerToLocal(player)}
+                                 disabled={addingPlayer === player.id}
+                                 className="w-full"
+                               >
+                                 {addingPlayer === player.id ? (
+                                   <>
+                                     <Loader2 className="h-4 w-4 animate-spin" />
+                                     <span>Adding...</span>
+                                   </>
+                                 ) : (
+                                   <>
+                                     <UserPlus className="h-4 w-4" />
+                                     <span>Add to My Players</span>
+                                   </>
+                                 )}
+                               </Button>
+                               )}
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6">
-                      <div className="text-sm text-gray-700">
-                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length} results
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
-                        </Button>
-                        
-                        <div className="flex items-center space-x-1">
-                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pageNum: number;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (currentPage <= 3) {
-                              pageNum = i + 1;
-                            } else if (currentPage >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = currentPage - 2 + i;
-                            }
-                            
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={currentPage === pageNum ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handlePageChange(pageNum)}
-                                className="w-8 h-8 p-0"
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                                     {/* Pagination */}
+                   {totalPages > 1 && (
+                     <div className="flex flex-col sm:flex-row items-center justify-between mt-6 space-y-3 sm:space-y-0">
+                       <div className="text-sm text-gray-700 text-center sm:text-left">
+                         Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length} results
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handlePageChange(currentPage - 1)}
+                           disabled={currentPage === 1}
+                         >
+                           <ChevronLeft className="h-4 w-4 mr-1" />
+                           <span className="hidden sm:inline">Previous</span>
+                         </Button>
+                         
+                         {/* Mobile: Show current page and total */}
+                         <div className="sm:hidden flex items-center space-x-2">
+                           <span className="text-sm text-gray-600">
+                             {currentPage} of {totalPages}
+                           </span>
+                         </div>
+                         
+                         {/* Desktop: Show page numbers */}
+                         <div className="hidden sm:flex items-center space-x-1">
+                           {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                             let pageNum: number;
+                             if (totalPages <= 5) {
+                               pageNum = i + 1;
+                             } else if (currentPage <= 3) {
+                               pageNum = i + 1;
+                             } else if (currentPage >= totalPages - 2) {
+                               pageNum = totalPages - 4 + i;
+                             } else {
+                               pageNum = currentPage - 2 + i;
+                             }
+                             
+                             return (
+                               <Button
+                                 key={pageNum}
+                                 variant={currentPage === pageNum ? "default" : "outline"}
+                                 size="sm"
+                                 onClick={() => handlePageChange(pageNum)}
+                                 className="w-8 h-8 p-0"
+                               >
+                                 {pageNum}
+                               </Button>
+                             );
+                           })}
+                         </div>
+                         
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handlePageChange(currentPage + 1)}
+                           disabled={currentPage === totalPages}
+                         >
+                           <span className="hidden sm:inline">Next</span>
+                           <ChevronRight className="h-4 w-4 ml-1" />
+                         </Button>
+                       </div>
+                     </div>
+                   )}
                 </>
               )}
             </CardContent>

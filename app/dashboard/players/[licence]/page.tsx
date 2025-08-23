@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,9 +33,29 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
   const minRanking = Math.min(...allRankings);
   const range = maxRanking - minRanking || 1;
   
-  const width = 800;
-  const height = 200;
-  const padding = 40;
+  // Use container-based responsive dimensions
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
+  
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const isMobile = containerWidth < 640;
+        setDimensions({
+          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
+          height: isMobile ? 200 : 250
+        });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+  
+  const { width, height } = dimensions;
+  const padding = width < 640 ? 20 : 40;
   const chartWidth = width - 2 * padding;
   const chartHeight = height - 2 * padding;
   
@@ -60,8 +80,8 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
   ).join(' ');
   
   return (
-    <div className="w-full overflow-x-auto">
-      <svg width={width} height={height} className="w-full h-full">
+    <div ref={containerRef} className="w-full">
+      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
         {/* Grid lines */}
         {Array.from({ length: 5 }, (_, i) => {
           const y = padding + (i / 4) * chartHeight;
@@ -167,9 +187,29 @@ const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonDa
   const minPoints = Math.min(...allPoints);
   const range = maxPoints - minPoints || 1;
   
-  const width = 800;
-  const height = 200;
-  const padding = 40;
+  // Use container-based responsive dimensions
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
+  
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const isMobile = containerWidth < 640;
+        setDimensions({
+          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
+          height: isMobile ? 200 : 250
+        });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+  
+  const { width, height } = dimensions;
+  const padding = width < 640 ? 20 : 40;
   const chartWidth = width - 2 * padding;
   const chartHeight = height - 2 * padding;
   
@@ -194,8 +234,8 @@ const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonDa
   ).join(' ');
   
   return (
-    <div className="w-full overflow-x-auto">
-      <svg width={width} height={height} className="w-full h-full">
+    <div ref={containerRef} className="w-full">
+      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
         {/* Grid lines */}
         {Array.from({ length: 5 }, (_, i) => {
           const y = padding + (i / 4) * chartHeight;
@@ -223,11 +263,11 @@ const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonDa
               x={padding - 10}
               y={y + 4}
               textAnchor="end"
-              className="text-xs fill-gray-600"
+              className="text-xs fill-gray-500"
             >
               {Math.round(points)}
             </text>
-              );
+          );
         })}
         
         {/* X-axis labels */}
@@ -301,9 +341,29 @@ const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; compari
   const minTournaments = Math.min(...allTournaments);
   const range = maxTournaments - minTournaments || 1;
   
-  const width = 800;
-  const height = 200;
-  const padding = 40;
+  // Use container-based responsive dimensions
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
+  
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const isMobile = containerWidth < 640;
+        setDimensions({
+          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
+          height: isMobile ? 200 : 250
+        });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+  
+  const { width, height } = dimensions;
+  const padding = width < 640 ? 20 : 40;
   const chartWidth = width - 2 * padding;
   const chartHeight = height - 2 * padding;
   
@@ -314,7 +374,7 @@ const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; compari
   });
 
   const comparisonPoints = comparisonData?.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * chartWidth;
+    const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
     const y = padding + ((maxTournaments - d.tournaments) / range) * chartHeight;
     return { x, y, ...d };
   }) || [];
@@ -328,8 +388,8 @@ const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; compari
   ).join(' ');
   
   return (
-    <div className="w-full overflow-x-auto">
-      <svg width={width} height={height} className="w-full h-full">
+    <div ref={containerRef} className="w-full">
+      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
         {/* Grid lines */}
         {Array.from({ length: 5 }, (_, i) => {
           const y = padding + (i / 4) * chartHeight;
@@ -430,7 +490,9 @@ const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; compari
 
 export default function PlayerStatisticsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const licence = params.licence as string;
+  const from = searchParams.get('from');
   const [playerStats, setPlayerStats] = useState<PlayerStatistics | null>(null);
   const [comparisonPlayer, setComparisonPlayer] = useState<PlayerStatistics | null>(null);
   const [showComparisonPopup, setShowComparisonPopup] = useState(false);
@@ -580,12 +642,12 @@ export default function PlayerStatisticsPage() {
         <DashboardLayout>
           <div className="flex flex-col items-center justify-center min-h-64 space-y-4">
             <div className="text-red-600 text-lg font-medium">{error || 'Player not found'}</div>
-            <Link href="/dashboard/players">
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Players
-              </Button>
-            </Link>
+                         <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard/players'}>
+               <Button variant="outline">
+                 <ArrowLeft className="h-4 w-4 mr-2" />
+                 Back to {from === 'ten-up' ? 'Ten\'Up' : 'Players'}
+               </Button>
+             </Link>
           </div>
         </DashboardLayout>
       </ProtectedRoute>
@@ -596,50 +658,50 @@ export default function PlayerStatisticsPage() {
     <ProtectedRoute>
       <DashboardLayout>
         <div className="space-y-6">
-                                 {/* Header Section */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
-                <Link href="/dashboard/players">
-                  <Button variant="outline" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {playerStats.nom || `Player ${playerStats.licence}`}
-                  </h1>
-                  <p className="text-gray-600 mt-1">Licence: {playerStats.licence}</p>
-                </div>
-              </div>
+                                              {/* Header Section */}
+             <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between">
+               <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-x-4">
+                 <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard/players'}>
+                   <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                     <ArrowLeft className="h-4 w-4 mr-2" />
+                     Back to {from === 'ten-up' ? 'Ten\'Up' : 'Players'}
+                   </Button>
+                 </Link>
+                 <div className="text-center sm:text-left">
+                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                     {playerStats.nom || `Player ${playerStats.licence}`}
+                   </h1>
+                   <p className="text-gray-600 mt-1">Licence: {playerStats.licence}</p>
+                 </div>
+               </div>
+ 
+               {/* Player Comparison Button */}
+               <div className="flex justify-center sm:justify-end">
+                 {comparisonPlayer ? (
+                   <div className="flex flex-col items-center space-y-2 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
+                     <div className="flex flex-col items-center space-y-1 sm:flex-row sm:items-center sm:space-x-2 sm:space-y-0">
+                       <span className="text-sm text-gray-600">Comparing with:</span>
+                       <Badge variant="outline" className="text-blue-600">
+                         {comparisonPlayer.nom || `Player ${comparisonPlayer.licence}`}
+                       </Badge>
+                     </div>
+                     <Button variant="outline" size="sm" onClick={clearComparison}>
+                       Clear Comparison
+                     </Button>
+                   </div>
+                 ) : (
+                   <Button onClick={() => setShowComparisonPopup(true)} className="w-full sm:w-auto">
+                     <Users className="h-4 w-4 mr-2" />
+                     Compare with Another Player
+                   </Button>
+                 )}
+               </div>
+             </div>
 
-              {/* Player Comparison Button */}
-              <div className="flex justify-end">
-                {comparisonPlayer ? (
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Comparing with:</span>
-                      <Badge variant="outline" className="text-blue-600">
-                        {comparisonPlayer.nom || `Player ${comparisonPlayer.licence}`}
-                      </Badge>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={clearComparison}>
-                      Clear Comparison
-                    </Button>
-                  </div>
-                ) : (
-                  <Button onClick={() => setShowComparisonPopup(true)}>
-                    <Users className="h-4 w-4 mr-2" />
-                    Compare with Another Player
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Personal Information - One Line */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                         {/* Personal Information - One Line */}
+             <Card>
+               <CardContent className="pt-6">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                   <div className="flex items-center space-x-2">
                     <Award className="h-4 w-4 text-gray-500" />
                     <div>
@@ -689,25 +751,62 @@ export default function PlayerStatisticsPage() {
               </CardContent>
             </Card>
 
-            {/* KPI Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Current Ranking */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Current Ranking</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-2">
-                    <Badge className={getRankingColor(playerStats.current_ranking)}>
-                      P{playerStats.current_ranking || 'N/A'}
-                    </Badge>
-                    {getEvolutionIcon(playerStats.ranking_evolution)}
-                    <span className={`text-sm ${getEvolutionColor(playerStats.ranking_evolution)}`}>
-                      {getEvolutionText(playerStats.ranking_evolution)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+                         {/* KPI Stats Grid */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                             {/* Current Ranking */}
+               <Card>
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-sm font-medium text-gray-600">Current Ranking</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="space-y-2">
+                     <div className="flex items-center space-x-2">
+                       <Badge className={getRankingColor(playerStats.current_ranking)}>
+                         P{playerStats.current_ranking || 'N/A'}
+                       </Badge>
+                       {/* Show evolution only if there's actual change */}
+                       {playerStats.ranking_evolution !== 0 && (
+                         <>
+                           {getEvolutionIcon(playerStats.ranking_evolution)}
+                           <span className={`text-sm ${getEvolutionColor(playerStats.ranking_evolution)}`}>
+                             {getEvolutionText(playerStats.ranking_evolution)}
+                           </span>
+                         </>
+                       )}
+                       {/* Show "No change" if ranking stayed the same */}
+                       {playerStats.ranking_evolution === 0 && (
+                         <span className="text-sm text-gray-500">No change</span>
+                       )}
+                     </div>
+                     {/* Add explanation for ranking evolution */}
+                     <p className="text-xs text-gray-400 mt-1">
+                       {playerStats.ranking_evolution !== null && playerStats.ranking_evolution !== 0
+                         ? playerStats.ranking_evolution > 0 
+                           ? 'Positive = ranking got worse' 
+                           : 'Negative = ranking improved'
+                         : 'No change from last month'
+                       }
+                     </p>
+                     {comparisonPlayer && (
+                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                         <Badge className={getRankingColor(comparisonPlayer.current_ranking)} variant="outline">
+                           P{comparisonPlayer.current_ranking || 'N/A'}
+                         </Badge>
+                         {comparisonPlayer.ranking_evolution !== 0 ? (
+                           <>
+                             {getEvolutionIcon(comparisonPlayer.ranking_evolution)}
+                             <span className={`text-sm ${getEvolutionColor(comparisonPlayer.ranking_evolution)}`}>
+                               {getEvolutionText(comparisonPlayer.ranking_evolution)}
+                             </span>
+                           </>
+                         ) : (
+                           <span className="text-sm text-gray-500">No change</span>
+                         )}
+                       </div>
+                     )}
+                   </div>
+                 </CardContent>
+               </Card>
 
               {/* Best Ranking */}
               <Card>
@@ -715,11 +814,21 @@ export default function PlayerStatisticsPage() {
                   <CardTitle className="text-sm font-medium text-gray-600">Best Ranking</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center space-x-2">
-                    <Trophy className="h-5 w-5 text-yellow-500" />
-                    <Badge className={getRankingColor(playerStats.best_ranking)}>
-                      P{playerStats.best_ranking || 'N/A'}
-                    </Badge>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Trophy className="h-5 w-5 text-yellow-500" />
+                      <Badge className={getRankingColor(playerStats.best_ranking)}>
+                        P{playerStats.best_ranking || 'N/A'}
+                      </Badge>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Trophy className="h-4 w-4 text-yellow-400" />
+                        <Badge className={getRankingColor(comparisonPlayer.best_ranking)} variant="outline">
+                          P{comparisonPlayer.best_ranking || 'N/A'}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -730,9 +839,17 @@ export default function PlayerStatisticsPage() {
                   <CardTitle className="text-sm font-medium text-gray-600">Current Points</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center space-x-2">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    <span className="text-2xl font-bold">{playerStats.current_points || 'N/A'}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Target className="h-5 w-5 text-blue-500" />
+                      <span className="text-2xl font-bold">{playerStats.current_points || 'N/A'}</span>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Target className="h-4 w-4 text-blue-400" />
+                        <span className="text-lg font-bold text-blue-600">{comparisonPlayer.current_points || 'N/A'}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -743,12 +860,158 @@ export default function PlayerStatisticsPage() {
                   <CardTitle className="text-sm font-medium text-gray-600">Tournaments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-5 w-5 text-purple-500" />
-                    <span className="text-2xl font-bold">{playerStats.current_tournaments_count || 'N/A'}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-5 w-5 text-purple-500" />
+                      <span className="text-2xl font-bold">{playerStats.current_tournaments_count || 'N/A'}</span>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Users className="h-4 w-4 text-purple-400" />
+                        <span className="text-lg font-bold text-purple-600">{comparisonPlayer.current_tournaments_count || 'N/A'}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+                         {/* New Performance & Activity Metrics */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {/* Average Progression */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Average Progression</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      <span className={`text-lg font-bold ${playerStats.average_progression && playerStats.average_progression > 0 ? 'text-green-600' : playerStats.average_progression && playerStats.average_progression < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                        {playerStats.average_progression !== null ? 
+                          (playerStats.average_progression > 0 ? `+${Math.round(playerStats.average_progression)}` : Math.round(playerStats.average_progression)) : 
+                          'N/A'
+                        }
+                      </span>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <TrendingUp className="h-4 w-4 text-green-400" />
+                        <span className={`text-sm font-bold ${comparisonPlayer.average_progression && comparisonPlayer.average_progression > 0 ? 'text-green-600' : comparisonPlayer.average_progression && comparisonPlayer.average_progression < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {comparisonPlayer.average_progression !== null ? 
+                            (comparisonPlayer.average_progression > 0 ? `+${Math.round(comparisonPlayer.average_progression)}` : Math.round(comparisonPlayer.average_progression)) : 
+                            'N/A'
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                                     <p className="text-xs text-gray-500 mt-1">Average ranking change</p>
+                   <p className="text-xs text-gray-400 mt-1">Last 12 months</p>
+                   <p className="text-xs text-gray-400 mt-1">
+                     {playerStats.average_progression && playerStats.average_progression < 0 
+                       ? 'Negative = ranking improved (better)' 
+                       : playerStats.average_progression && playerStats.average_progression > 0 
+                         ? 'Positive = ranking got worse' 
+                         : 'No change'
+                     }
+                   </p>
+                </CardContent>
+              </Card>
+
+              {/* Participation Rate */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Participation Rate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5 text-indigo-500" />
+                      <span className="text-lg font-bold text-gray-900">
+                        {playerStats.participation_rate !== null ? `${Math.round(playerStats.participation_rate)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Calendar className="h-4 w-4 text-indigo-400" />
+                        <span className="text-sm font-bold text-indigo-600">
+                          {comparisonPlayer.participation_rate !== null ? `${Math.round(comparisonPlayer.participation_rate)}%` : 'N/A'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">% of months with tournaments</p>
+                  <p className="text-xs text-gray-400 mt-1">Last 12 months</p>
+                </CardContent>
+              </Card>
+
+              {/* Most Active Month */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">Most Active Month</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-5 w-5 text-orange-500" />
+                      <div>
+                        <span className="text-lg font-bold text-gray-900">
+                          {playerStats.most_active_month ? playerStats.most_active_month.tournaments : 'N/A'}
+                        </span>
+                        {playerStats.most_active_month && (
+                          <p className="text-xs text-gray-500">
+                            {new Date(playerStats.most_active_month.year, playerStats.most_active_month.month - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Users className="h-4 w-4 text-orange-400" />
+                        <div>
+                          <span className="text-sm font-bold text-orange-600">
+                            {comparisonPlayer.most_active_month ? comparisonPlayer.most_active_month.tournaments : 'N/A'}
+                          </span>
+                          {comparisonPlayer.most_active_month && (
+                            <p className="text-xs text-gray-500">
+                              {new Date(comparisonPlayer.most_active_month.year, comparisonPlayer.most_active_month.month - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Tournaments in that month</p>
+                </CardContent>
+              </Card>
+
+                             {/* Club Position */}
+               <Card>
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-sm font-medium text-gray-600">Club Position</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="space-y-2">
+                     <div className="flex items-center space-x-2">
+                       <Building className="h-5 w-5 text-purple-500" />
+                       <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">
+                         #{playerStats.club_position || 'N/A'}
+                       </Badge>
+                     </div>
+                     {comparisonPlayer && (
+                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                         <Building className="h-4 w-4 text-purple-400" />
+                         <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100" variant="outline">
+                           #{comparisonPlayer.club_position || 'N/A'}
+                         </Badge>
+                       </div>
+                     )}
+                   </div>
+                   <p className="text-xs text-gray-500 mt-1">{playerStats.club || 'N/A'}</p>
+                   <p className="text-xs text-gray-400 mt-1">Position in club</p>
+                 </CardContent>
+               </Card>
             </div>
 
                      {/* Ranking Evolution Chart */}
@@ -761,15 +1024,15 @@ export default function PlayerStatisticsPage() {
                <CardDescription>Last 12 months ranking progression</CardDescription>
              </CardHeader>
              <CardContent>
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                 {/* Chart */}
-                 <div className="lg:col-span-2">
-                   <div className="h-64 w-full">
-                     <RankingChart 
-                       data={prepareChartData(playerStats.ranking_history)} 
-                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                     />
-                   </div>
+                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {/* Chart */}
+                  <div className="lg:col-span-2">
+                    <div className="h-48 sm:h-64 w-full">
+                      <RankingChart 
+                        data={prepareChartData(playerStats.ranking_history)} 
+                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                      />
+                    </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
@@ -786,27 +1049,52 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                 {/* Monthly Details */}
-                 <div className="lg:col-span-1">
-                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => (
-                       <div key={index} className="flex items-center justify-between">
-                         <span className="text-sm text-gray-600">
-                           {formatMonthYear(entry.year, entry.month)}
-                         </span>
-                         <div className="flex items-center space-x-2">
-                           <Badge className={getRankingColor(entry.ranking)}>
-                             P{entry.ranking || 'N/A'}
-                           </Badge>
-                           {entry.points && (
-                             <span className="text-xs text-gray-500">({entry.points} pts)</span>
-                           )}
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
+                                   {/* Monthly Details */}
+                  <div className="lg:col-span-1">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Header */}
+                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                        <span>Month</span>
+                        <span className="text-center">{playerStats.nom || 'Player'}</span>
+                        {comparisonPlayer && (
+                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                        )}
+                      </div>
+                      
+                      {/* Data Rows */}
+                      <div className="space-y-1">
+                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                          return (
+                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
+                              <span className="text-gray-600">
+                                {formatMonthYear(entry.year, entry.month)}
+                              </span>
+                              <div className="flex items-center justify-center space-x-1">
+                                <Badge className={getRankingColor(entry.ranking)}>
+                                  P{entry.ranking || 'N/A'}
+                                </Badge>
+                                {entry.points && (
+                                  <span className="text-xs text-gray-500">({entry.points})</span>
+                                )}
+                              </div>
+                              {comparisonPlayer && comparisonEntry && (
+                                <div className="flex items-center justify-center space-x-1">
+                                  <Badge className={`${getRankingColor(comparisonEntry.ranking)} text-xs`} variant="outline">
+                                    P{comparisonEntry.ranking || 'N/A'}
+                                  </Badge>
+                                  {comparisonEntry.points && (
+                                    <span className="text-xs text-gray-400">({comparisonEntry.points})</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                </div>
              </CardContent>
            </Card>
@@ -821,15 +1109,15 @@ export default function PlayerStatisticsPage() {
                <CardDescription>Points progression over time</CardDescription>
              </CardHeader>
              <CardContent>
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                 {/* Chart */}
-                 <div className="lg:col-span-2">
-                   <div className="h-64 w-full">
-                     <PointsChart 
-                       data={prepareChartData(playerStats.ranking_history)} 
-                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                     />
-                   </div>
+                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {/* Chart */}
+                  <div className="lg:col-span-2">
+                    <div className="h-48 sm:h-64 w-full">
+                      <PointsChart 
+                        data={prepareChartData(playerStats.ranking_history)} 
+                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                      />
+                    </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
@@ -846,23 +1134,42 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                 {/* Monthly Details */}
-                 <div className="lg:col-span-1">
-                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => (
-                       <div key={index} className="flex items-center justify-between">
-                         <span className="text-sm text-gray-600">
-                           {formatMonthYear(entry.year, entry.month)}
-                         </span>
-                         <div className="flex items-center space-x-2">
-                           <span className="text-sm font-medium">{entry.points || 'N/A'}</span>
-                           <span className="text-xs text-gray-500">points</span>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
+                                   {/* Monthly Details */}
+                  <div className="lg:col-span-1">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Header */}
+                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                        <span>Month</span>
+                        <span className="text-center">{playerStats.nom || 'Player'}</span>
+                        {comparisonPlayer && (
+                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                        )}
+                      </div>
+                      
+                      {/* Data Rows */}
+                      <div className="space-y-1">
+                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                          return (
+                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
+                              <span className="text-gray-600">
+                                {formatMonthYear(entry.year, entry.month)}
+                              </span>
+                              <div className="flex items-center justify-center">
+                                <span className="font-medium">{entry.points || 'N/A'}</span>
+                              </div>
+                              {comparisonPlayer && comparisonEntry && (
+                                <div className="flex items-center justify-center">
+                                  <span className="text-gray-600">{comparisonEntry.points || 'N/A'}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                </div>
              </CardContent>
            </Card>
@@ -877,15 +1184,15 @@ export default function PlayerStatisticsPage() {
                <CardDescription>Number of tournaments over time</CardDescription>
              </CardHeader>
              <CardContent>
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                 {/* Chart */}
-                 <div className="lg:col-span-2">
-                   <div className="h-64 w-full">
-                     <TournamentsChart 
-                       data={prepareChartData(playerStats.ranking_history)} 
-                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                     />
-                   </div>
+                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {/* Chart */}
+                  <div className="lg:col-span-2">
+                    <div className="h-48 sm:h-64 w-full">
+                      <TournamentsChart 
+                        data={prepareChartData(playerStats.ranking_history)} 
+                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                      />
+                    </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
@@ -902,49 +1209,108 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                 {/* Monthly Details */}
-                 <div className="lg:col-span-1">
-                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => (
-                       <div key={index} className="flex items-center justify-between">
-                         <span className="text-sm text-gray-600">
-                           {formatMonthYear(entry.year, entry.month)}
-                         </span>
-                         <div className="flex items-center space-x-2">
-                           <span className="text-sm font-medium">{entry.tournaments_count || 'N/A'}</span>
-                           <span className="text-xs text-gray-500">tournaments</span>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
+                                   {/* Monthly Details */}
+                  <div className="lg:col-span-1">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Header */}
+                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                        <span>Month</span>
+                        <span className="text-center">{playerStats.nom || 'Player'}</span>
+                        {comparisonPlayer && (
+                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                        )}
+                      </div>
+                      
+                      {/* Data Rows */}
+                      <div className="space-y-1">
+                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                          return (
+                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
+                              <span className="text-gray-600">
+                                {formatMonthYear(entry.year, entry.month)}
+                              </span>
+                              <div className="flex items-center justify-center">
+                                <span className="font-medium">{entry.tournaments_count || 'N/A'}</span>
+                              </div>
+                              {comparisonPlayer && comparisonEntry && (
+                                <div className="flex items-center justify-center">
+                                  <span className="text-gray-600">{comparisonEntry.tournaments_count || 'N/A'}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                </div>
              </CardContent>
            </Card>
          </div>
 
-         {/* Player Comparison Popup */}
-         <Dialog open={showComparisonPopup} onOpenChange={setShowComparisonPopup}>
-           <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+                   {/* Player Comparison Popup */}
+          <Dialog open={showComparisonPopup} onOpenChange={setShowComparisonPopup}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden w-[95vw] sm:w-auto">
              <DialogHeader>
                <DialogTitle>Select Player to Compare</DialogTitle>
              </DialogHeader>
              
              <div className="space-y-4">
-               {/* Search Bar */}
-               <div className="relative">
-                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                 <Input
-                   placeholder="Search players by name, license, or club..."
-                   value={playerSearch}
-                   onChange={(e) => setPlayerSearch(e.target.value)}
-                   className="pl-10"
-                 />
-               </div>
+                               {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search players by name, license, or club..."
+                    value={playerSearch}
+                    onChange={(e) => setPlayerSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
-               {/* Players Table */}
-               <div className="max-h-96 overflow-y-auto border rounded-lg">
+                {/* Players Table */}
+                <div className="max-h-96 overflow-y-auto border rounded-lg">
+                  {/* Mobile Cards View */}
+                  <div className="block sm:hidden space-y-2 p-2">
+                    {filteredUserPlayers
+                      .filter(player => player.licence !== licence)
+                      .map((player) => (
+                        <Card key={player.player_id} className="p-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">
+                                {player.nom || `Player ${player.licence}`}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {player.genre === 'Homme' ? 'Men' : 'Women'}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-gray-600 space-y-1">
+                              <div>License: {player.licence}</div>
+                              <div>Club: {player.club || 'N/A'}</div>
+                              <div>Ranking: {player.rang || 'N/A'}</div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleComparisonSelect(player.licence)}
+                              disabled={player.licence === licence}
+                              className="w-full text-xs"
+                            >
+                              Compare
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    {filteredUserPlayers.filter(player => player.licence !== licence).length === 0 && (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No players found matching your search
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block">
                  <Table>
                    <TableHeader>
                      <TableRow>
@@ -991,16 +1357,17 @@ export default function PlayerStatisticsPage() {
                            </TableCell>
                          </TableRow>
                        ))}
-                     {filteredUserPlayers.filter(player => player.licence !== licence).length === 0 && (
-                       <TableRow>
-                         <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                           No players found matching your search
-                         </TableCell>
-                       </TableRow>
-                     )}
-                   </TableBody>
-                 </Table>
-               </div>
+                                           {filteredUserPlayers.filter(player => player.licence !== licence).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                            No players found matching your search
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  </div>
+                </div>
              </div>
            </DialogContent>
          </Dialog>
