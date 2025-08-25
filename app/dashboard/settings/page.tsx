@@ -10,191 +10,60 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Settings, User, Shield, Database, Trash2, Download, Upload, Bell, Palette, Globe, Info } from 'lucide-react';
+import { Settings, User, Trash2, Bell, Info, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseUser } from '@/hooks/use-current-user';
-import { storage } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useSupabaseUser();
+  const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [language, setLanguage] = useState('en');
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const exportData = () => {
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    setIsDeleting(true);
     try {
-      // Check if localStorage is available
-      if (typeof window === 'undefined') {
-        toast({
-          title: "Error",
-          description: "Export not available in this environment",
-          variant: "destructive",
-        });
-        return;
+      // Delete user account from Supabase
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (error) {
+        throw error;
       }
 
-      // Get all data from localStorage
-      const tournaments = localStorage.getItem('padelflow_tournaments') || '[]';
-      const players = localStorage.getItem('padelflow_players') || '[]';
-      const teams = localStorage.getItem('padelflow_teams') || '[]';
-      const matches = localStorage.getItem('padelflow_matches') || '[]';
-      const tournamentTeams = localStorage.getItem('padelflow_tournament_teams') || '[]';
-      const teamPlayers = localStorage.getItem('padelflow_team_players') || '[]';
-
-      const exportData = {
-        tournaments: JSON.parse(tournaments),
-        players: JSON.parse(players),
-        teams: JSON.parse(teams),
-        matches: JSON.parse(matches),
-        tournamentTeams: JSON.parse(tournamentTeams),
-        teamPlayers: JSON.parse(teamPlayers),
-        exportedAt: new Date().toISOString(),
-        version: '1.0.0'
-      };
-
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `padelflow-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
       toast({
-        title: "Success",
-        description: "Data exported successfully!",
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted.",
       });
+
+      // Redirect to home page
+      router.push('/');
     } catch (error) {
-      console.error('Error exporting data:', error);
+      console.error('Error deleting account:', error);
       toast({
         title: "Error",
-        description: "Failed to export data",
+        description: "Failed to delete account. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check if localStorage is available
-    if (typeof window === 'undefined') {
-      toast({
-        title: "Error",
-        description: "Import not available in this environment",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        
-        // Validate the import data structure
-        if (!data.tournaments || !data.players || !data.teams) {
-          throw new Error('Invalid export file format');
-        }
-
-        // Import the data
-        localStorage.setItem('padelflow_tournaments', JSON.stringify(data.tournaments));
-        localStorage.setItem('padelflow_players', JSON.stringify(data.players));
-        localStorage.setItem('padelflow_teams', JSON.stringify(data.teams));
-        localStorage.setItem('padelflow_matches', JSON.stringify(data.matches || []));
-        localStorage.setItem('padelflow_tournament_teams', JSON.stringify(data.tournamentTeams || []));
-        localStorage.setItem('padelflow_team_players', JSON.stringify(data.teamPlayers || []));
-
-        toast({
-          title: "Success",
-          description: "Data imported successfully! Please refresh the page.",
-        });
-
-        // Refresh the page to show imported data
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } catch (error) {
-        console.error('Error importing data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to import data. Please check the file format.",
-          variant: "destructive",
-        });
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const clearAllData = () => {
+  const handleSignOut = async () => {
     try {
-      // Check if localStorage is available
-      if (typeof window === 'undefined') {
-        toast({
-          title: "Error",
-          description: "Data clearing not available in this environment",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Clear all PadelFlow data
-      localStorage.removeItem('padelflow_tournaments');
-      localStorage.removeItem('padelflow_players');
-      localStorage.removeItem('padelflow_teams');
-      localStorage.removeItem('padelflow_matches');
-      localStorage.removeItem('padelflow_tournament_teams');
-      localStorage.removeItem('padelflow_team_players');
-      localStorage.removeItem('padelflow_formats');
-
-      toast({
-        title: "Success",
-        description: "All data cleared successfully!",
-      });
-
-      // Refresh the page
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      await supabase.auth.signOut();
+      router.push('/');
     } catch (error) {
-      console.error('Error clearing data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to clear data",
-        variant: "destructive",
-      });
+      console.error('Error signing out:', error);
     }
   };
-
-  const getDataStats = () => {
-    try {
-      // Check if localStorage is available
-      if (typeof window === 'undefined') {
-        return { tournaments: 0, players: 0, teams: 0, matches: 0 };
-      }
-
-      const tournaments = JSON.parse(localStorage.getItem('padelflow_tournaments') || '[]');
-      const players = JSON.parse(localStorage.getItem('padelflow_players') || '[]');
-      const teams = JSON.parse(localStorage.getItem('padelflow_teams') || '[]');
-      const matches = JSON.parse(localStorage.getItem('padelflow_matches') || '[]');
-
-      return {
-        tournaments: tournaments.length,
-        players: players.length,
-        teams: teams.length,
-        matches: matches.length,
-      };
-    } catch (error) {
-      console.error('Error getting data stats:', error);
-      return { tournaments: 0, players: 0, teams: 0, matches: 0 };
-    }
-  };
-
-  const stats = getDataStats();
 
   return (
     <ProtectedRoute>
@@ -242,6 +111,13 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
+
+                <Separator />
+
+                <Button onClick={handleSignOut} variant="outline" className="w-full">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
               </CardContent>
             </Card>
 
@@ -297,114 +173,72 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Data Management */}
-            <Card>
+            {/* Delete Account */}
+            <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Database className="h-5 w-5" />
-                  <span>Data Management</span>
+                <CardTitle className="flex items-center space-x-2 text-red-600">
+                  <Trash2 className="h-5 w-5" />
+                  <span>Delete Account</span>
                 </CardTitle>
                 <CardDescription>
-                  Export, import, or clear your tournament data
+                  Permanently delete your account and all associated data
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="font-medium text-gray-900">{stats.tournaments}</p>
-                    <p className="text-gray-600">Tournaments</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Trash2 className="h-5 w-5 text-red-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">
+                        Warning: This action cannot be undone
+                      </h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>
+                          Deleting your account will permanently remove:
+                        </p>
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>All your tournaments and tournament data</li>
+                          <li>All your players and teams</li>
+                          <li>All your matches and results</li>
+                          <li>Your account settings and preferences</li>
+                        </ul>
+                        <p className="mt-2 font-medium">
+                          This data will be permanently lost and cannot be recovered.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="font-medium text-gray-900">{stats.players}</p>
-                    <p className="text-gray-600">Players</p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="font-medium text-gray-900">{stats.teams}</p>
-                    <p className="text-gray-600">Teams</p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="font-medium text-gray-900">{stats.matches}</p>
-                    <p className="text-gray-600">Matches</p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Button onClick={exportData} variant="outline" className="w-full">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Data
-                  </Button>
-                  
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={importData}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      id="import-data"
-                    />
-                    <Button variant="outline" className="w-full" asChild>
-                      <label htmlFor="import-data">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Import Data
-                      </label>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Privacy & Security */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Privacy & Security</span>
-                </CardTitle>
-                <CardDescription>
-                  Manage your data privacy and security settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Data Encryption</p>
-                    <p className="text-sm text-gray-600">Your data is stored locally</p>
-                  </div>
-                  <Badge variant="outline">Local Storage</Badge>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Public Sharing</p>
-                    <p className="text-sm text-gray-600">Tournaments can be shared publicly</p>
-                  </div>
-                  <Badge variant="outline">Enabled</Badge>
                 </div>
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full">
+                    <Button 
+                      variant="destructive" 
+                      className="w-full"
+                      disabled={isDeleting}
+                    >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All Data
+                      {isDeleting ? 'Deleting Account...' : 'Delete My Account'}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Clear All Data</AlertDialogTitle>
+                      <AlertDialogTitle>Delete Account</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete all your tournaments, players, teams, and matches. 
-                        This action cannot be undone. Make sure to export your data first if you want to keep it.
+                        Are you absolutely sure you want to delete your account? 
+                        This action cannot be undone and will permanently remove all your data.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction 
-                        onClick={clearAllData}
+                        onClick={handleDeleteAccount}
                         className="bg-red-600 hover:bg-red-700"
+                        disabled={isDeleting}
                       >
-                        Clear All Data
+                        {isDeleting ? 'Deleting...' : 'Yes, Delete My Account'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -413,7 +247,7 @@ export default function SettingsPage() {
             </Card>
 
             {/* About */}
-            <Card>
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Info className="h-5 w-5" />
@@ -439,7 +273,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Storage</span>
-                    <span className="text-sm font-medium">Local Storage</span>
+                    <span className="text-sm font-medium">Supabase</span>
                   </div>
                 </div>
 
