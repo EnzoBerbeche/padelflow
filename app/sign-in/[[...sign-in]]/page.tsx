@@ -54,7 +54,7 @@ export default function SignInPage() {
         // no-op: don't block sign-in on profile creation failure
       }
 
-      router.replace('/dashboard/tournaments');
+      router.replace('/dashboard');
     }
   };
 

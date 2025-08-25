@@ -61,7 +61,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${location.origin}/dashboard/tournaments`,
+        emailRedirectTo: `${location.origin}/dashboard`,
         data: {
           first_name: firstName,
           last_name: lastName,
@@ -90,7 +90,7 @@ export default function SignUpPage() {
         } catch {
           // no-op: don't block sign-up on profile creation failure
         }
-        router.replace('/dashboard/tournaments');
+        router.replace('/dashboard');
       }
     }
   };

@@ -13,10 +13,10 @@ export default function Home() {
   const { isSignedIn, isLoaded } = useSupabaseAuth();
   const router = useRouter();
   
-  // Redirect authenticated users to tournaments page
+  // Redirect authenticated users to home dashboard
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.replace('/dashboard/tournaments');
+      router.replace('/dashboard');
     }
   }, [isSignedIn, isLoaded, router]);
 
@@ -26,7 +26,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to tournaments...</p>
+          <p className="text-gray-600">Redirecting to dashboard...</p>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ export default function Home() {
           <div className="flex items-center space-x-4">
             {isSignedIn ? (
               <>
-                <Link href="/dashboard/tournaments">
+                <Link href="/dashboard">
                   <Button>Dashboard</Button>
                 </Link>
                 <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign out</Button>
@@ -76,9 +76,9 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {isSignedIn ? (
-                <Link href="/dashboard/tournaments">
+                <Link href="/dashboard">
                   <Button size="lg" className="text-lg px-8 py-3">
-                    Go to Tournaments
+                    Go to Dashboard
                   </Button>
                 </Link>
               ) : (
@@ -170,9 +170,9 @@ export default function Home() {
             Start organizing your tournaments today
           </p>
           {isSignedIn ? (
-            <Link href="/dashboard/tournaments">
+            <Link href="/dashboard">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-                Go to Tournaments
+                Go to Dashboard
               </Button>
             </Link>
           ) : (

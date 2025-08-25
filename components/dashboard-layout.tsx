@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 
 // Base navigation for all users
 const baseNavigation = [
+  { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
@@ -24,6 +25,7 @@ const baseNavigation = [
 
 // Admin-specific navigation
 const adminNavigation = [
+  { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
@@ -36,6 +38,7 @@ const adminNavigation = [
 
 // Club-specific navigation (if needed in the future)
 const clubNavigation = [
+  { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
@@ -161,7 +164,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
-              <Link href="/dashboard/tournaments" className="flex items-center space-x-2">
+              <Link href="/dashboard" className="flex items-center space-x-2">
                 <Trophy className="h-8 w-8 text-primary" />
                 <span className="text-xl font-bold text-gray-900">PadelFlow</span>
               </Link>
