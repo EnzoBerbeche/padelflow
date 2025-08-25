@@ -39,7 +39,12 @@ export function useSupabaseUser(): { user: import('@supabase/supabase-js').User 
             const computed = `${given || ''} ${family || ''}`.trim() || name;
             if (computed) {
               didBackfill = true;
-              await supabase.auth.updateUser({ data: { display_name: computed } });
+              // Preserve existing metadata including role
+              const updatedMetadata = { 
+                ...md, 
+                display_name: computed 
+              };
+              await supabase.auth.updateUser({ data: updatedMetadata });
             }
           }
         }

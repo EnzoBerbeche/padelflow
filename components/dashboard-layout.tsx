@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon, Wrench, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -8,15 +8,38 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
+import { useUserRole } from '@/hooks/use-user-role';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-const navigation = [
+// Base navigation for all users
+const baseNavigation = [
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+];
+
+// Admin-specific navigation
+const adminNavigation = [
+  { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Players', href: '/dashboard/players', icon: Users },
+  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
+    { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
+    { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
+  ]},
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+];
+
+// Club-specific navigation (if needed in the future)
+const clubNavigation = [
+  { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Players', href: '/dashboard/players', icon: Users },
+  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Club Management', href: '/dashboard/club', icon: Users },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -28,11 +51,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Start closed on mobile
   const { user } = useSupabaseUser();
+  const { role, loading: roleLoading } = useUserRole();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Get navigation based on user role
+  const getNavigation = () => {
+    if (roleLoading) return baseNavigation;
+    
+    switch (role) {
+      case 'admin':
+        return adminNavigation;
+      case 'club':
+        return clubNavigation;
+      case 'player':
+      default:
+        return baseNavigation;
+    }
+  };
+
+  const navigation = getNavigation();
 
   useEffect(() => {
     const md: any = user?.user_metadata || {};
@@ -48,6 +89,63 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setSaving(false);
     if (!error) setIsAccountOpen(false);
     // Optionally add toast here in future
+  };
+
+  const renderNavigationItem = (item: any) => {
+    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+    
+    if (item.children) {
+      // Render expandable admin section
+      return (
+        <li key={item.name} className="space-y-2">
+          <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-700">
+            <item.icon className="mr-3 h-5 w-5" />
+            {item.name}
+          </div>
+          <ul className="ml-6 space-y-1">
+            {item.children.map((child: any) => {
+              const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/');
+              return (
+                <li key={child.name}>
+                  <Link
+                    href={child.href}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={cn(
+                      'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                      isChildActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    )}
+                  >
+                    <child.icon className="mr-3 h-4 w-4" />
+                    {child.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </li>
+      );
+    }
+    
+    // Render regular navigation item
+    return (
+      <li key={item.name}>
+        <Link
+          href={item.href}
+          onClick={() => setIsSidebarOpen(false)}
+          className={cn(
+            'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
+            isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'text-gray-700 hover:bg-gray-100'
+          )}
+        >
+          <item.icon className="mr-3 h-5 w-5" />
+          {item.name}
+        </Link>
+      </li>
+    );
   };
 
   return (
@@ -102,26 +200,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         )}>
           <div className="px-4 py-6">
             <ul className="space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsSidebarOpen(false)} // Close sidebar on mobile when clicking
-                      className={cn(
-                        'flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      )}
-                    >
-                      <item.icon className="mr-3 h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  </li>
-                );
-              })}
+              {navigation.map((item) => renderNavigationItem(item))}
             </ul>
           </div>
         </nav>

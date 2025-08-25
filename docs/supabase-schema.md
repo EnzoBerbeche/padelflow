@@ -13,12 +13,17 @@
   - `public.tournament_teams` (teams per tournament; RLS enabled)
   - `public.team_players` (team composition; RLS enabled)
   - `public.tournament_matches` (match data and results; RLS enabled)
+  - `public.tournament_formats` (tournament format definitions; RLS enabled)
 
 ---
 
 ### auth.users
 - Purpose: canonical user store managed by Supabase Auth. Avoid direct writes except via Supabase Auth APIs.
 - RLS: enabled (managed by Supabase)
+- User Roles: stored in `raw_user_meta_data.role`
+  - `player`: Regular user (default)
+  - `club`: Club manager with additional permissions
+  - `admin`: System administrator with full access
 - Primary/unique constraints:
   - PRIMARY KEY (id)
   - UNIQUE (phone)
@@ -73,6 +78,36 @@
   - is_sso_user boolean NOT NULL DEFAULT false
   - deleted_at timestamptz NULL
   - is_anonymous boolean NOT NULL DEFAULT false
+
+---
+
+### public.tournament_formats
+- Purpose: stores tournament format definitions with JSON bracket structures
+- RLS: enabled
+- Access: read access for all users, write access for authenticated users
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - UNIQUE (name)
+- Indexes:
+  - tournament_formats_pkey (PRIMARY KEY on id)
+  - unique_format_name (UNIQUE on name)
+  - idx_tournament_formats_json (GIN index on format_json for fast JSON queries)
+
+- Columns (name, type, nullability, default):
+  - id UUID NOT NULL DEFAULT gen_random_uuid()
+  - name TEXT NOT NULL
+  - description TEXT NULL
+  - min_players INTEGER NOT NULL
+  - max_players INTEGER NOT NULL
+  - features TEXT[] NULL
+  - format_json JSONB NOT NULL
+  - is_default BOOLEAN NOT NULL DEFAULT false
+  - created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  - updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+
+- RLS Policies:
+  - "Allow read access to tournament formats": SELECT access for all users
+  - "Allow authenticated users to manage tournament formats": ALL access for authenticated users
 
 ---
 
@@ -315,5 +350,119 @@ order by r.licence, r.ranking_year desc, r.ranking_month desc;
 ### Notes
 - `auth.users` is system-managed. Use Supabase Auth APIs for mutations; do not write tokens/confirmation columns directly.
 - No `public.profiles` table exists; any code referencing it should be treated as unused until created.
+
+---
+
+## User Role Management
+
+### Role System Overview
+The application uses a role-based access control (RBAC) system with three user roles:
+
+- **Player** (`player`): Default role for regular users
+  - Access to tournaments, players, and basic features
+  - Can create and manage their own tournaments
+  
+- **Club Manager** (`club`): Enhanced role for club administrators
+  - All player permissions
+  - Additional club management features
+  - Access to club-specific analytics
+  
+- **Admin** (`admin`): System administrator with full access
+  - All club manager permissions
+  - Access to system administration tools
+  - Tournament format management
+  - User role management
+  - System settings and maintenance
+
+### Setting User Roles
+User roles are stored in the `auth.users.raw_user_meta_data.role` field. To change a user's role:
+
+```sql
+-- Make a user an admin
+UPDATE auth.users 
+SET raw_user_meta_data = jsonb_set(
+  COALESCE(raw_user_meta_data, '{}'::jsonb), 
+  '{role}', 
+  '"admin"'
+)
+WHERE id = 'user-uuid-here';
+
+-- Make a user a club manager
+UPDATE auth.users 
+SET raw_user_meta_data = jsonb_set(
+  COALESCE(raw_user_meta_data, '{}'::jsonb), 
+  '{role}', 
+  '"club"'
+)
+WHERE id = 'user-uuid-here';
+
+-- Make a user a regular player
+UPDATE auth.users 
+SET raw_user_meta_data = jsonb_set(
+  COALESCE(raw_user_meta_data, '{}'::jsonb), 
+  '{role}', 
+  '"player"'
+)
+WHERE id = 'user-uuid-here';
+```
+
+### Role Persistence
+The system includes safeguards to prevent role loss during user metadata updates:
+- Roles are preserved when updating display names or other metadata
+- Role confirmation prevents overwriting during auth state changes
+- Race condition protection ensures stable role assignment
+
+---
+
+## Tournament Formats Migration
+
+### Migration Process
+The system includes a migration tool to import tournament formats from JSON files to the database:
+
+1. **Access Migration Tool**: Navigate to `/dashboard/migrate-formats` (admin only)
+2. **Check Existing Formats**: Verify what's already in the database
+3. **Run Migration**: Import formats from JSON files
+4. **Verify Import**: Confirm all formats were imported successfully
+
+### Supported Format Types
+- **8 Teams - Flat Bracket**: Standard 8-team tournament format
+- **8 Teams - No Random**: 8-team format without random assignments
+- **8 Teams - Test**: Test format for development
+- **16 Teams**: Standard 16-team elimination format
+- **16 Teams - Random**: 16-team format with random assignments
+
+### Adding New Formats
+New tournament formats can be added by:
+
+1. **Direct Database Insert**: Insert JSON directly into `tournament_formats` table
+2. **Admin Interface**: Use the migration tool to import new JSON files
+3. **Migration Scripts**: Create SQL migration files for bulk imports
+
+### Format Structure
+Each format includes:
+- Basic metadata (name, description, player count)
+- Feature list for UI display
+- Complete JSON bracket structure
+- Default flag for system defaults
+
+---
+
+## Database Maintenance
+
+### Regular Tasks
+- Monitor user role assignments
+- Verify tournament format integrity
+- Check RLS policy effectiveness
+- Review authentication logs
+
+### Backup Recommendations
+- Regular backups of `tournament_formats` table
+- User metadata backup for role preservation
+- Tournament data backup for production systems
+
+### Performance Considerations
+- GIN index on `format_json` for fast JSON queries
+- Unique constraint on format names prevents duplicates
+- RLS policies ensure data security without performance impact
 
 

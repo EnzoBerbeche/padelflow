@@ -5,6 +5,7 @@ A professional padel tournament organization and management platform built with 
 ## Features
 
 - **User Authentication**: Secure sign-in/sign-up with Supabase Auth
+- **Role-Based Access Control**: Player, Club Manager, and Admin roles
 - **Tournament Management**: Create, edit, and manage tournaments with persistent data
 - **Team Management**: Create teams from available players with automatic player snapshotting
 - **Match Generation**: Automatic bracket generation from tournament formats
@@ -12,6 +13,8 @@ A professional padel tournament organization and management platform built with 
 - **Player Management**: Add, edit, and organize players with detailed information
 - **Advanced Filtering**: Excel-style column filters and search functionality
 - **Responsive Design**: Modern UI with Tailwind CSS
+- **Admin Tools**: Tournament format management and system administration
+- **Migration Tools**: Automated data migration from localStorage to Supabase
 
 ## Getting Started
 
@@ -77,6 +80,8 @@ npm start
 │   ├── dashboard/         # Protected dashboard routes
 │   │   ├── tournaments/   # Tournament management
 │   │   ├── players/       # Player management
+│   │   ├── admin/         # Admin dashboard (admin only)
+│   │   ├── migrate-formats/ # Format migration tool (admin only)
 │   │   └── settings/      # User settings
 │   ├── sign-in/          # Authentication pages
 │   ├── sign-up/          # Authentication pages
@@ -88,10 +93,16 @@ npm start
 │   └── ui/               # UI components
 ├── lib/                  # Utilities and API services
 │   ├── supabase.ts       # Supabase client and API services
+│   ├── migrate-formats.ts # Migration scripts
 │   ├── storage.ts        # Legacy local storage (deprecated)
 │   └── formats/          # Tournament format definitions
+├── hooks/                # Custom React hooks
+│   ├── use-current-user.ts # User authentication
+│   ├── use-user-role.ts  # Role-based access control
+│   └── use-toast.ts      # Toast notifications
 ├── docs/                 # Documentation
-│   └── supabase-schema.md # Database schema documentation
+│   ├── supabase-schema.md # Database schema documentation
+│   └── MIGRATION_GUIDE.md # Migration process documentation
 └── .env.local           # Environment variables
 ```
 
