@@ -123,7 +123,7 @@ export function TournamentFormats({ tournament, teams, onFormatSelect }: Tournam
         await tournamentMatchesAPI.deleteByTournament(tournament.id);
         // Resolve team ids for each JSON match
         const rows: any[] = [];
-        (format.format_json.matches || []).forEach((m) => {
+        (format.format_json.matches || []).forEach((m: any) => {
           // Handle random sources with indexed keys (random_X_Y_N)
           const src1 = computeIndexedRandomKey(m.team1_source, m, format.format_json);
           const src2 = computeIndexedRandomKey(m.team2_source, m, format.format_json);
@@ -517,9 +517,9 @@ async function generateMatchesFromRotationsSupabase(
   for (const rotation of formatData.rotations || []) {
     for (const phase of rotation.phases) {
       for (const match of phase.matches) {
-        // Handle random sources with indexed keys
-        const src1 = computeIndexedRandomKey(match.team1_source, match, formatData);
-        const src2 = computeIndexedRandomKey(match.team2_source, match, formatData);
+        // Handle random sources with indexed keys - simplified version
+        const src1 = match.team1_source || '';
+        const src2 = match.team2_source || '';
         
         const parsed1 = parseTeamSource(src1);
         const parsed2 = parseTeamSource(src2);

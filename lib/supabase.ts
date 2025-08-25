@@ -1758,3 +1758,135 @@ export const tournamentFormatsAPI = {
     return (data || []) as SupabaseTournamentFormat[];
   }
 };
+
+// User Player Link API
+export interface UserPlayerLink {
+  id: string;
+  user_id: string;
+  licence: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserPlayerLinkWithRanking extends UserPlayerLink {
+  // Fields from rankings_latest view
+  nom: string | null;
+  genre: 'Homme' | 'Femme';
+  rang: number | null;
+  evolution: number | null;
+  meilleur_classement: number | null;
+  nationalite: string | null;
+  annee_naissance: number | null;
+  points: number | null;
+  nb_tournois: number | null;
+  ligue: string | null;
+  club: string | null;
+  ranking_year: number | null;
+  ranking_month: number | null;
+}
+
+export const userPlayerLinkAPI = {
+  // Get current user's player link with ranking data
+  getMyPlayerLink: async (): Promise<UserPlayerLinkWithRanking | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return null;
+
+    const { data, error } = await supabase
+      .from('user_player_links')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user player link:', error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    // Get ranking data for this licence
+    const { data: rankingData, error: rankingError } = await supabase
+      .from('rankings_latest')
+      .select('*')
+      .eq('licence', data.licence)
+      .maybeSingle();
+
+    if (rankingError) {
+      console.error('Error fetching ranking data:', rankingError);
+      return null;
+    }
+
+    return {
+      ...data,
+      ...(rankingData || {})
+    };
+  },
+
+  // Create or update current user's player link
+  linkToPlayer: async (licence: string): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = (licence || '').trim();
+    if (!trimmed) return { ok: false, error: 'Licence is required' };
+
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return { ok: false, error: 'Not signed in' };
+
+    // Check if licence exists in rankings
+    const { data: rankingData, error: rankingError } = await supabase
+      .from('rankings_latest')
+      .select('licence')
+      .eq('licence', trimmed)
+      .maybeSingle();
+
+    if (rankingError) {
+      console.error('Error checking licence:', rankingError);
+      return { ok: false, error: 'Error checking licence' };
+    }
+
+    if (!rankingData) {
+      return { ok: false, error: 'Licence not found in rankings' };
+    }
+
+    // Check if user already has a link
+    const { data: existingLink } = await supabase
+      .from('user_player_links')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingLink) {
+      // Update existing link
+      const { error } = await supabase
+        .from('user_player_links')
+        .update({ licence: trimmed, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+
+      if (error) return { ok: false, error: error.message };
+    } else {
+      // Create new link
+      const { error } = await supabase
+        .from('user_player_links')
+        .insert({ user_id: userId, licence: trimmed });
+
+      if (error) return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  },
+
+  // Remove current user's player link
+  unlinkPlayer: async (): Promise<{ ok: boolean; error?: string }> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return { ok: false, error: 'Not signed in' };
+
+    const { error } = await supabase
+      .from('user_player_links')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+};
