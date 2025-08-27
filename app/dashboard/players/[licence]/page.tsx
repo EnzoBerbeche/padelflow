@@ -713,10 +713,10 @@ export default function PlayerStatisticsPage() {
         <DashboardLayout>
           <div className="flex flex-col items-center justify-center min-h-64 space-y-4">
             <div className="text-red-600 text-lg font-medium">{error || 'Player not found'}</div>
-                         <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard/players'}>
+                         <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard'}>
                <Button variant="outline">
                  <ArrowLeft className="h-4 w-4 mr-2" />
-                 Back to {from === 'ten-up' ? 'Ten\'Up' : 'Players'}
+                                      Back to {from === 'ten-up' ? "Ten'Up" : 'Dashboard'}
                </Button>
              </Link>
           </div>
@@ -732,10 +732,10 @@ export default function PlayerStatisticsPage() {
                                               {/* Header Section */}
              <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between">
                <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-x-4">
-                 <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard/players'}>
+                 <Link href={from === 'ten-up' ? '/dashboard/ten-up' : '/dashboard'}>
                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
                      <ArrowLeft className="h-4 w-4 mr-2" />
-                     Back to {from === 'ten-up' ? 'Ten\'Up' : 'Players'}
+                     Back to {from === 'ten-up' ? "Ten'Up" : 'Dashboard'}
                    </Button>
                  </Link>
                  <div className="text-center sm:text-left">
