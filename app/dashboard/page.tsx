@@ -235,14 +235,7 @@ export default function HomePage() {
                         Manage Profile
                       </Link>
                     </Button>
-                    {playerLink.club && (
-                      <Button variant="outline" className="flex-1" asChild>
-                        <Link href={`/dashboard/clubs/${encodeURIComponent(playerLink.club)}`}>
-                          <MapPin className="h-4 w-4 mr-2" />
-                          View Club
-                        </Link>
-                      </Button>
-                    )}
+
                   </div>
                 </CardContent>
               </Card>

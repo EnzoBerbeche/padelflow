@@ -532,16 +532,7 @@ export default function TenUpPage() {
                              <div>
                                <span className="text-gray-500">Club:</span>
                                <span className="ml-2">
-                                 {player.club ? (
-                                   <Link 
-                                     href={`/dashboard/clubs/${encodeURIComponent(player.club)}`}
-                                     className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                                   >
-                                     {player.club}
-                                   </Link>
-                                 ) : (
-                                   'N/A'
-                                 )}
+                                 {player.club || 'N/A'}
                                </span>
                              </div>
                              <div>
@@ -673,16 +664,7 @@ export default function TenUpPage() {
                                </Badge>
                              </td>
                              <td className="py-3 px-4 text-gray-600">
-                               {player.club ? (
-                                 <Link 
-                                   href={`/dashboard/clubs/${player.club}`}
-                                   className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                                 >
-                                   {player.club}
-                                 </Link>
-                               ) : (
-                                 'N/A'
-                               )}
+                               {player.club || 'N/A'}
                              </td>
                              <td className="py-3 px-4 text-gray-600">
                                {player.league}
