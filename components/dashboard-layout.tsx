@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input';
 const baseNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
@@ -27,7 +26,6 @@ const baseNavigation = [
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
@@ -40,7 +38,6 @@ const adminNavigation = [
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Players', href: '/dashboard/players', icon: Users },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Club Management', href: '/dashboard/club', icon: Users },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },

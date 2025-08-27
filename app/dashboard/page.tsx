@@ -6,8 +6,11 @@ import { ProtectedRoute } from '@/components/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -26,6 +29,14 @@ export default function HomePage() {
     averageRanking: 0,
     bestRanking: 0,
   });
+
+  // Enhanced filtering and search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [rankingFilter, setRankingFilter] = useState<string>('all');
+  const [leagueFilter, setLeagueFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance'>('nom');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     loadUserData();
@@ -95,6 +106,73 @@ export default function HomePage() {
     if (evolution > 0) return 'text-red-600';
     return 'text-gray-600';
   };
+
+  // Enhanced filtering logic
+  const filteredPlayers = followedPlayers.filter(player => {
+    const searchTermLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (player.nom?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.licence?.toLowerCase() || '').includes(searchTermLower);
+    
+    const matchesRanking = rankingFilter === 'all' || 
+      (rankingFilter === 'p25' && (player.rang || 0) <= 25) ||
+      (rankingFilter === 'p100' && (player.rang || 0) <= 100) ||
+      (rankingFilter === 'p250' && (player.rang || 0) <= 250) ||
+      (rankingFilter === 'p500' && (player.rang || 0) <= 500) ||
+      (rankingFilter === 'p1000' && (player.rang || 0) <= 1000) ||
+      (rankingFilter === 'p1500' && (player.rang || 0) <= 1500) ||
+      (rankingFilter === 'p2000' && (player.rang || 0) <= 2000);
+    
+    const matchesGender = genderFilter === 'all' || player.genre === genderFilter;
+    
+    const matchesLeague = leagueFilter === 'all' || player.ligue === leagueFilter;
+    
+    return matchesSearch && matchesRanking && matchesGender && matchesLeague;
+  });
+
+  // Sort filtered players
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
+    let aValue: any = a[sortField as keyof SupabasePlayersEnrichedRow];
+    let bValue: any = b[sortField as keyof SupabasePlayersEnrichedRow];
+    
+    // Handle null/undefined values
+    if (aValue === null || aValue === undefined) aValue = '';
+    if (bValue === null || bValue === undefined) bValue = '';
+    
+    // Handle numeric values
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+    
+    // Handle string values
+    const aStr = String(aValue).toLowerCase();
+    const bStr = String(bValue).toLowerCase();
+    
+    if (sortDirection === 'asc') {
+      return aStr.localeCompare(bStr);
+    } else {
+      return bStr.localeCompare(aStr);
+    }
+  });
+
+  const handleSort = (field: 'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setGenderFilter('all');
+    setRankingFilter('all');
+    setLeagueFilter('all');
+  };
+
+  // Get unique leagues for filter
+  const uniqueLeagues = Array.from(new Set(followedPlayers.map(p => p.ligue).filter((league): league is string => league !== null && league !== undefined)));
 
   if (isLoading) {
     return (
@@ -280,12 +358,6 @@ export default function HomePage() {
                   </Link>
                 </Button>
                 <Button className="w-full justify-start" variant="outline" asChild>
-                  <Link href="/dashboard/players">
-                    <Users className="h-4 w-4 mr-2" />
-                    Manage Players
-                  </Link>
-                </Button>
-                <Button className="w-full justify-start" variant="outline" asChild>
                   <Link href="/dashboard/ten-up">
                     <Target className="h-4 w-4 mr-2" />
                     Ten'Up Rankings
@@ -301,72 +373,209 @@ export default function HomePage() {
             </Card>
           </div>
 
-          {/* Followed Players Table */}
+          {/* Enhanced Followed Players Section */}
           {followedPlayers.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Eye className="h-5 w-5" />
-                  <span>Players You Follow</span>
+                  <span>Players You Follow ({filteredPlayers.length})</span>
                 </CardTitle>
                 <CardDescription>
-                  Track the performance of your followed players
+                  Track the performance of your followed players with advanced filtering and search
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Player</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Licence</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Current Ranking</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {followedPlayers.map((player) => (
-                        <tr key={player.player_id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center space-x-2">
-                              <Badge variant="outline" className="text-xs">
-                                {player.genre === 'Homme' ? 'Men' : 'Women'}
-                              </Badge>
-                              <span className="font-medium">
-                                {player.nom || `Player ${player.licence}`}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-gray-600 font-mono">
-                            {player.licence}
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge className={getRankingColor(player.rang || 0)}>
-                              P{player.rang || 'N/A'}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              {getEvolutionIcon(player.evolution)}
-                              <span className={`ml-1 ${getEvolutionColor(player.evolution)}`}>
-                                {getEvolutionText(player.evolution)}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Button size="sm" variant="outline" asChild>
-                              <Link href={`/dashboard/players/${player.licence}`}>
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </Link>
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <CardContent className="space-y-4">
+                {/* Search and Filter Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="player-search">Search</Label>
+                    <Input
+                      id="player-search"
+                      placeholder="Name or license..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="player-gender">Gender</Label>
+                    <Select value={genderFilter} onValueChange={(value: string) => setGenderFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="Homme">Men</SelectItem>
+                        <SelectItem value="Femme">Women</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="player-ranking">Max Ranking</Label>
+                    <Select value={rankingFilter} onValueChange={(value: string) => setRankingFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Rankings</SelectItem>
+                        <SelectItem value="p25">P25 and below</SelectItem>
+                        <SelectItem value="p100">P100 and below</SelectItem>
+                        <SelectItem value="p250">P250 and below</SelectItem>
+                        <SelectItem value="p500">P500 and below</SelectItem>
+                        <SelectItem value="p1000">P1000 and below</SelectItem>
+                        <SelectItem value="p1500">P1500 and below</SelectItem>
+                        <SelectItem value="p2000">P2000 and below</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="player-league">League</Label>
+                    <Select value={leagueFilter} onValueChange={(value: string) => setLeagueFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Leagues</SelectItem>
+                        {uniqueLeagues.map(league => (
+                          <SelectItem key={league} value={league}>{league}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
+                {/* Clear Filters Button */}
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline"
+                    onClick={clearFilters}
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                </div>
+
+                {/* Enhanced Table */}
+                {sortedPlayers.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p className="mb-2">No players match your current filters.</p>
+                    <p className="text-sm">Try adjusting your search criteria or filters.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button
+                              onClick={() => handleSort('nom')}
+                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
+                              <span>Player</span>
+                              {sortField === 'nom' && (
+                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button
+                              onClick={() => handleSort('licence')}
+                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
+                              <span>Licence</span>
+                              {sortField === 'licence' && (
+                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button
+                              onClick={() => handleSort('rang')}
+                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
+                              <span>Current Ranking</span>
+                              {sortField === 'rang' && (
+                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button
+                              onClick={() => handleSort('ligue')}
+                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
+                              <span>League</span>
+                              {sortField === 'ligue' && (
+                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">
+                            <button
+                              onClick={() => handleSort('annee_naissance')}
+                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
+                              <span>Birth Year</span>
+                              {sortField === 'annee_naissance' && (
+                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                          </th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
+                          <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedPlayers.map((player) => (
+                          <tr key={player.player_id} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center space-x-2">
+                                {player.genre === 'Homme' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
+                                <Link 
+                                  href={`/dashboard/players/${player.licence}`}
+                                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                >
+                                  {player.nom || `Player ${player.licence}`}
+                                </Link>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-gray-600 font-mono">
+                              {player.licence}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge className={getRankingColor(player.rang || 0)}>
+                                P{player.rang || 'N/A'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-gray-600">
+                              {player.ligue || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-gray-600">
+                              {player.annee_naissance || '-'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center">
+                                {getEvolutionIcon(player.evolution)}
+                                <span className={`ml-1 ${getEvolutionColor(player.evolution)}`}>
+                                  {getEvolutionText(player.evolution)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button size="sm" variant="outline" asChild>
+                                <Link href={`/dashboard/players/${player.licence}`}>
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </Link>
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -388,7 +597,7 @@ export default function HomePage() {
                   <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p className="mb-4">You haven't started following any players yet.</p>
                   <Button asChild>
-                    <Link href="/dashboard/players">
+                    <Link href="/dashboard/ten-up">
                       <Users className="h-4 w-4 mr-2" />
                       Browse Players
                     </Link>
