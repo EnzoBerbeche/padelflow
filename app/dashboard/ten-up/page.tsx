@@ -9,8 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -33,11 +31,6 @@ export default function TenUpPage() {
   const [rankingMax, setRankingMax] = useState<string>('');
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [leagues, setLeagues] = useState<string[]>([]);
-  const [clubs, setClubs] = useState<string[]>([]);
-  const [clubFilter, setClubFilter] = useState<string[]>([]);
-  const [clubSearch, setClubSearch] = useState<string>('');
-  const [clubOpen, setClubOpen] = useState<boolean>(false);
-  const [clubBaseline, setClubBaseline] = useState<string[]>([]);
   
   // Results state
   const [allPlayers, setAllPlayers] = useState<SupabaseNationalPlayer[]>([]);
@@ -52,13 +45,12 @@ export default function TenUpPage() {
   // Player management state
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
   const [myLicences, setMyLicences] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year'>('ranking');
+  const [sortKey, setSortKey] = useState<'name' | 'license' | 'ranking' | 'league' | 'birth_year'>('ranking');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchAllPlayers();
     fetchLeagues();
-    fetchClubs();
     // Load current user's licences to toggle Add/Remove
     (async () => {
       const licences = await playersAPI.getMyLicences();
@@ -98,17 +90,7 @@ export default function TenUpPage() {
     }
   };
 
-  const fetchClubs = async () => {
-    try {
-      const cs = await nationalPlayersAPI.getClubs();
-      const valid = cs.filter(c => c && c.trim() !== '');
-      setClubs(valid);
-    } catch (error) {
-      console.error('Error fetching clubs:', error);
-    }
-  };
-
-  const applyFilters = (overrideKey?: 'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year', overrideDir?: 'asc' | 'desc') => {
+  const applyFilters = (overrideKey?: 'name' | 'license' | 'ranking' | 'league' | 'birth_year', overrideDir?: 'asc' | 'desc') => {
     // No client-side filtering. Server already applied filters in searchPlayers().
     const bound = [...allPlayers];
     // Apply client-side sort
@@ -122,8 +104,6 @@ export default function TenUpPage() {
           return (p.license_number || '').toLowerCase();
         case 'ranking':
           return p.ranking || 0;
-        case 'club':
-          return (p.club || '').toLowerCase();
         case 'league':
           return (p.league || '').toLowerCase();
         case 'birth_year':
@@ -148,7 +128,7 @@ export default function TenUpPage() {
     setTotalPages(Math.ceil(bound.length / ITEMS_PER_PAGE));
   };
 
-  const toggleSort = (key: 'name' | 'license' | 'ranking' | 'club' | 'league' | 'birth_year') => {
+  const toggleSort = (key: 'name' | 'license' | 'ranking' | 'league' | 'birth_year') => {
     const nextDir: 'asc' | 'desc' = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
     setSortKey(key);
     setSortDir(nextDir);
@@ -164,7 +144,6 @@ export default function TenUpPage() {
       if (rankingMin) filters.rankingMin = parseInt(rankingMin);
       if (rankingMax) filters.rankingMax = parseInt(rankingMax);
       if (leagueFilter !== 'all') filters.league = leagueFilter;
-      if (clubFilter.length > 0) filters.clubs = clubFilter;
       const results = await nationalPlayersAPI.search(searchTerm, filters);
       setAllPlayers(results);
       
@@ -318,7 +297,7 @@ export default function TenUpPage() {
                   <Label htmlFor="search">Search</Label>
                   <Input
                     id="search"
-                    placeholder="Name, license, or club..."
+                    placeholder="Name, license..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && searchPlayers()}
@@ -373,61 +352,6 @@ export default function TenUpPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Clubs</Label>
-                  <Popover
-                    open={clubOpen}
-                    onOpenChange={(open) => {
-                      if (open) {
-                        setClubBaseline([...clubFilter]);
-                      } else {
-                        const same = clubBaseline.length === clubFilter.length && clubFilter.every(c => new Set(clubBaseline).has(c));
-                        if (!same) {
-                          // Commit selection: trigger a fresh server search
-                          void searchPlayers();
-                        }
-                      }
-                      setClubOpen(open);
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" aria-expanded={clubOpen} className="w-full justify-between">
-                        {clubFilter.length > 0 ? `${clubFilter.length} selected` : 'All Clubs'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[340px] p-2" align="start">
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Search clubs..."
-                          value={clubSearch}
-                          onChange={(e) => setClubSearch(e.target.value)}
-                        />
-                        <div className="max-h-64 overflow-auto pr-1">
-                          {clubs
-                            .filter(c => c.toLowerCase().includes(clubSearch.toLowerCase()))
-                            .map(c => {
-                              const checked = clubFilter.includes(c);
-                              return (
-                                <label key={c} className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-gray-50 rounded">
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(v) =>
-                                      setClubFilter(prev => (v ? [...prev, c] : prev.filter(x => x !== c)))
-                                    }
-                                  />
-                                  <span className="text-sm text-gray-800 truncate" title={c}>{c}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                        <div className="flex justify-between pt-1">
-                          <Button type="button" variant="ghost" size="sm" onClick={() => { setClubFilter([]); setClubOpen(false); }}>Clear</Button>
-                          <Button type="button" size="sm" onClick={() => setClubOpen(false)}>Done</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
                                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
                   <Button 
                     onClick={searchPlayers}
@@ -454,7 +378,6 @@ export default function TenUpPage() {
                       setRankingMin('');
                       setRankingMax('');
                       setLeagueFilter('all');
-                      setClubFilter([]);
                       fetchAllPlayers();
                     }}
                   >
@@ -528,12 +451,6 @@ export default function TenUpPage() {
                              <div>
                                <span className="text-gray-500">License:</span>
                                <span className="ml-2 font-mono">{player.license_number}</span>
-                             </div>
-                             <div>
-                               <span className="text-gray-500">Club:</span>
-                               <span className="ml-2">
-                                 {player.club || 'N/A'}
-                               </span>
                              </div>
                              <div>
                                <span className="text-gray-500">League:</span>
@@ -617,12 +534,6 @@ export default function TenUpPage() {
                              </button>
                            </th>
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
-                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('club')}>
-                               <span>Club</span>
-                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                             </button>
-                           </th>
-                           <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('league')}>
                                <span>League</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
@@ -662,9 +573,6 @@ export default function TenUpPage() {
                                <Badge className={getRankingColor(player.ranking)}>
                                  P{player.ranking}
                                </Badge>
-                             </td>
-                             <td className="py-3 px-4 text-gray-600">
-                               {player.club || 'N/A'}
                              </td>
                              <td className="py-3 px-4 text-gray-600">
                                {player.league}

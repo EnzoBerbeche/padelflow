@@ -801,15 +801,6 @@ export default function PlayerStatisticsPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Building className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">Club</label>
-                      <p className="text-sm font-medium text-gray-900">
-                        {playerStats.club || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
                     <MapPin className="h-4 w-4 text-gray-500" />
                     <div>
                       <label className="text-xs font-medium text-gray-500">League</label>
@@ -1064,23 +1055,8 @@ export default function PlayerStatisticsPage() {
                  </CardHeader>
                  <CardContent>
                    <div className="space-y-2">
-                     <div className="flex items-center space-x-2">
-                       <Building className="h-5 w-5 text-purple-500" />
-                       <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">
-                         #{playerStats.club_position || 'N/A'}
-                       </Badge>
-                     </div>
-                     {comparisonPlayer && (
-                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
-                         <Building className="h-4 w-4 text-purple-400" />
-                         <Badge className="bg-purple-50 text-purple-700 hover:bg-purple-100" variant="outline">
-                           #{comparisonPlayer.club_position || 'N/A'}
-                         </Badge>
-                       </div>
-                     )}
+                     <p className="text-xs text-gray-400 mt-1">Club position information has been removed</p>
                    </div>
-                   <p className="text-xs text-gray-500 mt-1">{playerStats.club || 'N/A'}</p>
-                   <p className="text-xs text-gray-400 mt-1">Position in club</p>
                  </CardContent>
                </Card>
             </div>

@@ -24,7 +24,6 @@ export interface SupabaseNationalPlayer {
   ranking: number;
   best_ranking: number;
   points: number;
-  club: string;
   league: string;
   birth_year: number;
   nationality: string;
@@ -51,7 +50,6 @@ export const nationalPlayersAPI = {
       points: number | null;
       nb_tournois: number | null;
       ligue: string | null;
-      club: string | null;
       ranking_year: number;
       ranking_month: number;
     };
@@ -59,7 +57,7 @@ export const nationalPlayersAPI = {
     const { data, error } = await supabase
       .from('rankings')
       .select(
-        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month'
+        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, ranking_year, ranking_month'
       );
 
     if (error) {
@@ -99,7 +97,6 @@ export const nationalPlayersAPI = {
       rankingMin?: number;
       rankingMax?: number;
       league?: string;
-      clubs?: string[];
     }
   ): Promise<SupabaseNationalPlayer[]> => {
     type RankingRow = {
@@ -115,7 +112,6 @@ export const nationalPlayersAPI = {
       points: number | null;
       nb_tournois: number | null;
       ligue: string | null;
-      club: string | null;
       ranking_year: number;
       ranking_month: number;
     };
@@ -126,19 +122,19 @@ export const nationalPlayersAPI = {
     let supabaseQuery = supabase
       .from('rankings')
       .select(
-        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, club, ranking_year, ranking_month'
+        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, ranking_year, ranking_month'
       );
 
     if (trimmed) {
       if (tokens.length > 1) {
-        // Require ALL tokens to match in ANY of the key fields (name, licence, club)
+        // Require ALL tokens to match in ANY of the key fields (name, licence)
         for (const t of tokens) {
-          supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
+          supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*`);
         }
       } else {
         // Single-token broad match across key fields
         const t = trimmed;
-        supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*,club.ilike.*${t}*`);
+        supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*`);
       }
     }
 
@@ -156,9 +152,6 @@ export const nationalPlayersAPI = {
     if (filters?.league) {
       supabaseQuery = supabaseQuery.eq('ligue', filters.league);
     }
-    if (filters?.clubs && Array.isArray(filters.clubs) && (filters.clubs as string[]).length > 0) {
-      supabaseQuery = supabaseQuery.in('club', filters.clubs as string[]);
-    }
 
     const { data, error } = await supabaseQuery;
 
@@ -169,11 +162,11 @@ export const nationalPlayersAPI = {
 
     let rows: RankingRow[] = (data as any[]) || [];
 
-    // For multi-token queries, also enforce AND semantics on the client side as a safety net across name/licence/club
+    // For multi-token queries, also enforce AND semantics on the client side as a safety net across name/licence
     if (tokens.length > 1) {
       const lowerTokens = tokens.map(t => t.toLowerCase());
       rows = rows.filter(r => {
-        const haystack = `${r.nom || ''} ${r.licence || ''} ${r.club || ''}`.toLowerCase();
+        const haystack = `${r.nom || ''} ${r.licence || ''}`.toLowerCase();
         return lowerTokens.every(t => haystack.includes(t));
       });
     }
@@ -276,39 +269,6 @@ export const nationalPlayersAPI = {
     const uniqueLeagues = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.ligue).filter(Boolean) as string[]));
     return uniqueLeagues.sort();
   },
-
-  // Get unique clubs for filtering
-  getClubs: async (): Promise<string[]> => {
-    type Row = { licence: string; club: string | null; ranking_year: number; ranking_month: number };
-    const { data, error } = await supabase
-      .from('rankings')
-      .select('licence, club, ranking_year, ranking_month')
-      .not('club', 'is', null);
-
-    if (error) {
-      console.error('Error fetching clubs from rankings:', error);
-      return [];
-    }
-
-    const rows: Row[] = (data as any[]) || [];
-
-    const latestByLicence = new Map<string, Row>();
-    for (const row of rows) {
-      const existing = latestByLicence.get(row.licence);
-      if (!existing) {
-        latestByLicence.set(row.licence, row);
-        continue;
-      }
-      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
-      const currentKey = row.ranking_year * 100 + row.ranking_month;
-      if (currentKey > existingKey) {
-        latestByLicence.set(row.licence, row);
-      }
-    }
-
-    const uniqueClubs = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.club).filter(Boolean) as string[]));
-    return uniqueClubs.sort();
-  },
 };
 
 // Players (user-scoped) API
@@ -325,7 +285,6 @@ export interface SupabasePlayersEnrichedRow {
   user_id: string;
   licence: string;
   created_at: string;
-  // Fields from rankings_latest view
   nom: string | null;
   genre: 'Homme' | 'Femme';
   rang: number | null;
@@ -336,7 +295,6 @@ export interface SupabasePlayersEnrichedRow {
   points: number | null;
   nb_tournois: number | null;
   ligue: string | null;
-  club: string | null;
   ranking_year: number | null;
   ranking_month: number | null;
 }
@@ -477,7 +435,6 @@ export interface PlayerStatistics {
   current_points: number | null;
   current_tournaments_count: number | null;
   ligue: string | null;
-  club: string | null;
   ranking_history: {
     year: number;
     month: number;
@@ -489,7 +446,6 @@ export interface PlayerStatistics {
   average_progression: number | null;
   participation_rate: number | null;
   most_active_month: { year: number; month: number; tournaments: number } | null;
-  club_position: number | null;
 }
 
 export const playerStatisticsAPI = {
@@ -592,26 +548,6 @@ export const playerStatisticsAPI = {
         }
       }
     
-                  // Player position within their club (same gender)
-        let clubPosition = null;
-        if (latest.club && latest.rang && latest.genre) {
-          const { data: clubData, error: clubError } = await supabase
-            .from('rankings_latest')
-            .select('rang')
-            .eq('club', latest.club)
-            .eq('genre', latest.genre)
-            .not('rang', 'is', null)
-            .order('rang', { ascending: true });
-          
-          if (!clubError && clubData && clubData.length > 0) {
-            const playerRanking = latest.rang;
-            const position = clubData.findIndex(row => row.rang === playerRanking) + 1;
-            if (position > 0) {
-              clubPosition = position;
-            }
-          }
-        }
-
     return {
       licence: latest.licence,
       nom: latest.nom,
@@ -624,27 +560,24 @@ export const playerStatisticsAPI = {
       current_points: latest.points,
       current_tournaments_count: latest.nb_tournois,
       ligue: latest.ligue,
-      club: latest.club,
       ranking_history: rankingHistory,
       average_progression: averageProgression,
       participation_rate: participationRate,
       most_active_month: mostActiveMonth,
-      club_position: clubPosition,
     };
   },
 
   // Get all players with basic info (for search/listing)
-  getAllPlayersBasic: async (): Promise<Array<{
+  getAllPlayersBasic: async (): Promise<{
     licence: string;
     nom: string | null;
     genre: 'Homme' | 'Femme';
     current_ranking: number | null;
-    club: string | null;
     ligue: string | null;
-  }>> => {
+  }[]> => {
     const { data, error } = await supabase
       .from('rankings_latest')
-      .select('licence, nom, genre, rang, club, ligue')
+      .select('licence, nom, genre, rang, ligue')
       .order('rang', { ascending: true });
 
     if (error) {
@@ -657,7 +590,6 @@ export const playerStatisticsAPI = {
       nom: row.nom,
       genre: row.genre,
       current_ranking: row.rang,
-      club: row.club,
       ligue: row.ligue,
     }));
   },
@@ -676,7 +608,6 @@ function mapRankingRowToNationalPlayer(row: {
   points: number | null;
   nb_tournois: number | null;
   ligue: string | null;
-  club: string | null;
   ranking_year: number;
   ranking_month: number;
 }): SupabaseNationalPlayer {
@@ -703,7 +634,6 @@ function mapRankingRowToNationalPlayer(row: {
     ranking: row.rang,
     best_ranking: row.meilleur_classement ?? row.rang,
     points: row.points ?? 0,
-    club: row.club ?? '',
     league: row.ligue ?? '',
     birth_year: row.annee_naissance ?? 0,
     nationality: row.nationalite ?? '',
@@ -920,12 +850,10 @@ export const tournamentsAPI = {
 export interface SupabaseTournamentPlayerRow {
   id: string;
   tournament_id: string;
-  owner_id: string;
   license_number: string;
   first_name: string;
   last_name: string;
   ranking: number;
-  club: string | null;
   gender: 'Mr' | 'Mme' | string;
   birth_year: number | null;
   created_at: string;
@@ -960,7 +888,6 @@ export type UITournamentPlayer = {
   ranking: number;
   email?: string;
   phone?: string;
-  club: string;
   year_of_birth?: number;
   date_of_birth?: string;
   gender: 'Mr' | 'Mme';
@@ -989,7 +916,6 @@ function mapTournamentPlayerRow(row: SupabaseTournamentPlayerRow): UITournamentP
     first_name: row.first_name,
     last_name: row.last_name,
     ranking: row.ranking,
-    club: row.club ?? '',
     year_of_birth: row.birth_year ?? undefined,
     date_of_birth: undefined,
     gender: (row.gender === 'Mr' || row.gender === 'Mme') ? row.gender : 'Mr',
@@ -1032,7 +958,6 @@ export const tournamentPlayersAPI = {
       first_name: string;
       last_name: string;
       ranking: number;
-      club?: string;
       gender: 'Mr' | 'Mme';
       birth_year?: number;
     }
@@ -1057,7 +982,6 @@ export const tournamentPlayersAPI = {
         first_name: snapshot.first_name,
         last_name: snapshot.last_name,
         ranking: snapshot.ranking,
-        club: snapshot.club ?? null,
         gender: snapshot.gender,
         birth_year: typeof snapshot.birth_year === 'number' ? snapshot.birth_year : null,
       })
@@ -1122,8 +1046,8 @@ export const tournamentTeamsAPI = {
 
   createWithTwoPlayersFromLocal: async (
     tournamentId: string,
-    playerA: { id: string; license_number: string; first_name: string; last_name: string; ranking: number; club: string; gender: 'Mr' | 'Mme'; year_of_birth?: number },
-    playerB: { id: string; license_number: string; first_name: string; last_name: string; ranking: number; club: string; gender: 'Mr' | 'Mme'; year_of_birth?: number }
+    playerA: { id: string; license_number: string; first_name: string; last_name: string; ranking: number; gender: 'Mr' | 'Mme'; year_of_birth?: number },
+    playerB: { id: string; license_number: string; first_name: string; last_name: string; ranking: number; gender: 'Mr' | 'Mme'; year_of_birth?: number }
   ): Promise<UITeamWithPlayers | null> => {
     // Guard: prevent same player duplicated across teams in the same tournament
     const { data: existingJoins, error: existingErr } = await supabase
@@ -1145,7 +1069,6 @@ export const tournamentTeamsAPI = {
       first_name: playerA.first_name,
       last_name: playerA.last_name,
       ranking: playerA.ranking,
-      club: playerA.club,
       gender: playerA.gender,
       birth_year: playerA.year_of_birth,
     });
@@ -1154,7 +1077,6 @@ export const tournamentTeamsAPI = {
       first_name: playerB.first_name,
       last_name: playerB.last_name,
       ranking: playerB.ranking,
-      club: playerB.club,
       gender: playerB.gender,
       birth_year: playerB.year_of_birth,
     });
@@ -1452,7 +1374,6 @@ export interface UserPlayerLinkWithRanking extends UserPlayerLink {
   points: number | null;
   nb_tournois: number | null;
   ligue: string | null;
-  club: string | null;
   ranking_year: number | null;
   ranking_month: number | null;
 }

@@ -207,10 +207,6 @@ export default function HomePage() {
                         <span className="ml-2 text-green-800">{playerLink.licence}</span>
                       </div>
                       <div>
-                        <span className="text-green-600 font-medium">Club:</span>
-                        <span className="ml-2 text-green-800">{playerLink.club || 'N/A'}</span>
-                      </div>
-                      <div>
                         <span className="text-green-600 font-medium">Current Ranking:</span>
                         <Badge className={`ml-2 ${getRankingColor(playerLink.rang || 0)}`}>
                           P{playerLink.rang || 'N/A'}
@@ -326,7 +322,6 @@ export default function HomePage() {
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Licence</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Current Ranking</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Club</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
                       </tr>
                     </thead>
@@ -358,9 +353,6 @@ export default function HomePage() {
                                 {getEvolutionText(player.evolution)}
                               </span>
                             </div>
-                          </td>
-                          <td className="py-3 px-4 text-gray-600">
-                            {player.club || 'N/A'}
                           </td>
                           <td className="py-3 px-4">
                             <Button size="sm" variant="outline" asChild>

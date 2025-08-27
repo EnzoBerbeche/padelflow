@@ -40,7 +40,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
   const [showPlayerSelection, setShowPlayerSelection] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [playerSearch, setPlayerSearch] = useState('');
-  const [sortColumn, setSortColumn] = useState<'name' | 'license' | 'club' | 'ranking' | 'gender'>('name');
+  const [sortColumn, setSortColumn] = useState<'name' | 'license' | 'ranking' | 'gender'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
@@ -73,7 +73,6 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
           ranking: r.rang ?? 9999,
           email: undefined,
           phone: undefined,
-          club: r.club || '',
           year_of_birth: r.annee_naissance || 0,
           date_of_birth: '',
           gender: r.genre === 'Homme' ? 'Mr' : 'Mme',
@@ -276,10 +275,9 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     
     const searchLower = playerSearch.toLowerCase();
     return availablePlayers.filter(player => 
-      player.first_name.toLowerCase().includes(searchLower) ||
-      player.last_name.toLowerCase().includes(searchLower) ||
-      player.license_number.toLowerCase().includes(searchLower) ||
-      player.club.toLowerCase().includes(searchLower)
+      (player.first_name?.toLowerCase() || '').includes(searchLower) ||
+      (player.last_name?.toLowerCase() || '').includes(searchLower) ||
+      (player.license_number?.toLowerCase() || '').includes(searchLower)
     );
   };
 
@@ -289,7 +287,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
     return `${formattedFirstName} ${formattedLastName}`;
   };
 
-  const handleSort = (column: 'name' | 'license' | 'club' | 'ranking' | 'gender') => {
+  const handleSort = (column: 'name' | 'license' | 'ranking' | 'gender') => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -311,10 +309,6 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
         case 'license':
           aValue = a.license_number.toLowerCase();
           bValue = b.license_number.toLowerCase();
-          break;
-        case 'club':
-          aValue = a.club.toLowerCase();
-          bValue = b.club.toLowerCase();
           break;
         case 'ranking':
           aValue = a.ranking;
@@ -502,19 +496,6 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('club')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Club</span>
-                          {sortColumn === 'club' && (
-                            <span className="text-xs">
-                              {sortDirection === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </div>
-                      </TableHead>
-                      <TableHead 
                         className="text-center cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('ranking')}
                       >
@@ -566,9 +547,6 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
                           <TableCell className="font-mono text-sm">
                             {player.license_number}
                           </TableCell>
-                          <TableCell>
-                            {player.club}
-                          </TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className="font-mono">
                               {player.ranking}
@@ -584,7 +562,7 @@ export function TournamentTeams({ tournament, teams, onTeamsUpdate }: Tournament
                     })}
                     {filteredPlayers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={4} className="text-center py-8 text-gray-500">
                           No players found matching your search
                         </TableCell>
                       </TableRow>

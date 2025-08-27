@@ -37,7 +37,7 @@ export interface Player {
   ranking: number;
   email?: string;
   phone?: string;
-  club: string;
+  club?: string;
   year_of_birth: number; // NEW: Year of birth as integer
   date_of_birth: string; // OLD: Will be removed after migration
   gender: 'Mr' | 'Mme';

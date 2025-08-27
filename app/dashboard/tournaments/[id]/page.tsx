@@ -104,7 +104,6 @@ export default function TournamentPage({ params }: TournamentPageProps) {
           ranking: p.ranking,
           email: undefined,
           phone: undefined,
-          club: p.club,
           year_of_birth: p.year_of_birth ?? 0,
           date_of_birth: '',
           gender: p.gender as any,

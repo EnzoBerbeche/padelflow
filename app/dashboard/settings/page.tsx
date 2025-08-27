@@ -139,7 +139,7 @@ export default function SettingsPage() {
     try {
       const { data, error } = await supabase
         .from('rankings_latest')
-        .select('licence, nom, genre, rang, club')
+        .select('licence, nom, genre, rang')
         .or(`nom.ilike.%${licenceInput.trim()}%,licence.ilike.%${licenceInput.trim()}%`)
         .limit(10);
 
@@ -318,8 +318,8 @@ export default function SettingsPage() {
                       <div className="mt-2 space-y-1 text-sm text-green-700">
                         <div><span className="font-medium">Name:</span> {playerLink.nom || `Player ${playerLink.licence}`}</div>
                         <div><span className="font-medium">Licence:</span> {playerLink.licence}</div>
-                        <div><span className="font-medium">Ranking:</span> P{playerLink.rang || 'N/A'}</div>
-                        <div><span className="font-medium">Club:</span> {playerLink.club || 'N/A'}</div>
+                        <div><span className="font-medium">Current Ranking:</span> P{playerLink.rang || 'N/A'}</div>
+                        <div><span className="font-medium">Evolution:</span> {playerLink.evolution || 'N/A'}</div>
                       </div>
                     </div>
                     
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                                 </Badge>
                               </div>
                               <div className="text-xs text-gray-600">
-                                P{player.rang || 'N/A'} • {player.club || 'N/A'}
+                                P{player.rang || 'N/A'}
                               </div>
                             </div>
                           ))}

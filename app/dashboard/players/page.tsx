@@ -37,18 +37,15 @@ export default function PlayersPage() {
     ranking: '',
     email: '',
     phone: '',
-    club: '',
     year_of_birth: '',
     date_of_birth: '', // OLD: Will be removed after migration
     gender: 'Mr' as 'Mr' | 'Mme',
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   const [rankingFilter, setRankingFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
-  const [clubFilter, setClubFilter] = useState<string>('all');
   const [licenseError, setLicenseError] = useState<string>('');
-  const [sortField, setSortField] = useState<string>('nom');
+  const [sortField, setSortField] = useState<'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance'>('nom');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
@@ -82,7 +79,6 @@ export default function PlayersPage() {
       ranking: '',
       email: '',
       phone: '',
-      club: '',
       year_of_birth: '',
       date_of_birth: '', // OLD: Will be removed after migration
       gender: 'Mr' as 'Mr' | 'Mme',
@@ -215,7 +211,6 @@ export default function PlayersPage() {
       ranking: player.ranking.toString(),
       email: player.email || '',
       phone: player.phone || '',
-      club: player.club,
       year_of_birth: (player.year_of_birth || new Date().getFullYear() - 25).toString(),
       date_of_birth: player.date_of_birth || '',
       gender: player.gender,
@@ -270,53 +265,48 @@ export default function PlayersPage() {
     return gender === 'Mr' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />;
   };
 
-  // Get unique clubs for filter (from both local and cloud players)
-  const uniqueClubs = Array.from(new Set([
-    ...players.map(p => p.club),
-    ...cloudPlayers.map(p => p.club)
-  ].filter((club): club is string => club !== null && club !== undefined && club.trim() !== ''))).sort();
-
+  // Filter local players based on search criteria
   const filteredPlayers = players.filter(player => {
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = 
       (player.first_name?.toLowerCase() || '').includes(searchTermLower) ||
       (player.last_name?.toLowerCase() || '').includes(searchTermLower) ||
       (player.license_number?.toLowerCase() || '').includes(searchTermLower) ||
-      (player.club?.toLowerCase() || '').includes(searchTermLower) ||
       (player.email?.toLowerCase() || '').includes(searchTermLower);
     
     const matchesRanking = rankingFilter === 'all' || 
-      (rankingFilter === 'top25' && player.ranking <= 25) ||
-      (rankingFilter === 'top100' && player.ranking <= 100) ||
-      (rankingFilter === 'top250' && player.ranking <= 250) ||
-      (rankingFilter === 'top500' && player.ranking <= 500) ||
-      (rankingFilter === 'top1000' && player.ranking <= 1000);
+      (rankingFilter === 'p25' && player.ranking <= 25) ||
+      (rankingFilter === 'p100' && player.ranking <= 100) ||
+      (rankingFilter === 'p250' && player.ranking <= 250) ||
+      (rankingFilter === 'p500' && player.ranking <= 500) ||
+      (rankingFilter === 'p1000' && player.ranking <= 1000) ||
+      (rankingFilter === 'p1500' && player.ranking <= 1500) ||
+      (rankingFilter === 'p2000' && player.ranking <= 2000);
     
     const matchesGender = genderFilter === 'all' || player.gender === genderFilter;
-    const matchesClub = clubFilter === 'all' || player.club === clubFilter;
     
-    return matchesSearch && matchesRanking && matchesGender && matchesClub;
+    return matchesSearch && matchesRanking && matchesGender;
   });
 
   // Filter cloud players based on search criteria
   const filteredCloudPlayers = cloudPlayers.filter(player => {
-    const searchTermLower = playerSearchTerm.toLowerCase();
+    const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = 
       (player.nom?.toLowerCase() || '').includes(searchTermLower) ||
-      (player.licence?.toLowerCase() || '').includes(searchTermLower) ||
-      (player.club?.toLowerCase() || '').includes(searchTermLower);
+      (player.licence?.toLowerCase() || '').includes(searchTermLower);
     
     const matchesRanking = rankingFilter === 'all' || 
-      (rankingFilter === 'top25' && (player.rang || 0) <= 25) ||
-      (rankingFilter === 'top100' && (player.rang || 0) <= 100) ||
-      (rankingFilter === 'top250' && (player.rang || 0) <= 250) ||
-      (rankingFilter === 'top500' && (player.rang || 0) <= 500) ||
-      (rankingFilter === 'top1000' && (player.rang || 0) <= 1000);
+      (rankingFilter === 'p25' && (player.rang || 0) <= 25) ||
+      (rankingFilter === 'p100' && (player.rang || 0) <= 100) ||
+      (rankingFilter === 'p250' && (player.rang || 0) <= 250) ||
+      (rankingFilter === 'p500' && (player.rang || 0) <= 500) ||
+      (rankingFilter === 'p1000' && (player.rang || 0) <= 1000) ||
+      (rankingFilter === 'p1500' && (player.rang || 0) <= 1500) ||
+      (rankingFilter === 'p2000' && (player.rang || 0) <= 2000);
     
     const matchesGender = genderFilter === 'all' || player.genre === genderFilter;
-    const matchesClub = clubFilter === 'all' || player.club === clubFilter;
     
-    return matchesSearch && matchesRanking && matchesGender && matchesClub;
+    return matchesSearch && matchesRanking && matchesGender;
   });
 
   // Sort filtered cloud players
@@ -344,7 +334,7 @@ export default function PlayersPage() {
     }
   });
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: 'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -456,15 +446,6 @@ export default function PlayersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="club">Club {isSignedIn ? '' : '*'}</Label>
-                    <Input
-                      id="club"
-                      value={formData.club}
-                      onChange={(e) => setFormData({ ...formData, club: e.target.value })}
-                      required={!isSignedIn}
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="year_of_birth">Year of Birth {isSignedIn ? '' : '*'}</Label>
                     <Input
                       id="year_of_birth"
@@ -527,9 +508,9 @@ export default function PlayersPage() {
                      <Label htmlFor="player-search">Search</Label>
                      <Input
                        id="player-search"
-                       placeholder="Name, license, or club..."
-                       value={playerSearchTerm}
-                       onChange={(e) => setPlayerSearchTerm(e.target.value)}
+                       placeholder="Name, license, or email..."
+                       value={searchTerm}
+                       onChange={(e) => setSearchTerm(e.target.value)}
                      />
                    </div>
                    <div className="space-y-2">
@@ -551,41 +532,28 @@ export default function PlayersPage() {
                        id="player-ranking-min"
                        type="number"
                        placeholder="0"
-                       value={rankingFilter === 'all' ? '' : rankingFilter === 'top25' ? '1' : rankingFilter === 'top100' ? '26' : rankingFilter === 'top250' ? '101' : rankingFilter === 'top500' ? '251' : rankingFilter === 'top1000' ? '501' : ''}
+                       value={rankingFilter === 'all' ? '' : rankingFilter === 'p25' ? '1' : rankingFilter === 'p100' ? '26' : rankingFilter === 'p250' ? '101' : rankingFilter === 'p500' ? '251' : rankingFilter === 'p1000' ? '501' : rankingFilter === 'p1500' ? '1001' : rankingFilter === 'p2000' ? '1501' : ''}
                        onChange={(e) => {
                          const value = parseInt(e.target.value);
-                         if (value <= 25) setRankingFilter('top25');
-                         else if (value <= 100) setRankingFilter('top100');
-                         else if (value <= 250) setRankingFilter('top250');
-                         else if (value <= 500) setRankingFilter('top500');
-                         else if (value <= 1000) setRankingFilter('top1000');
+                         if (value <= 25) setRankingFilter('p25');
+                         else if (value <= 100) setRankingFilter('p100');
+                         else if (value <= 250) setRankingFilter('p250');
+                         else if (value <= 500) setRankingFilter('p500');
+                         else if (value <= 1000) setRankingFilter('p1000');
+                         else if (value <= 1500) setRankingFilter('p1500');
+                         else if (value <= 2000) setRankingFilter('p2000');
                          else setRankingFilter('all');
                        }}
                      />
-                   </div>
-                   <div className="space-y-2">
-                     <Label htmlFor="player-club">Club</Label>
-                     <Select value={clubFilter} onValueChange={setClubFilter}>
-                       <SelectTrigger>
-                         <SelectValue />
-                       </SelectTrigger>
-                       <SelectContent>
-                         <SelectItem value="all">All Clubs</SelectItem>
-                         {uniqueClubs.map(club => (
-                           <SelectItem key={club} value={club}>{club || 'Unknown Club'}</SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
                    </div>
                  </div>
                  <div className="flex justify-end">
                    <Button 
                      variant="outline"
                      onClick={() => {
-                       setPlayerSearchTerm('');
+                       setSearchTerm('');
                        setGenderFilter('all');
                        setRankingFilter('all');
-                       setClubFilter('all');
                      }}
                    >
                      <Filter className="h-4 w-4 mr-2" />
@@ -649,17 +617,6 @@ export default function PlayersPage() {
                             </th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900">
                               <button
-                                onClick={() => handleSort('club')}
-                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                              >
-                                <span>Club</span>
-                                {sortField === 'club' && (
-                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                                )}
-                              </button>
-                            </th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">
-                              <button
                                 onClick={() => handleSort('ligue')}
                                 className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
@@ -701,9 +658,6 @@ export default function PlayersPage() {
                             <td className="py-3 px-4">
                               <Badge className={getRankingColor(p.rang || 0)}>P{p.rang || 0}</Badge>
                             </td>
-                            <td className="py-3 px-4 text-gray-600">
-                          {p.club || '-'}
-                        </td>
                             <td className="py-3 px-4 text-gray-600">{p.ligue || '-'}</td>
                             <td className="py-3 px-4 text-gray-600">{p.annee_naissance || '-'}</td>
                             <td className="py-3 px-4 text-right">
@@ -751,7 +705,8 @@ export default function PlayersPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search players by name, license, club, or email..."
+                    id="search"
+                    placeholder="Search players by name, license, or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -817,20 +772,26 @@ export default function PlayersPage() {
                                   <DropdownMenuItem onClick={() => setRankingFilter('all')}>
                                     All Rankings
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setRankingFilter('top25')}>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p25')}>
                                     Top 25
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setRankingFilter('top100')}>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p100')}>
                                     Top 100
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setRankingFilter('top250')}>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p250')}>
                                     Top 250
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setRankingFilter('top500')}>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p500')}>
                                     Top 500
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setRankingFilter('top1000')}>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p1000')}>
                                     Top 1000
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p1500')}>
+                                    Top 1500
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setRankingFilter('p2000')}>
+                                    Top 2000
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -855,28 +816,6 @@ export default function PlayersPage() {
                                   <DropdownMenuItem onClick={() => setGenderFilter('Mme')}>
                                     Mme
                                   </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <div className="flex items-center space-x-1">
-                              <span>Club</span>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                    <ChevronDown className="h-3 w-3" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setClubFilter('all')}>
-                                    All Clubs
-                                  </DropdownMenuItem>
-                                  {uniqueClubs.map(club => (
-                                    <DropdownMenuItem key={club} onClick={() => setClubFilter(club)}>
-                                      {club}
-                                    </DropdownMenuItem>
-                                  ))}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -924,9 +863,6 @@ export default function PlayersPage() {
                             </td>
                             <td className="py-3 px-4 text-gray-600">
                               {player.gender}
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.club || '-'}
                             </td>
                             <td className="py-3 px-4 text-gray-600">
                               {player.year_of_birth || (player.date_of_birth ? new Date(player.date_of_birth).getFullYear() : '-')}
