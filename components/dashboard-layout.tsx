@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon, Wrench, Shield } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon, Wrench, Shield, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ const baseNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -27,6 +28,7 @@ const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
     { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
@@ -39,6 +41,7 @@ const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
+  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Club Management', href: '/dashboard/club', icon: Users },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
