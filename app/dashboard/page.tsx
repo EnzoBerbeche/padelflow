@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -107,6 +107,40 @@ export default function HomePage() {
     return 'text-gray-600';
   };
 
+  const unfollowPlayer = async (playerId: string) => {
+    try {
+      const result = await playersAPI.deleteById(playerId);
+      if (result.ok) {
+        // Remove the player from the local state
+        setFollowedPlayers(prev => prev.filter(p => p.player_id !== playerId));
+        
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalPlayers: prev.totalPlayers - 1
+        }));
+
+        toast({
+          title: "Success",
+          description: "Player unfollowed successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to unfollow player",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error unfollowing player:', error);
+      toast({
+        title: "Error",
+        description: "Failed to unfollow player",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Enhanced filtering logic
   const filteredPlayers = followedPlayers.filter(player => {
     const searchTermLower = searchTerm.toLowerCase();
@@ -196,7 +230,13 @@ export default function HomePage() {
               Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
             </h1>
             <p className="text-primary-foreground/90 text-lg">
-              Your padel journey continues. Here's what's happening with your profile and followed players.
+              {playerLink ? (
+                <>
+                  You are linked to <span className="font-semibold">{playerLink.nom_complet}</span> (P{playerLink.classement})
+                </>
+              ) : (
+                "Your padel journey continues. Here's what's happening with your profile and followed players."
+              )}
             </p>
           </div>
 
@@ -217,13 +257,24 @@ export default function HomePage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Players Following</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Evolution</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalPlayers}</div>
+                <div className="text-2xl font-bold">
+                  {playerLink?.evolution ? (
+                    <div className="flex items-center">
+                      {getEvolutionIcon(playerLink.evolution)}
+                      <span className={`ml-2 ${getEvolutionColor(playerLink.evolution)}`}>
+                        {playerLink.evolution > 0 ? `+${playerLink.evolution}` : playerLink.evolution}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Players in your watchlist
+                  {playerLink?.evolution ? (playerLink.evolution > 0 ? 'Improved' : 'Declined') : 'No change'}
                 </p>
               </CardContent>
             </Card>
@@ -255,123 +306,7 @@ export default function HomePage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Linked Player Profile */}
-            {playerLink ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <UserCheck className="h-5 w-5 text-green-600" />
-                    <span>Your Player Profile</span>
-                  </CardTitle>
-                  <CardDescription>
-                    You are linked to this player in the rankings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-semibold text-green-800">
-                        {playerLink.nom_complet || `Player ${playerLink.licence}`}
-                      </h3>
-                      <Badge variant="outline" className="text-green-700 border-green-300">
-                        {playerLink.sexe === 'H' ? 'Men' : 'Women'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-green-600 font-medium">Licence:</span>
-                        <span className="ml-2 text-green-800">{playerLink.licence}</span>
-                      </div>
-                      <div>
-                        <span className="text-green-600 font-medium">Current Ranking:</span>
-                        <Badge className={`ml-2 ${getRankingColor(playerLink.classement || 0)}`}>
-                          P{playerLink.classement || 'N/A'}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="text-green-600 font-medium">Evolution:</span>
-                        <div className="flex items-center ml-2">
-                          {getEvolutionIcon(playerLink.evolution)}
-                          <span className={`ml-1 ${getEvolutionColor(playerLink.evolution)}`}>
-                            {getEvolutionText(playerLink.evolution)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" className="flex-1" asChild>
-                      <Link href="/dashboard/settings">
-                        <UserCheck className="h-4 w-4 mr-2" />
-                        Manage Profile
-                      </Link>
-                    </Button>
 
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <UserCheck className="h-5 w-5 text-gray-600" />
-                    <span>Player Profile</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Link your account to a player in the rankings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center py-8 text-gray-500">
-                    <UserCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p className="mb-4">You haven't linked your account to a player yet.</p>
-                    <Button asChild>
-                      <Link href="/dashboard/settings">
-                        <UserCheck className="h-4 w-4 mr-2" />
-                        Link Your Profile
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>Quick Actions</span>
-                </CardTitle>
-                <CardDescription>
-                  Access your most used features
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full justify-start" variant="outline" asChild>
-                  <Link href="/dashboard/tournaments">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    View Tournaments
-                  </Link>
-                </Button>
-                <Button className="w-full justify-start" variant="outline" asChild>
-                  <Link href="/dashboard/ten-up">
-                    <Target className="h-4 w-4 mr-2" />
-                    Ten'Up Rankings
-                  </Link>
-                </Button>
-                <Button className="w-full justify-start" variant="outline" asChild>
-                  <Link href="/dashboard/settings">
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Settings
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Enhanced Followed Players Section */}
           {followedPlayers.length > 0 && (
@@ -478,17 +413,7 @@ export default function HomePage() {
                               )}
                             </button>
                           </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button
-                              onClick={() => handleSort('licence')}
-                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                            >
-                              <span>Licence</span>
-                              {sortField === 'licence' && (
-                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                          </th>
+                          
                           <th className="text-left py-3 px-4 font-medium text-gray-900">
                             <button
                               onClick={() => handleSort('classement')}
@@ -511,17 +436,17 @@ export default function HomePage() {
                               )}
                             </button>
                           </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button
-                              onClick={() => handleSort('age_sportif')}
-                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                            >
-                              <span>Birth Year</span>
-                              {sortField === 'age_sportif' && (
-                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                          </th>
+                                                     <th className="text-left py-3 px-4 font-medium text-gray-900">
+                             <button
+                               onClick={() => handleSort('age_sportif')}
+                               className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                             >
+                               <span>Age</span>
+                               {sortField === 'age_sportif' && (
+                                 <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                               )}
+                             </button>
+                           </th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
                           <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
                         </tr>
@@ -540,9 +465,7 @@ export default function HomePage() {
                                 </Link>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-gray-600 font-mono">
-                              {player.licence}
-                            </td>
+                            
                             <td className="py-3 px-4">
                               <Badge className={getRankingColor(player.classement || 0)}>
                                 P{player.classement || 'N/A'}
@@ -562,14 +485,16 @@ export default function HomePage() {
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-right">
-                              <Button size="sm" variant="outline" asChild>
-                                <Link href={`/dashboard/players/${player.licence}`}>
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  View
-                                </Link>
-                              </Button>
-                            </td>
+                                                         <td className="py-3 px-4 text-right">
+                               <Button 
+                                 size="sm" 
+                                 variant="outline"
+                                 onClick={() => unfollowPlayer(player.player_id)}
+                               >
+                                 <UserMinus className="h-4 w-4 mr-1" />
+                                 Unfollow
+                               </Button>
+                             </td>
                           </tr>
                         ))}
                       </tbody>

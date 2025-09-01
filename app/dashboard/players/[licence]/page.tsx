@@ -568,13 +568,33 @@ export default function PlayerStatisticsPage() {
     try {
       const { supabase } = await import('@/lib/supabase');
       
-      // Use ILIKE for case-insensitive search across multiple fields
-      const { data, error } = await supabase
+      const trimmed = searchTerm.trim();
+      const tokens = trimmed.split(/\s+/).filter(t => t.length > 0);
+      
+      let query = supabase
         .from('tenup_latest')
         .select('idcrm, nom_complet, sexe, ligue, classement, points')
-        .or(`nom_complet.ilike.%${searchTerm}%,idcrm.ilike.%${searchTerm}%,ligue.ilike.%${searchTerm}%`)
         .order('nom_complet')
-        .limit(200); // Limit search results for performance
+        .limit(200);
+      
+      if (trimmed) {
+        const orConditions = [];
+        for (const t of tokens) {
+          const isNumber = !isNaN(Number(t));
+          if (isNumber) {
+            orConditions.push(`nom_complet.ilike.*${t}*`);
+            orConditions.push(`idcrm.eq.${t}`);
+          } else {
+            orConditions.push(`nom_complet.ilike.*${t}*`);
+            orConditions.push(`ligue.ilike.*${t}*`);
+          }
+        }
+        if (orConditions.length > 0) {
+          query = query.or(orConditions.join(','));
+        }
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error searching players:', error);
@@ -742,7 +762,6 @@ export default function PlayerStatisticsPage() {
                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                      {playerStats.nom || `Player ${playerStats.licence}`}
                    </h1>
-                   <p className="text-gray-600 mt-1">Licence: {playerStats.licence}</p>
                  </div>
                </div>
  
@@ -981,30 +1000,34 @@ export default function PlayerStatisticsPage() {
                 </CardContent>
               </Card>
 
-              {/* Participation Rate */}
+              {/* Average Points */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Participation Rate</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-600">Average Points</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <Calendar className="h-5 w-5 text-indigo-500" />
+                      <Target className="h-5 w-5 text-indigo-500" />
                       <span className="text-lg font-bold text-gray-900">
-                        {playerStats.participation_rate !== null ? `${Math.round(playerStats.participation_rate)}%` : 'N/A'}
+                        {playerStats.current_points 
+                          ? Math.round(playerStats.current_points / 12) 
+                          : 'N/A'}
                       </span>
                     </div>
                     {comparisonPlayer && (
                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
-                        <Calendar className="h-4 w-4 text-indigo-400" />
+                        <Target className="h-4 w-4 text-indigo-400" />
                         <span className="text-sm font-bold text-indigo-600">
-                          {comparisonPlayer.participation_rate !== null ? `${Math.round(comparisonPlayer.participation_rate)}%` : 'N/A'}
+                          {comparisonPlayer.current_points 
+                            ? Math.round(comparisonPlayer.current_points / 12) 
+                            : 'N/A'}
                         </span>
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">% of months with tournaments</p>
-                  <p className="text-xs text-gray-400 mt-1">Last 12 months</p>
+                  <p className="text-xs text-gray-500 mt-1">Current points ÷ 12 months</p>
+                  <p className="text-xs text-gray-400 mt-1">Monthly average</p>
                 </CardContent>
               </Card>
 
@@ -1044,21 +1067,51 @@ export default function PlayerStatisticsPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Tournaments in that month</p>
+                                    <p className="text-xs text-gray-400 mt-1">Tournaments in that month</p>
                 </CardContent>
               </Card>
 
-                             {/* Club Position */}
-               <Card>
-                 <CardHeader className="pb-3">
-                   <CardTitle className="text-sm font-medium text-gray-600">Club Position</CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <div className="space-y-2">
-                     <p className="text-xs text-gray-400 mt-1">Club position information has been removed</p>
-                   </div>
-                 </CardContent>
-               </Card>
+              {/* League Position */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">League Position</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Building className="h-5 w-5 text-indigo-500" />
+                      <div>
+                        <span className="text-lg font-bold text-gray-900">
+                          {playerStats.league_position ? `#${playerStats.league_position}` : 'N/A'}
+                        </span>
+                        {playerStats.league_position && (
+                          <p className="text-xs text-gray-500">
+                            in {playerStats.ligue || 'league'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {comparisonPlayer && (
+                      <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
+                        <Building className="h-4 w-4 text-indigo-400" />
+                        <div>
+                          <span className="text-sm font-bold text-indigo-600">
+                            {comparisonPlayer.league_position ? `#${comparisonPlayer.league_position}` : 'N/A'}
+                          </span>
+                          {comparisonPlayer.league_position && (
+                            <p className="text-xs text-gray-400">
+                              in {comparisonPlayer.ligue || 'league'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Position in league ranking</p>
+                </CardContent>
+              </Card>
+
+              
             </div>
 
                      {/* Ranking Evolution Chart */}

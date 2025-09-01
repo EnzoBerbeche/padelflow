@@ -209,15 +209,15 @@ export const nationalPlayersAPI = {
     _players: SupabaseNationalPlayer[], 
     _gender: 'men' | 'women'
   ): Promise<boolean> => {
-    // Deprecated for rankings pipeline. Kept to satisfy existing callers if any.
-    console.warn('importFromCSV is deprecated for the rankings schema.');
+    // Deprecated for tenup pipeline. Kept to satisfy existing callers if any.
+    console.warn('importFromCSV is deprecated for the tenup schema.');
     return false;
   },
 
   // Clear all players
   clear: async (): Promise<boolean> => {
-    // Dangerous against the rankings table; leave as noop for safety
-    console.warn('clear() is disabled for the rankings schema.');
+    // Dangerous against the tenup table; leave as noop for safety
+    console.warn('clear() is disabled for the tenup schema.');
     return false;
   },
 
@@ -273,7 +273,7 @@ export interface SupabasePlayersEnrichedRow {
 }
 
 export const playersAPI = {
-  // Fetch current user's players with latest rankings via direct join
+  // Fetch current user's players with latest tenup data via direct join
   getMyPlayersEnriched: async (): Promise<SupabasePlayersEnrichedRow[]> => {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
@@ -297,14 +297,14 @@ export const playersAPI = {
     // Get the license numbers
     const licenses = playerData.map(p => p.licence);
 
-    // Fetch rankings for these licenses
+    // Fetch tenup data for these licenses
     const { data: rankingData, error: rankingError } = await supabase
       .from('tenup_latest')
       .select('*')
       .in('idcrm', licenses.map(l => parseInt(l)));
 
     if (rankingError) {
-      console.error('Error fetching rankings:', rankingError);
+      console.error('Error fetching tenup data:', rankingError);
       return [];
     }
 
@@ -419,6 +419,7 @@ export interface PlayerStatistics {
   average_progression: number | null;
   participation_rate: number | null;
   most_active_month: { year: number; month: number; tournaments: number } | null;
+  league_position: number | null;
 }
 
 export const playerStatisticsAPI = {
@@ -519,6 +520,25 @@ export const playerStatisticsAPI = {
           mostActiveMonth = maxMonth;
         }
       }
+
+    // Calculate league position
+    let leaguePosition = null;
+    if (latest.ligue && latest.classement) {
+      try {
+        // Count how many players in the same league have a better ranking (lower number)
+        const { count, error: countError } = await supabase
+          .from('tenup_latest')
+          .select('*', { count: 'exact', head: true })
+          .eq('ligue', latest.ligue)
+          .lt('classement', latest.classement); // Better ranking = lower number
+        
+        if (!countError && count !== null) {
+          leaguePosition = count + 1; // Position is count + 1 (1st place = 0 players better + 1)
+        }
+      } catch (err) {
+        console.error('Error calculating league position:', err);
+      }
+    }
     
     return {
       licence: latest.idcrm.toString(),
@@ -536,6 +556,7 @@ export const playerStatisticsAPI = {
       average_progression: averageProgression,
       participation_rate: participationRate,
       most_active_month: mostActiveMonth,
+      league_position: leaguePosition,
     };
   },
 
@@ -1449,7 +1470,7 @@ export const userPlayerLinkAPI = {
     const userId = userData.user?.id;
     if (!userId) return { ok: false, error: 'Not signed in' };
 
-    // Check if licence exists in rankings
+    // Check if licence exists in tenup
     const { data: rankingData, error: rankingError } = await supabase
       .from('tenup_latest')
       .select('idcrm')
@@ -1462,7 +1483,7 @@ export const userPlayerLinkAPI = {
     }
 
     if (!rankingData) {
-      return { ok: false, error: 'Licence not found in rankings' };
+      return { ok: false, error: 'Licence not found in tenup' };
     }
 
     // Check if user already has a link
