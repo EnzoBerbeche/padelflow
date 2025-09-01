@@ -542,9 +542,9 @@ export default function PlayerStatisticsPage() {
       // Only fetch a small initial set for display
       const { supabase } = await import('@/lib/supabase');
       const { data, error } = await supabase
-        .from('rankings_latest')
-        .select('licence, nom, genre, club, rang, points')
-        .order('nom')
+        .from('tenup_latest')
+        .select('idcrm, nom_complet, sexe, ligue, classement, points')
+        .order('nom_complet')
         .limit(100); // Limit initial load for performance
       
       if (error) {
@@ -570,10 +570,10 @@ export default function PlayerStatisticsPage() {
       
       // Use ILIKE for case-insensitive search across multiple fields
       const { data, error } = await supabase
-        .from('rankings_latest')
-        .select('licence, nom, genre, club, rang, points')
-        .or(`nom.ilike.%${searchTerm}%,licence.ilike.%${searchTerm}%,club.ilike.%${searchTerm}%`)
-        .order('nom')
+        .from('tenup_latest')
+        .select('idcrm, nom_complet, sexe, ligue, classement, points')
+        .or(`nom_complet.ilike.%${searchTerm}%,idcrm.ilike.%${searchTerm}%,ligue.ilike.%${searchTerm}%`)
+        .order('nom_complet')
         .limit(200); // Limit search results for performance
       
       if (error) {
@@ -1309,7 +1309,7 @@ export default function PlayerStatisticsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search players by name, license, or club..."
+                    placeholder="Search players by name, license, or league..."
                     value={playerSearch}
                     onChange={(e) => setPlayerSearch(e.target.value)}
                     className="pl-10"
@@ -1335,7 +1335,7 @@ export default function PlayerStatisticsPage() {
                     <div className="text-center py-16 text-gray-500">
                       <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                       <p className="text-lg font-medium mb-2">Search for players to compare</p>
-                      <p className="text-sm">Enter a name, license number, or club to find players</p>
+                      <p className="text-sm">Enter a name, license number, or league to find players</p>
                     </div>
                   )}
 
@@ -1345,35 +1345,35 @@ export default function PlayerStatisticsPage() {
                       {/* Mobile Cards View */}
                       <div className="block sm:hidden space-y-2 p-2">
                         {displayPlayers
-                          .filter(player => player.licence !== licence)
+                          .filter(player => player.idcrm.toString() !== licence)
                           .map((player) => (
-                            <Card key={player.licence} className="p-3">
+                            <Card key={player.idcrm} className="p-3">
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="font-medium text-sm">
-                                    {player.nom || `Player ${player.licence}`}
+                                    {player.nom_complet || `Player ${player.idcrm}`}
                                   </span>
                                   <Badge variant="outline" className="text-xs">
-                                    {player.genre === 'Homme' ? 'Men' : 'Women'}
+                                    {player.sexe === 'H' ? 'Men' : 'Women'}
                                   </Badge>
                                 </div>
                                 <div className="text-xs text-gray-600 space-y-1">
-                                  <div>License: {player.licence}</div>
-                                  <div>Club: {player.club || 'N/A'}</div>
-                                  <div>Ranking: {player.rang || 'N/A'}</div>
+                                  <div>License: {player.idcrm}</div>
+                                  <div>League: {player.ligue || 'N/A'}</div>
+                                  <div>Ranking: {player.classement || 'N/A'}</div>
                                 </div>
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handleComparisonSelect(player.licence)}
-                                  disabled={player.licence === licence}
-                                  className="w-full text-xs"
-                                >
-                                  Compare
-                                </Button>
+                                                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleComparisonSelect(player.idcrm.toString())}
+                                    disabled={player.idcrm.toString() === licence}
+                                    className="w-full text-xs"
+                                  >
+                                    Compare
+                                  </Button>
                               </div>
                             </Card>
                           ))}
-                        {displayPlayers.filter(player => player.licence !== licence).length === 0 && (
+                        {displayPlayers.filter(player => player.idcrm.toString() !== licence).length === 0 && (
                           <div className="text-center py-8 text-gray-500 text-sm">
                             No players found matching your search
                           </div>
@@ -1387,7 +1387,7 @@ export default function PlayerStatisticsPage() {
                             <TableRow>
                               <TableHead>Name</TableHead>
                               <TableHead>License</TableHead>
-                              <TableHead>Club</TableHead>
+                              <TableHead>League</TableHead>
                               <TableHead className="text-center">Ranking</TableHead>
                               <TableHead className="text-center">Gender</TableHead>
                               <TableHead className="text-center">Action</TableHead>
@@ -1395,40 +1395,40 @@ export default function PlayerStatisticsPage() {
                           </TableHeader>
                           <TableBody>
                             {displayPlayers
-                              .filter(player => player.licence !== licence)
+                              .filter(player => player.idcrm.toString() !== licence)
                               .map((player) => (
-                                <TableRow key={player.licence} className="hover:bg-gray-50">
+                                <TableRow key={player.idcrm} className="hover:bg-gray-50">
                                   <TableCell className="font-medium">
-                                    {player.nom || `Player ${player.licence}`}
+                                    {player.nom_complet || `Player ${player.idcrm}`}
                                   </TableCell>
                                   <TableCell className="font-mono text-sm">
-                                    {player.licence}
+                                    {player.idcrm}
                                   </TableCell>
                                   <TableCell>
-                                    {player.club || 'N/A'}
+                                    {player.ligue || 'N/A'}
                                   </TableCell>
                                   <TableCell className="text-center">
                                     <Badge variant="outline" className="font-mono">
-                                      {player.rang || 'N/A'}
+                                      {player.classement || 'N/A'}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-center">
                                     <Badge variant="outline" className="text-xs">
-                                      {player.genre === 'Homme' ? 'Men' : 'Women'}
+                                      {player.sexe === 'H' ? 'Men' : 'Women'}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    <Button 
-                                      size="sm" 
-                                      onClick={() => handleComparisonSelect(player.licence)}
-                                      disabled={player.licence === licence}
-                                    >
-                                      Compare
-                                    </Button>
+                                                                      <Button 
+                                    size="sm" 
+                                    onClick={() => handleComparisonSelect(player.idcrm.toString())}
+                                    disabled={player.idcrm.toString() === licence}
+                                  >
+                                    Compare
+                                  </Button>
                                   </TableCell>
                                 </TableRow>
                               ))}
-                            {displayPlayers.filter(player => player.licence !== licence).length === 0 && (
+                            {displayPlayers.filter(player => player.idcrm.toString() !== licence).length === 0 && (
                               <TableRow>
                                 <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                                   No players found matching your search

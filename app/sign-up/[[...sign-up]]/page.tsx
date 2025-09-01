@@ -21,6 +21,7 @@ export default function SignUpPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [licenceNumber, setLicenceNumber] = useState('');
 
   useEffect(() => {
     const fromQuery = searchParams.get('email');
@@ -66,6 +67,7 @@ export default function SignUpPage() {
           first_name: firstName,
           last_name: lastName,
           phone,
+          licence_number: licenceNumber.trim(),
           display_name: `${firstName || ''} ${lastName || ''}`.trim(),
         },
       }
@@ -78,20 +80,46 @@ export default function SignUpPage() {
       if (!data.session) {
         // Redirect to thank you page instead of showing small message
         router.push('/sign-up/thank-you');
-      } else {
-        // If session exists (no email confirmation required), create profile immediately
-        try {
-          await ensureProfileExists({
-            userId: data.user!.id,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            phone: phone.trim() || null,
-          });
-        } catch {
-          // no-op: don't block sign-up on profile creation failure
-        }
-        router.replace('/dashboard');
-      }
+             } else {
+         // If session exists (no email confirmation required), create profile immediately
+         try {
+           await ensureProfileExists({
+             userId: data.user!.id,
+             firstName: firstName.trim(),
+             lastName: lastName.trim(),
+             phone: phone.trim() || null,
+           });
+           
+           // Try to automatically link to player if licence number is provided
+           if (licenceNumber.trim()) {
+             try {
+               const { supabase } = await import('@/lib/supabase');
+               // Check if the licence number exists in tenup_latest
+               const { data: playerData } = await supabase
+                 .from('tenup_latest')
+                 .select('idcrm')
+                 .eq('idcrm', parseInt(licenceNumber.trim()))
+                 .maybeSingle();
+               
+               if (playerData) {
+                 // Create the player link
+                 await supabase
+                   .from('players')
+                   .insert({
+                     user_id: data.user!.id,
+                     licence: playerData.idcrm.toString(),
+                   });
+               }
+             } catch (error) {
+               console.warn('Failed to auto-link player:', error);
+               // Don't block the signup process
+             }
+           }
+         } catch {
+           // no-op: don't block sign-up on profile creation failure
+         }
+         router.replace('/dashboard');
+       }
     }
   };
 
@@ -139,18 +167,35 @@ export default function SignUpPage() {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center">
-                <Phone className="w-4 h-4 mr-2" />
-                Téléphone
-              </Label>
-              <Input 
-                id="phone" 
-                value={phone} 
-                onChange={(e) => setPhone(e.target.value)}
-                className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
+                         <div className="space-y-2">
+               <Label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center">
+                 <Phone className="w-4 h-4 mr-2" />
+                 Téléphone
+               </Label>
+               <Input 
+                 id="phone" 
+                 value={phone} 
+                 onChange={(e) => setPhone(e.target.value)}
+                 className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+               />
+             </div>
+             
+             <div className="space-y-2">
+               <Label htmlFor="licence" className="text-sm font-medium text-gray-700 flex items-center">
+                 <User className="w-4 h-4 mr-2" />
+                 Numéro de Licence
+               </Label>
+               <Input 
+                 id="licence" 
+                 value={licenceNumber} 
+                 onChange={(e) => setLicenceNumber(e.target.value)}
+                 placeholder="Votre numéro de licence FFT"
+                 className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+               />
+               <p className="text-xs text-gray-500">
+                 Ce numéro nous permettra de lier votre compte à votre profil joueur
+               </p>
+             </div>
             
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center">

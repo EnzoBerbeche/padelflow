@@ -35,7 +35,7 @@ export default function HomePage() {
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [rankingFilter, setRankingFilter] = useState<string>('all');
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance'>('nom');
+  const [sortField, setSortField] = useState<'nom_complet' | 'licence' | 'classement' | 'ligue' | 'age_sportif'>('nom_complet');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
@@ -56,11 +56,11 @@ export default function HomePage() {
       // Calculate statistics
       if (link) {
         const evolution = link.evolution || 0;
-        const currentRanking = link.rang || 0;
+        const currentRanking = link.classement || 0;
         const bestRanking = link.meilleur_classement || currentRanking;
         
         setStats({
-          totalTournaments: link.nb_tournois || 0,
+          totalTournaments: link.nombre_tournois || 0,
           totalPlayers: players.length,
           averageRanking: currentRanking,
           bestRanking: bestRanking,
@@ -88,22 +88,22 @@ export default function HomePage() {
 
   const getEvolutionIcon = (evolution: number | null) => {
     if (!evolution) return null;
-    if (evolution < 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (evolution > 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
+    if (evolution > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
+    if (evolution < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
     return null;
   };
 
   const getEvolutionText = (evolution: number | null) => {
     if (!evolution) return 'No change';
-    if (evolution < 0) return `+${Math.abs(evolution)} (Improved)`;
-    if (evolution > 0) return `+${evolution} (Declined)`;
+    if (evolution > 0) return `+${evolution} (Improved)`;
+    if (evolution < 0) return `${evolution} (Declined)`;
     return 'No change';
   };
 
   const getEvolutionColor = (evolution: number | null) => {
     if (!evolution) return 'text-gray-600';
-    if (evolution < 0) return 'text-green-600';
-    if (evolution > 0) return 'text-red-600';
+    if (evolution > 0) return 'text-green-600';
+    if (evolution < 0) return 'text-red-600';
     return 'text-gray-600';
   };
 
@@ -111,19 +111,19 @@ export default function HomePage() {
   const filteredPlayers = followedPlayers.filter(player => {
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      (player.nom?.toLowerCase() || '').includes(searchTermLower) ||
+      (player.nom_complet?.toLowerCase() || player.nom?.toLowerCase() || '').includes(searchTermLower) ||
       (player.licence?.toLowerCase() || '').includes(searchTermLower);
     
     const matchesRanking = rankingFilter === 'all' || 
-      (rankingFilter === 'p25' && (player.rang || 0) <= 25) ||
-      (rankingFilter === 'p100' && (player.rang || 0) <= 100) ||
-      (rankingFilter === 'p250' && (player.rang || 0) <= 250) ||
-      (rankingFilter === 'p500' && (player.rang || 0) <= 500) ||
-      (rankingFilter === 'p1000' && (player.rang || 0) <= 1000) ||
-      (rankingFilter === 'p1500' && (player.rang || 0) <= 1500) ||
-      (rankingFilter === 'p2000' && (player.rang || 0) <= 2000);
+      (rankingFilter === 'p25' && (player.classement || 0) <= 25) ||
+      (rankingFilter === 'p100' && (player.classement || 0) <= 100) ||
+      (rankingFilter === 'p250' && (player.classement || 0) <= 250) ||
+      (rankingFilter === 'p500' && (player.classement || 0) <= 500) ||
+      (rankingFilter === 'p1000' && (player.classement || 0) <= 1000) ||
+      (rankingFilter === 'p1500' && (player.classement || 0) <= 1500) ||
+      (rankingFilter === 'p2000' && (player.classement || 0) <= 2000);
     
-    const matchesGender = genderFilter === 'all' || player.genre === genderFilter;
+    const matchesGender = genderFilter === 'all' || player.sexe === genderFilter;
     
     const matchesLeague = leagueFilter === 'all' || player.ligue === leagueFilter;
     
@@ -155,7 +155,7 @@ export default function HomePage() {
     }
   });
 
-  const handleSort = (field: 'nom' | 'licence' | 'rang' | 'ligue' | 'annee_naissance') => {
+  const handleSort = (field: 'nom_complet' | 'licence' | 'classement' | 'ligue' | 'age_sportif') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -272,10 +272,10 @@ export default function HomePage() {
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-semibold text-green-800">
-                        {playerLink.nom || `Player ${playerLink.licence}`}
+                        {playerLink.nom_complet || `Player ${playerLink.licence}`}
                       </h3>
                       <Badge variant="outline" className="text-green-700 border-green-300">
-                        {playerLink.genre === 'Homme' ? 'Men' : 'Women'}
+                        {playerLink.sexe === 'H' ? 'Men' : 'Women'}
                       </Badge>
                     </div>
                     
@@ -286,8 +286,8 @@ export default function HomePage() {
                       </div>
                       <div>
                         <span className="text-green-600 font-medium">Current Ranking:</span>
-                        <Badge className={`ml-2 ${getRankingColor(playerLink.rang || 0)}`}>
-                          P{playerLink.rang || 'N/A'}
+                        <Badge className={`ml-2 ${getRankingColor(playerLink.classement || 0)}`}>
+                          P{playerLink.classement || 'N/A'}
                         </Badge>
                       </div>
                       <div>
@@ -405,8 +405,8 @@ export default function HomePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="Homme">Men</SelectItem>
-                        <SelectItem value="Femme">Women</SelectItem>
+                        <SelectItem value="H">Men</SelectItem>
+                        <SelectItem value="F">Women</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -469,11 +469,11 @@ export default function HomePage() {
                         <tr className="border-b">
                           <th className="text-left py-3 px-4 font-medium text-gray-900">
                             <button
-                              onClick={() => handleSort('nom')}
+                              onClick={() => handleSort('nom_complet')}
                               className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                             >
                               <span>Player</span>
-                              {sortField === 'nom' && (
+                              {sortField === 'nom_complet' && (
                                 <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                               )}
                             </button>
@@ -491,11 +491,11 @@ export default function HomePage() {
                           </th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">
                             <button
-                              onClick={() => handleSort('rang')}
+                              onClick={() => handleSort('classement')}
                               className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                             >
                               <span>Current Ranking</span>
-                              {sortField === 'rang' && (
+                              {sortField === 'classement' && (
                                 <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                               )}
                             </button>
@@ -513,11 +513,11 @@ export default function HomePage() {
                           </th>
                           <th className="text-left py-3 px-4 font-medium text-gray-900">
                             <button
-                              onClick={() => handleSort('annee_naissance')}
+                              onClick={() => handleSort('age_sportif')}
                               className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                             >
                               <span>Birth Year</span>
-                              {sortField === 'annee_naissance' && (
+                              {sortField === 'age_sportif' && (
                                 <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                               )}
                             </button>
@@ -531,12 +531,12 @@ export default function HomePage() {
                           <tr key={player.player_id} className="border-b hover:bg-gray-50">
                             <td className="py-3 px-4">
                               <div className="flex items-center space-x-2">
-                                {player.genre === 'Homme' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
+                                {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
                                 <Link 
                                   href={`/dashboard/players/${player.licence}`}
                                   className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
                                 >
-                                  {player.nom || `Player ${player.licence}`}
+                                  {player.nom_complet || `Player ${player.licence}`}
                                 </Link>
                               </div>
                             </td>
@@ -544,15 +544,15 @@ export default function HomePage() {
                               {player.licence}
                             </td>
                             <td className="py-3 px-4">
-                              <Badge className={getRankingColor(player.rang || 0)}>
-                                P{player.rang || 'N/A'}
+                              <Badge className={getRankingColor(player.classement || 0)}>
+                                P{player.classement || 'N/A'}
                               </Badge>
                             </td>
                             <td className="py-3 px-4 text-gray-600">
                               {player.ligue || '-'}
                             </td>
                             <td className="py-3 px-4 text-gray-600">
-                              {player.annee_naissance || '-'}
+                              {player.age_sportif || '-'}
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center">

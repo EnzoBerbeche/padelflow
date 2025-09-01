@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Settings, User, Trash2, Bell, Info, LogOut, Link, Unlink, Search, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseUser } from '@/hooks/use-current-user';
-import { supabase, userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
+import { supabase, userPlayerLinkAPI, userProfileAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
@@ -30,18 +30,30 @@ export default function SettingsPage() {
   const [playerLink, setPlayerLink] = useState<UserPlayerLinkWithRanking | null>(null);
   const [isLoadingLink, setIsLoadingLink] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
-  const [licenceInput, setLicenceInput] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  
+  // User profile state
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    licence_number: ''
+  });
 
-  // Load current player link on component mount
+  // Load current player link and user profile on component mount
   useEffect(() => {
     loadPlayerLink();
+    loadUserProfile();
   }, []);
 
   // Debounced search effect
   useEffect(() => {
-    if (!licenceInput.trim()) {
+    if (!searchInput.trim()) {
       setSearchResults([]);
       return;
     }
@@ -51,7 +63,7 @@ export default function SettingsPage() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [licenceInput]);
+  }, [searchInput]);
 
   const loadPlayerLink = async () => {
     setIsLoadingLink(true);
@@ -65,8 +77,97 @@ export default function SettingsPage() {
     }
   };
 
+  const loadUserProfile = async () => {
+    setIsLoadingProfile(true);
+    try {
+      const profile = await userProfileAPI.getMyProfile();
+      setUserProfile(profile);
+      // Initialize edit form data
+      setEditFormData({
+        first_name: profile?.first_name || '',
+        last_name: profile?.last_name || '',
+        phone: profile?.phone || '',
+        licence_number: profile?.licence_number || ''
+      });
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false);
+    // Reset form data to current profile values
+    setEditFormData({
+      first_name: userProfile?.first_name || '',
+      last_name: userProfile?.last_name || '',
+      phone: userProfile?.phone || '',
+      licence_number: userProfile?.licence_number || ''
+    });
+  };
+
+  const handleSaveProfile = async () => {
+    setIsLoadingProfile(true);
+    try {
+      // Update licence number
+      if (editFormData.licence_number !== userProfile?.licence_number) {
+        const result = await userProfileAPI.updateLicenceNumber(editFormData.licence_number);
+        if (!result.ok) {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to update licence number",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Update other profile fields
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: editFormData.first_name,
+          last_name: editFormData.last_name,
+          phone: editFormData.phone,
+          licence_number: editFormData.licence_number,
+          display_name: `${editFormData.first_name || ''} ${editFormData.last_name || ''}`.trim(),
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update profile",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+
+      setIsEditingProfile(false);
+      await loadUserProfile(); // Reload profile data
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
   const handleLinkToPlayer = async () => {
-    if (!licenceInput.trim()) {
+    if (!searchInput.trim()) {
       toast({
         title: "Error",
         description: "Please enter a licence number",
@@ -77,14 +178,14 @@ export default function SettingsPage() {
 
     setIsLinking(true);
     try {
-      const result = await userPlayerLinkAPI.linkToPlayer(licenceInput.trim());
+      const result = await userPlayerLinkAPI.linkToPlayer(searchInput.trim());
       
       if (result.ok) {
         toast({
           title: "Success",
           description: "Successfully linked to player",
         });
-        setLicenceInput('');
+        setSearchInput('');
         await loadPlayerLink(); // Reload the link
       } else {
         toast({
@@ -133,15 +234,27 @@ export default function SettingsPage() {
   };
 
   const searchPlayers = async () => {
-    if (!licenceInput.trim()) return;
+    if (!searchInput.trim()) return;
     
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .from('rankings_latest')
-        .select('licence, nom, genre, rang')
-        .or(`nom.ilike.%${licenceInput.trim()}%,licence.ilike.%${licenceInput.trim()}%`)
-        .limit(10);
+      // Check if input is a number for idcrm search, otherwise search in name only
+      const trimmedInput = searchInput.trim();
+      const isNumber = !isNaN(Number(trimmedInput));
+      
+      let query = supabase
+        .from('tenup_latest')
+        .select('idcrm, nom_complet, sexe, classement');
+      
+      if (isNumber) {
+        // For numeric input, search in both name and exact idcrm match
+        query = query.or(`nom_complet.ilike.%${trimmedInput}%,idcrm.eq.${trimmedInput}`);
+      } else {
+        // For text input, search only in name
+        query = query.ilike('nom_complet', `%${trimmedInput}%`);
+      }
+      
+      const { data, error } = await query.limit(10);
 
       if (error) {
         console.error('Error searching players:', error);
@@ -157,20 +270,20 @@ export default function SettingsPage() {
   };
 
   const handlePlayerSelect = async (player: any) => {
-    setLicenceInput(player.licence);
+    setSearchInput(player.idcrm.toString());
     setSearchResults([]);
     
     // Automatically link to the selected player
     setIsLinking(true);
     try {
-      const result = await userPlayerLinkAPI.linkToPlayer(player.licence);
+      const result = await userPlayerLinkAPI.linkToPlayer(player.idcrm.toString());
       
       if (result.ok) {
         toast({
           title: "Success",
-          description: `Successfully linked to ${player.nom || `Player ${player.licence}`}`,
+          description: `Successfully linked to ${player.nom_complet || `Player ${player.idcrm}`}`,
         });
-        setLicenceInput('');
+        setSearchInput('');
         await loadPlayerLink(); // Reload the link
       } else {
         toast({
@@ -254,13 +367,86 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Email</p>
-                    <p className="text-sm text-gray-600">{user?.email || 'Not available'}</p>
-                  </div>
-                  <Badge variant="outline">Verified</Badge>
-                </div>
+                                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="font-medium">Email</p>
+                     <p className="text-sm text-gray-600">{user?.email || 'Not available'}</p>
+                   </div>
+                   <Badge variant="outline">Verified</Badge>
+                 </div>
+                 
+                 {isEditingProfile ? (
+                   <div className="space-y-3">
+                     <div>
+                       <Label htmlFor="edit-first-name" className="text-sm font-medium">First Name</Label>
+                       <Input
+                         id="edit-first-name"
+                         value={editFormData.first_name}
+                         onChange={(e) => setEditFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                         className="mt-1"
+                       />
+                     </div>
+                     <div>
+                       <Label htmlFor="edit-last-name" className="text-sm font-medium">Last Name</Label>
+                       <Input
+                         id="edit-last-name"
+                         value={editFormData.last_name}
+                         onChange={(e) => setEditFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                         className="mt-1"
+                       />
+                     </div>
+                     <div>
+                       <Label htmlFor="edit-phone" className="text-sm font-medium">Phone</Label>
+                       <Input
+                         id="edit-phone"
+                         value={editFormData.phone}
+                         onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                         className="mt-1"
+                       />
+                     </div>
+                     <div>
+                       <Label htmlFor="edit-licence" className="text-sm font-medium">Licence Number</Label>
+                       <Input
+                         id="edit-licence"
+                         value={editFormData.licence_number}
+                         onChange={(e) => setEditFormData(prev => ({ ...prev, licence_number: e.target.value }))}
+                         className="mt-1"
+                         placeholder="Your FFT licence number"
+                       />
+                     </div>
+                     <div className="flex space-x-2 pt-2">
+                       <Button onClick={handleSaveProfile} disabled={isLoadingProfile} className="flex-1">
+                         {isLoadingProfile ? 'Saving...' : 'Save Changes'}
+                       </Button>
+                       <Button onClick={handleCancelEdit} variant="outline" className="flex-1">
+                         Cancel
+                       </Button>
+                     </div>
+                   </div>
+                 ) : (
+                   <>
+                     <div className="flex items-center justify-between">
+                       <div>
+                         <p className="font-medium">Name</p>
+                         <p className="text-sm text-gray-600">
+                           {userProfile?.first_name && userProfile?.last_name 
+                             ? `${userProfile.first_name} ${userProfile.last_name}`
+                             : 'Not set'
+                           }
+                         </p>
+                       </div>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <div>
+                         <p className="font-medium">Phone</p>
+                         <p className="text-sm text-gray-600">
+                           {userProfile?.phone || 'Not set'}
+                         </p>
+                       </div>
+                     </div>
+                   </>
+                 )}
                 
                 <div className="flex items-center justify-between">
                   <div>
@@ -269,21 +455,42 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Member Since</p>
-                    <p className="text-sm text-gray-600">
-                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Not available'}
-                    </p>
-                  </div>
-                </div>
+                                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="font-medium">Member Since</p>
+                     <p className="text-sm text-gray-600">
+                       {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Not available'}
+                     </p>
+                   </div>
+                 </div>
+
+                 {!isEditingProfile && (
+                   <div className="flex items-center justify-between">
+                     <div>
+                       <p className="font-medium">Licence Number</p>
+                       <p className="text-sm text-gray-600">
+                         {userProfile?.licence_number || 'Not set'}
+                       </p>
+                     </div>
+                   </div>
+                 )}
 
                 <Separator />
 
-                <Button onClick={handleSignOut} variant="outline" className="w-full">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
+                                 <Button 
+                   onClick={handleEditProfile} 
+                   variant="outline" 
+                   className="w-full"
+                   disabled={isEditingProfile}
+                 >
+                   <User className="h-4 w-4 mr-2" />
+                   Edit Profile
+                 </Button>
+                 
+                 <Button onClick={handleSignOut} variant="outline" className="w-full">
+                   <LogOut className="h-4 w-4 mr-2" />
+                   Sign Out
+                 </Button>
               </CardContent>
             </Card>
 
@@ -312,20 +519,24 @@ export default function SettingsPage() {
                           <span className="text-sm font-medium text-green-800">Linked to Player</span>
                         </div>
                         <Badge variant="outline" className="text-green-700 border-green-300">
-                          {playerLink.genre === 'Homme' ? 'Men' : 'Women'}
+                          {playerLink.sexe === 'H' ? 'Men' : 'Women'}
                         </Badge>
                       </div>
                       <div className="mt-2 space-y-1 text-sm text-green-700">
-                        <div><span className="font-medium">Name:</span> {playerLink.nom || `Player ${playerLink.licence}`}</div>
+                        <div><span className="font-medium">Name:</span> {playerLink.nom_complet || `Player ${playerLink.licence}`}</div>
                         <div><span className="font-medium">Licence:</span> {playerLink.licence}</div>
-                        <div><span className="font-medium">Current Ranking:</span> P{playerLink.rang || 'N/A'}</div>
-                        <div><span className="font-medium">Evolution:</span> {playerLink.evolution || 'N/A'}</div>
+                        <div><span className="font-medium">Current Ranking:</span> P{playerLink.classement || 'N/A'}</div>
+                        <div><span className="font-medium">Evolution:</span> 
+                          <span className={playerLink.evolution && playerLink.evolution > 0 ? 'text-red-600' : 'text-green-600'}>
+                            {playerLink.evolution ? (playerLink.evolution > 0 ? `+${playerLink.evolution}` : playerLink.evolution) : 'N/A'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     
                     <div className="flex space-x-2">
                       <Button 
-                        onClick={() => setLicenceInput('')} 
+                        onClick={() => setSearchInput('')} 
                         variant="outline" 
                         className="flex-1"
                       >
@@ -353,8 +564,8 @@ export default function SettingsPage() {
                       <Input
                         id="licence"
                         placeholder="Search by name or licence number..."
-                        value={licenceInput}
-                        onChange={(e) => setLicenceInput(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
                       />
                       <p className="text-xs text-gray-500">
                         Start typing to search for players. Results appear automatically.
@@ -367,18 +578,18 @@ export default function SettingsPage() {
                         <div className="space-y-1">
                           {searchResults.map((player) => (
                             <div 
-                              key={player.licence}
+                              key={player.idcrm}
                               className="flex items-center justify-between p-3 bg-gray-50 rounded border cursor-pointer hover:bg-gray-100 transition-colors"
                               onClick={() => handlePlayerSelect(player)}
                             >
                               <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium">{player.nom || `Player ${player.licence}`}</span>
+                                <span className="text-sm font-medium">{player.nom_complet || `Player ${player.idcrm}`}</span>
                                 <Badge variant="outline" className="text-xs">
-                                  {player.genre === 'Homme' ? 'Men' : 'Women'}
+                                  {player.sexe === 'H' ? 'Men' : 'Women'}
                                 </Badge>
                               </div>
                               <div className="text-xs text-gray-600">
-                                P{player.rang || 'N/A'}
+                                P{player.classement || 'N/A'}
                               </div>
                             </div>
                           ))}
@@ -393,7 +604,7 @@ export default function SettingsPage() {
                       </div>
                     )}
 
-                    {searchResults.length === 0 && licenceInput.trim() && !isSearching && (
+                    {searchResults.length === 0 && searchInput.trim() && !isSearching && (
                       <div className="text-center py-4 text-sm text-gray-500">
                         No players found. Try a different search term.
                       </div>

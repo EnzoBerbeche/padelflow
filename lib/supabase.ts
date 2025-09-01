@@ -37,53 +37,41 @@ export interface SupabaseNationalPlayer {
 export const nationalPlayersAPI = {
   // Get all players
   getAll: async (): Promise<SupabaseNationalPlayer[]> => {
-    type RankingRow = {
-      id_unique: string;
-      licence: string;
+    type TenupRow = {
+      id: number;
+      idcrm: number;
       nom: string | null;
-      genre: 'Homme' | 'Femme';
-      rang: number;
+      prenom: string | null;
+      nom_complet: string | null;
+      classement: number;
+      points: number | null;
       evolution: number | null;
       meilleur_classement: number | null;
       nationalite: string | null;
-      annee_naissance: number | null;
-      points: number | null;
-      nb_tournois: number | null;
+      age_sportif: number | null;
+      nombre_tournois: number | null;
       ligue: string | null;
+      sexe: string | null;
+      date_classement: string;
       ranking_year: number;
       ranking_month: number;
     };
 
     const { data, error } = await supabase
-      .from('rankings')
+      .from('tenup_latest')
       .select(
-        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, ranking_year, ranking_month'
+        'id, idcrm, nom, prenom, nom_complet, classement, points, evolution, meilleur_classement, nationalite, age_sportif, nombre_tournois, ligue, sexe, date_classement, ranking_year, ranking_month'
       );
 
     if (error) {
-      console.error('Error fetching rankings:', error);
+      console.error('Error fetching tenup:', error);
       return [];
     }
 
-    const rows: RankingRow[] = (data as any[]) || [];
+    const rows: TenupRow[] = (data as any[]) || [];
 
-    // Keep only the latest row per licence (by year, then month)
-    const latestByLicence = new Map<string, RankingRow>();
-    for (const row of rows) {
-      const existing = latestByLicence.get(row.licence);
-      if (!existing) {
-        latestByLicence.set(row.licence, row);
-        continue;
-      }
-      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
-      const currentKey = row.ranking_year * 100 + row.ranking_month;
-      if (currentKey > existingKey) {
-        latestByLicence.set(row.licence, row);
-      }
-    }
-
-    const mapped: SupabaseNationalPlayer[] = Array.from(latestByLicence.values())
-      .map(mapRankingRowToNationalPlayer)
+    const mapped: SupabaseNationalPlayer[] = rows
+      .map(mapTenupRowToNationalPlayer)
       .sort((a, b) => a.ranking - b.ranking);
 
     return mapped;
@@ -99,19 +87,22 @@ export const nationalPlayersAPI = {
       league?: string;
     }
   ): Promise<SupabaseNationalPlayer[]> => {
-    type RankingRow = {
-      id_unique: string;
-      licence: string;
+    type TenupRow = {
+      id: number;
+      idcrm: number;
       nom: string | null;
-      genre: 'Homme' | 'Femme';
-      rang: number;
+      prenom: string | null;
+      nom_complet: string | null;
+      classement: number;
+      points: number | null;
       evolution: number | null;
       meilleur_classement: number | null;
       nationalite: string | null;
-      annee_naissance: number | null;
-      points: number | null;
-      nb_tournois: number | null;
+      age_sportif: number | null;
+      nombre_tournois: number | null;
       ligue: string | null;
+      sexe: string | null;
+      date_classement: string;
       ranking_year: number;
       ranking_month: number;
     };
@@ -120,34 +111,42 @@ export const nationalPlayersAPI = {
     const tokens = trimmed.split(/\s+/).filter(Boolean);
 
     let supabaseQuery = supabase
-      .from('rankings')
+      .from('tenup_latest')
       .select(
-        'id_unique, licence, nom, genre, rang, evolution, meilleur_classement, nationalite, annee_naissance, points, nb_tournois, ligue, ranking_year, ranking_month'
+        'id, idcrm, nom, prenom, nom_complet, classement, points, evolution, meilleur_classement, nationalite, age_sportif, nombre_tournois, ligue, sexe, date_classement, ranking_year, ranking_month'
       );
 
     if (trimmed) {
-      if (tokens.length > 1) {
-        // Require ALL tokens to match in ANY of the key fields (name, licence)
-        for (const t of tokens) {
-          supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*`);
+      // Build OR conditions for search
+      const orConditions = [];
+      
+      for (const t of tokens) {
+        const isNumber = !isNaN(Number(t));
+        if (isNumber) {
+          // For numeric tokens, search in both name and idcrm
+          orConditions.push(`nom_complet.ilike.*${t}*`);
+          orConditions.push(`idcrm.eq.${t}`);
+        } else {
+          // For text tokens, search only in name
+          orConditions.push(`nom_complet.ilike.*${t}*`);
         }
-      } else {
-        // Single-token broad match across key fields
-        const t = trimmed;
-        supabaseQuery = supabaseQuery.or(`nom.ilike.*${t}*,licence.ilike.*${t}*`);
+      }
+      
+      if (orConditions.length > 0) {
+        supabaseQuery = supabaseQuery.or(orConditions.join(','));
       }
     }
 
     // Apply filters at DB level where possible
     if (filters?.gender) {
-      const mappedGender = filters.gender === 'men' ? 'Homme' : 'Femme';
-      supabaseQuery = supabaseQuery.eq('genre', mappedGender);
+      const mappedGender = filters.gender === 'men' ? 'H' : 'F';
+      supabaseQuery = supabaseQuery.eq('sexe', mappedGender);
     }
     if (typeof filters?.rankingMin === 'number') {
-      supabaseQuery = supabaseQuery.gte('rang', filters.rankingMin as number);
+      supabaseQuery = supabaseQuery.gte('classement', filters.rankingMin as number);
     }
     if (typeof filters?.rankingMax === 'number') {
-      supabaseQuery = supabaseQuery.lte('rang', filters.rankingMax as number);
+      supabaseQuery = supabaseQuery.lte('classement', filters.rankingMax as number);
     }
     if (filters?.league) {
       supabaseQuery = supabaseQuery.eq('ligue', filters.league);
@@ -156,38 +155,24 @@ export const nationalPlayersAPI = {
     const { data, error } = await supabaseQuery;
 
     if (error) {
-      console.error('Error searching rankings:', error);
+      console.error('Error searching tenup:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return [];
     }
 
-    let rows: RankingRow[] = (data as any[]) || [];
+    let rows: TenupRow[] = (data as any[]) || [];
 
-    // For multi-token queries, also enforce AND semantics on the client side as a safety net across name/licence
+    // For multi-token queries, also enforce AND semantics on the client side as a safety net across name/idcrm
     if (tokens.length > 1) {
       const lowerTokens = tokens.map(t => t.toLowerCase());
       rows = rows.filter(r => {
-        const haystack = `${r.nom || ''} ${r.licence || ''}`.toLowerCase();
+        const haystack = `${r.nom_complet || ''} ${r.idcrm || ''}`.toLowerCase();
         return lowerTokens.every(t => haystack.includes(t));
       });
     }
 
-    // Keep only latest per licence
-    const latestByLicence = new Map<string, RankingRow>();
-    for (const row of rows) {
-      const existing = latestByLicence.get(row.licence);
-      if (!existing) {
-        latestByLicence.set(row.licence, row);
-        continue;
-      }
-      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
-      const currentKey = row.ranking_year * 100 + row.ranking_month;
-      if (currentKey > existingKey) {
-        latestByLicence.set(row.licence, row);
-      }
-    }
-
-    const mapped: SupabaseNationalPlayer[] = Array.from(latestByLicence.values())
-      .map(mapRankingRowToNationalPlayer)
+    const mapped: SupabaseNationalPlayer[] = rows
+      .map(mapTenupRowToNationalPlayer)
       .sort((a, b) => a.ranking - b.ranking);
 
     return mapped;
@@ -202,7 +187,7 @@ export const nationalPlayersAPI = {
     
     try {
       const { data, error } = await supabase
-        .from('rankings')
+        .from('tenup')
         .select('count')
         .limit(1);
       
@@ -238,35 +223,21 @@ export const nationalPlayersAPI = {
 
   // Get unique leagues for filtering
   getLeagues: async (): Promise<string[]> => {
-    type Row = { licence: string; ligue: string | null; ranking_year: number; ranking_month: number };
+    type Row = { idcrm: number; ligue: string | null; date_classement: string };
     const { data, error } = await supabase
-      .from('rankings')
-      .select('licence, ligue, ranking_year, ranking_month')
+      .from('tenup')
+      .select('idcrm, ligue, date_classement')
       .not('ligue', 'is', null);
 
     if (error) {
-      console.error('Error fetching leagues from rankings:', error);
+      console.error('Error fetching leagues from tenup:', error);
       return [];
     }
 
     const rows: Row[] = (data as any[]) || [];
 
-    // Latest per licence, then collect leagues
-    const latestByLicence = new Map<string, Row>();
-    for (const row of rows) {
-      const existing = latestByLicence.get(row.licence);
-      if (!existing) {
-        latestByLicence.set(row.licence, row);
-        continue;
-      }
-      const existingKey = existing.ranking_year * 100 + existing.ranking_month;
-      const currentKey = row.ranking_year * 100 + row.ranking_month;
-      if (currentKey > existingKey) {
-        latestByLicence.set(row.licence, row);
-      }
-    }
-
-    const uniqueLeagues = Array.from(new Set(Array.from(latestByLicence.values()).map(r => r.ligue).filter(Boolean) as string[]));
+    // Since we're using tenup_latest, we don't need to filter by latest per idcrm
+    const uniqueLeagues = Array.from(new Set(rows.map(r => r.ligue).filter(Boolean) as string[]));
     return uniqueLeagues.sort();
   },
 };
@@ -279,24 +250,26 @@ export interface SupabasePlayerRow {
   created_at: string;
 }
 
-// Enriched player data combining players table with rankings_latest view
+// Enriched player data combining players table with tenup_latest view
 export interface SupabasePlayersEnrichedRow {
   player_id: string;
   user_id: string;
   licence: string;
   created_at: string;
   nom: string | null;
+  nom_complet: string | null;
+  prenom: string | null;
   genre: 'Homme' | 'Femme';
-  rang: number | null;
+  sexe: string | null;
+  classement: number | null;
   evolution: number | null;
   meilleur_classement: number | null;
   nationalite: string | null;
-  annee_naissance: number | null;
+  age_sportif: number | null;
   points: number | null;
-  nb_tournois: number | null;
+  nombre_tournois: number | null;
   ligue: string | null;
-  ranking_year: number | null;
-  ranking_month: number | null;
+  date_classement: string | null;
 }
 
 export const playersAPI = {
@@ -326,9 +299,9 @@ export const playersAPI = {
 
     // Fetch rankings for these licenses
     const { data: rankingData, error: rankingError } = await supabase
-      .from('rankings_latest')
+      .from('tenup_latest')
       .select('*')
-      .in('licence', licenses);
+      .in('idcrm', licenses.map(l => parseInt(l)));
 
     if (rankingError) {
       console.error('Error fetching rankings:', rankingError);
@@ -337,7 +310,7 @@ export const playersAPI = {
 
     // Combine the data
     const enriched = playerData.map(player => {
-      const ranking = rankingData?.find(r => r.licence === player.licence);
+      const ranking = rankingData?.find(r => r.idcrm === parseInt(player.licence));
       return {
         player_id: player.id,
         user_id: player.user_id,
@@ -453,11 +426,10 @@ export const playerStatisticsAPI = {
   getPlayerStatistics: async (licence: string): Promise<PlayerStatistics | null> => {
     // Get all ranking data for this player
     const { data, error } = await supabase
-      .from('rankings')
+      .from('tenup')
       .select('*')
-      .eq('licence', licence)
-      .order('ranking_year', { ascending: false })
-      .order('ranking_month', { ascending: false });
+      .eq('idcrm', parseInt(licence))
+      .order('date_classement', { ascending: false });
 
     if (error) {
       console.error('Error fetching player statistics:', error);
@@ -473,11 +445,11 @@ export const playerStatisticsAPI = {
     
     // Build ranking history
     const rankingHistory = data.map(row => ({
-      year: row.ranking_year,
-      month: row.ranking_month,
-      ranking: row.rang,
+      year: new Date(row.date_classement).getFullYear(),
+      month: new Date(row.date_classement).getMonth() + 1,
+      ranking: row.classement,
       points: row.points,
-      tournaments_count: row.nb_tournois,
+      tournaments_count: row.nombre_tournois,
     }));
 
     // Calculate ranking evolution (current month vs previous month)
@@ -549,16 +521,16 @@ export const playerStatisticsAPI = {
       }
     
     return {
-      licence: latest.licence,
-      nom: latest.nom,
-      genre: latest.genre,
-      current_ranking: latest.rang,
+      licence: latest.idcrm.toString(),
+      nom: latest.nom_complet || latest.nom,
+      genre: latest.sexe === 'H' ? 'Homme' : 'Femme',
+      current_ranking: latest.classement,
       ranking_evolution: rankingEvolution,
       best_ranking: latest.meilleur_classement,
       nationality: latest.nationalite,
-      birth_year: latest.annee_naissance,
+      birth_year: latest.age_sportif,
       current_points: latest.points,
-      current_tournaments_count: latest.nb_tournois,
+      current_tournaments_count: latest.nombre_tournois,
       ligue: latest.ligue,
       ranking_history: rankingHistory,
       average_progression: averageProgression,
@@ -576,9 +548,9 @@ export const playerStatisticsAPI = {
     ligue: string | null;
   }[]> => {
     const { data, error } = await supabase
-      .from('rankings_latest')
-      .select('licence, nom, genre, rang, ligue')
-      .order('rang', { ascending: true });
+      .from('tenup_latest')
+      .select('idcrm, nom_complet, sexe, classement, ligue')
+      .order('classement', { ascending: true });
 
     if (error) {
       console.error('Error fetching all players basic info:', error);
@@ -586,10 +558,10 @@ export const playerStatisticsAPI = {
     }
 
     return (data || []).map(row => ({
-      licence: row.licence,
-      nom: row.nom,
-      genre: row.genre,
-      current_ranking: row.rang,
+      licence: row.idcrm.toString(),
+      nom: row.nom_complet,
+      genre: row.sexe === 'H' ? 'Homme' : 'Femme',
+      current_ranking: row.classement,
       ligue: row.ligue,
     }));
   },
@@ -639,6 +611,58 @@ function mapRankingRowToNationalPlayer(row: {
     nationality: row.nationalite ?? '',
     gender: row.genre === 'Homme' ? 'men' : 'women',
     tournaments_count: row.nb_tournois ?? 0,
+    last_updated: lastUpdated,
+  };
+}
+
+function mapTenupRowToNationalPlayer(row: {
+  id: number;
+  idcrm: number;
+  nom: string | null;
+  prenom: string | null;
+  nom_complet: string | null;
+  classement: number;
+  points: number | null;
+  evolution: number | null;
+  meilleur_classement: number | null;
+  nationalite: string | null;
+  age_sportif: number | null;
+  nombre_tournois: number | null;
+  ligue: string | null;
+  sexe: string | null;
+  date_classement: string;
+  ranking_year: number;
+  ranking_month: number;
+}): SupabaseNationalPlayer {
+  // Utiliser nom_complet s'il existe, sinon combiner nom + prenom
+  const fullName = (row.nom_complet || `${row.prenom || ''} ${row.nom || ''}`).trim();
+  let firstName = '';
+  let lastName = '';
+  if (fullName) {
+    const parts = fullName.split(/\s+/);
+    if (parts.length === 1) {
+      lastName = parts[0];
+    } else {
+      lastName = parts.pop() as string;
+      firstName = parts.join(' ');
+    }
+  }
+
+  const lastUpdated = new Date(Date.UTC(row.ranking_year, (row.ranking_month || 1) - 1, 1)).toISOString();
+
+  return {
+    id: row.idcrm.toString(), // Convertir idcrm en string pour l'id
+    first_name: firstName || '',
+    last_name: lastName || '',
+    license_number: row.idcrm.toString(), // idcrm remplace licence
+    ranking: row.classement,
+    best_ranking: row.meilleur_classement ?? row.classement,
+    points: row.points ?? 0,
+    league: row.ligue ?? '',
+    birth_year: row.age_sportif ?? 0, // age_sportif remplace annee_naissance
+    nationality: row.nationalite ?? '',
+    gender: row.sexe === 'H' ? 'men' : 'women', // H -> men, F -> women
+    tournaments_count: row.nombre_tournois ?? 0, // nombre_tournois remplace nb_tournois
     last_updated: lastUpdated,
   };
 }
@@ -1363,16 +1387,16 @@ export interface UserPlayerLink {
 }
 
 export interface UserPlayerLinkWithRanking extends UserPlayerLink {
-  // Fields from rankings_latest view
-  nom: string | null;
-  genre: 'Homme' | 'Femme';
-  rang: number | null;
+  // Fields from tenup_latest view
+  nom_complet: string | null;
+  sexe: string | null;
+  classement: number | null;
   evolution: number | null;
   meilleur_classement: number | null;
   nationalite: string | null;
-  annee_naissance: number | null;
+  age_sportif: number | null;
   points: number | null;
-  nb_tournois: number | null;
+  nombre_tournois: number | null;
   ligue: string | null;
   ranking_year: number | null;
   ranking_month: number | null;
@@ -1400,9 +1424,9 @@ export const userPlayerLinkAPI = {
 
     // Get ranking data for this licence
     const { data: rankingData, error: rankingError } = await supabase
-      .from('rankings_latest')
-      .select('*')
-      .eq('licence', data.licence)
+      .from('tenup_latest')
+      .select('nom_complet, sexe, classement, evolution, meilleur_classement, nationalite, age_sportif, points, nombre_tournois, ligue, ranking_year, ranking_month')
+      .eq('idcrm', parseInt(data.licence))
       .maybeSingle();
 
     if (rankingError) {
@@ -1427,9 +1451,9 @@ export const userPlayerLinkAPI = {
 
     // Check if licence exists in rankings
     const { data: rankingData, error: rankingError } = await supabase
-      .from('rankings_latest')
-      .select('licence')
-      .eq('licence', trimmed)
+      .from('tenup_latest')
+      .select('idcrm')
+      .eq('idcrm', parseInt(trimmed))
       .maybeSingle();
 
     if (rankingError) {
@@ -1480,6 +1504,71 @@ export const userPlayerLinkAPI = {
       .eq('user_id', userId);
 
     if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+};
+
+// User Profile API
+export const userProfileAPI = {
+  // Récupérer le profil utilisateur depuis les métadonnées
+  async getMyProfile() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      first_name: user.user_metadata?.first_name || '',
+      last_name: user.user_metadata?.last_name || '',
+      phone: user.user_metadata?.phone || '',
+      licence_number: user.user_metadata?.licence_number || '',
+      display_name: user.user_metadata?.display_name || '',
+      created_at: user.created_at,
+    };
+  },
+
+  // Mettre à jour le numéro de licence
+  async updateLicenceNumber(licenceNumber: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'User not authenticated' };
+
+    const { error } = await supabase.auth.updateUser({
+      data: { 
+        ...user.user_metadata,
+        licence_number: licenceNumber 
+      }
+    });
+
+    if (error) {
+      console.error('Error updating licence number:', error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  },
+
+  // Mettre à jour le profil complet
+  async updateProfile(updates: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    licence_number?: string;
+  }) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'User not authenticated' };
+
+    const { error } = await supabase.auth.updateUser({
+      data: { 
+        ...user.user_metadata,
+        ...updates
+      }
+    });
+
+    if (error) {
+      console.error('Error updating profile:', error);
+      return { ok: false, error: error.message };
+    }
+
     return { ok: true };
   }
 };
