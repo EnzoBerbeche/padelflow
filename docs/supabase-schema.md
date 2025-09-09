@@ -3,10 +3,11 @@
 #### Overview
 - Core auth and rankings:
   - `auth.users` (managed by Supabase Auth; RLS enabled)
-  - `public.rankings` (rankings snapshots; RLS disabled)
+  - `public.tenup` (TenUp ranking data; RLS disabled)
+  - `public.tenup_latest` (view: latest TenUp ranking per player)
 - User-scoped list and read models:
   - `public.players` (user-owned licences; RLS enabled)
-  - `public.rankings_latest` (view: latest ranking per licence)
+  - `public.user_player_links` (user-to-player associations; RLS enabled)
 - Tournament system:
   - `public.tournaments` (tournament metadata; RLS enabled)
   - `public.tournament_players` (player snapshots per tournament; RLS enabled)
@@ -14,6 +15,10 @@
   - `public.team_players` (team composition; RLS enabled)
   - `public.tournament_matches` (match data and results; RLS enabled)
   - `public.tournament_formats` (tournament format definitions; RLS enabled)
+- Game analysis system:
+  - `public.padel_analyses` (padel game analyses; RLS enabled)
+  - `public.match_points` (individual points within analyses; RLS enabled)
+  - `public.point_actions` (point action definitions; RLS disabled)
 
 ---
 
@@ -111,49 +116,42 @@
 
 ---
 
-### public.rankings
-- Purpose: periodic player ranking snapshots; the app typically keeps only the latest row per `licence` (by year/month).
-- RLS: disabled
+### public.tenup
+- Purpose: TenUp ranking data snapshots with comprehensive player information
+- RLS: disabled (external data source)
 - Primary/unique constraints:
-  - PRIMARY KEY (id_unique)
-  - UNIQUE (licence, ranking_year, ranking_month, genre)
+  - PRIMARY KEY (id)
+  - UNIQUE (idcrm, date_classement)
 - Indexes:
-  - rankings_pkey (PRIMARY KEY on id_unique)
-  - rankings_unique_per_month (UNIQUE on (licence, ranking_year, ranking_month, genre))
+  - tenup_pkey (PRIMARY KEY on id)
+  - unique_idcrm_date (UNIQUE on (idcrm, date_classement))
 
-- Columns (name, type, nullability):
-  - id_unique text NOT NULL
-  - licence text NOT NULL
-  - nom text NULL
-  - genre text NOT NULL                -- 'Homme' | 'Femme'
-  - rang integer NULL
+- Columns (name, type, nullability, default):
+  - id bigint NOT NULL DEFAULT nextval('tenup_id_seq'::regclass)
+  - idcrm bigint NOT NULL
+  - nom varchar(255) NULL
+  - prenom varchar(255) NULL
+  - nom_complet varchar(500) NULL
+  - classement integer NULL
+  - points integer NULL
   - evolution integer NULL
   - meilleur_classement integer NULL
-  - nationalite text NULL
-  - annee_naissance integer NULL
-  - points integer NULL
-  - nb_tournois integer NULL
-  - ligue text NULL
-  - club text NULL
-  - ranking_year integer NOT NULL
-  - ranking_month integer NOT NULL
+  - nombre_tournois integer NULL
+  - age_sportif integer NULL
+  - nationalite varchar(10) NULL
+  - categorie_age integer NULL
+  - ligue varchar(255) NULL
+  - assimilation boolean NULL
+  - date_classement date NOT NULL
+  - pratique varchar(50) NULL DEFAULT 'PADEL'::varchar
+  - sexe varchar(10) NULL
+  - created_at timestamptz NULL DEFAULT now()
+  - updated_at timestamptz NULL DEFAULT now()
 
 - App mapping (see `lib/supabase.ts`):
-  - Name parsing: `nom` → `first_name`/`last_name` by splitting tokens.
-  - Gender mapping: 'Homme' → 'men', 'Femme' → 'women'.
-  - Latest row per licence selected by max `(ranking_year, ranking_month)`.
-
-- Example: latest row per licence for a month range
-```sql
-with ranked as (
-  select *,
-         row_number() over (partition by licence order by ranking_year desc, ranking_month desc) as rn
-  from public.rankings
-)
-select *
-from ranked
-where rn = 1;
-```
+  - Name mapping: `nom`/`prenom` → `first_name`/`last_name`
+  - Gender mapping: 'Homme' → 'men', 'Femme' → 'women'
+  - Latest data accessed via `tenup_latest` view
 
 ---
 
@@ -192,16 +190,12 @@ delete from public.players where user_id = auth.uid() and licence = '1234567';
 
 ---
 
-### public.rankings_latest (view)
-- Purpose: latest ranking row per `licence` from `public.rankings`.
-- Definition (conceptual):
-```sql
-create or replace view public.rankings_latest as
-select distinct on (licence) r.*
-from public.rankings r
-order by r.licence, r.ranking_year desc, r.ranking_month desc;
-```
-- Grants: allow `SELECT` to `anon, authenticated`.
+### public.tenup_latest (view)
+- Purpose: latest TenUp ranking data per player (idcrm)
+- Definition: Latest ranking row per `idcrm` from `public.tenup`
+- RLS: disabled (inherits from base table)
+- Columns: Same as `public.tenup` plus additional computed fields
+- Usage: Primary data source for player rankings in the application
 
 ---
 
@@ -369,10 +363,82 @@ order by r.licence, r.ranking_year desc, r.ranking_month desc;
 
 ---
 
+### public.padel_analyses
+- Purpose: stores padel game analyses created by users for detailed match tracking
+- RLS: enabled (owner-only policies)
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `user_id` → `auth.users(id)` ON DELETE CASCADE
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - user_id uuid NULL REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - analysis_name text NOT NULL
+  - player_right text NOT NULL
+  - player_left text NOT NULL
+  - opponent_right text NULL DEFAULT 'Adversaire 1'::text
+  - opponent_left text NULL DEFAULT 'Adversaire 2'::text
+  - status text NULL DEFAULT 'in_progress'::text
+  - created_at timestamptz NULL DEFAULT now()
+  - updated_at timestamptz NULL DEFAULT now()
+
+- RLS policies (all restricted to `auth.uid()`):
+  - "Users can view their own analyses": SELECT where `auth.uid() = user_id`
+  - "Users can insert their own analyses": INSERT with `user_id = auth.uid()`
+  - "Users can update their own analyses": UPDATE where `auth.uid() = user_id`
+  - "Users can delete their own analyses": DELETE where `auth.uid() = user_id`
+
+---
+
+### public.match_points
+- Purpose: individual points within padel game analyses for detailed match tracking
+- RLS: enabled (owner-only via analysis ownership)
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `analysis_id` → `public.padel_analyses(id)` ON DELETE CASCADE
+  - Foreign key: `action_id` → `public.point_actions(id)`
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - analysis_id uuid NULL REFERENCES `public.padel_analyses(id)` ON DELETE CASCADE
+  - action_id integer NULL REFERENCES `public.point_actions(id)`
+  - player_position text NULL -- 'right' | 'left' position
+  - timestamp timestamptz NULL DEFAULT now()
+  - created_at timestamptz NULL DEFAULT now()
+
+- RLS policies (owner-only via analysis):
+  - "Users can view points from their analyses": SELECT where analysis belongs to user
+  - "Users can insert points to their analyses": INSERT where analysis belongs to user
+  - "Users can update points from their analyses": UPDATE where analysis belongs to user
+  - "Users can delete points from their analyses": DELETE where analysis belongs to user
+
+---
+
+### public.point_actions
+- Purpose: configuration table for point action definitions used in game analysis
+- RLS: disabled (system configuration data)
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+- Columns (name, type, nullability, default):
+  - id integer NOT NULL
+  - category_1 text NOT NULL
+  - id_1 integer NOT NULL
+  - category_2 text NOT NULL
+  - id_2 integer NOT NULL
+  - category_3 text NULL
+  - id_3 integer NULL
+  - category_4 text NULL
+  - id_4 integer NULL
+  - requires_player boolean NULL DEFAULT true
+  - created_at timestamptz NULL DEFAULT now()
+
+- Usage: Referenced by `match_points.action_id` for point categorization
+- Configuration: Managed via `lib/config/point-actions.ts`
+
+---
+
 ### Notes
 - `auth.users` is system-managed. Use Supabase Auth APIs for mutations; do not write tokens/confirmation columns directly.
-- No `public.profiles` table exists; any code referencing it should be treated as unused until created.
-- Tables `tenup`, `tenup_latest`, and `tenup_tournaments` have been removed as they were obsolete.
+- Tables `rankings` and `rankings_latest` have been replaced by `tenup` and `tenup_latest` for TenUp integration.
+- Game analysis system provides detailed match tracking with point-by-point analysis capabilities.
 
 ---
 

@@ -176,14 +176,19 @@ The complete database schema is documented in `docs/supabase-schema.md`, includi
 | Name | Type | Purpose |
 |------|------|---------|
 | `auth.users` | Table | Supabase Auth user accounts |
-| `public.rankings` | Table | Global ranking snapshots (external source) |
+| `public.tenup` | Table | TenUp ranking data (external source) |
+| `public.tenup_latest` | View | Latest TenUp ranking per player |
 | `public.players` | Table | User-scoped list of licenses to follow |
-| `public.rankings_latest` | View | Latest ranking per license |
+| `public.user_player_links` | Table | User-to-player associations |
 | `public.tournaments` | Table | Tournament metadata and configuration |
 | `public.tournament_players` | Table | Player snapshots per tournament |
 | `public.tournament_teams` | Table | Teams per tournament |
 | `public.team_players` | Table | Team composition (teams ↔ tournament players) |
 | `public.tournament_matches` | Table | Match data, results, and bracket progression |
+| `public.tournament_formats` | Table | Tournament format definitions |
+| `public.padel_analyses` | Table | Padel game analyses for detailed tracking |
+| `public.match_points` | Table | Individual points within game analyses |
+| `public.point_actions` | Table | Point action definitions configuration |
 
 ## Contributing
 
