@@ -12,6 +12,13 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
+// Cast Recharts components to fix TypeScript compatibility issues
+const ResponsiveContainerFixed = ResponsiveContainer as any;
+const PieChartFixed = PieChart as any;
+const PieFixed = Pie as any;
+const CellFixed = Cell as any;
+const LegendFixed = Legend as any;
+
 interface MatchStats {
   totalPoints: number;
   pointsWon: number;
@@ -29,6 +36,8 @@ interface MatchStats {
   };
   pointsWonByCategory2: { [key: string]: { left: number; right: number; total: number } };
   pointsWonByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } };
+  pointsLostByCategory2: { [key: string]: { left: number; right: number; total: number } };
+  pointsLostByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } };
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -55,7 +64,9 @@ export default function GameStatsPage() {
     pointsWonByPlayer: { left: 0, right: 0 },
     pointsLostByPlayer: { left: 0, right: 0 },
     pointsWonByCategory2: {},
-    pointsWonByCategory3: {}
+    pointsWonByCategory3: {},
+    pointsLostByCategory2: {},
+    pointsLostByCategory3: {}
   });
 
   useEffect(() => {
@@ -378,26 +389,26 @@ export default function GameStatsPage() {
               <CardContent>
                 <div className="h-80">
                   {wonChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
+                    <ResponsiveContainerFixed width="100%" height="100%">
+                      <PieChartFixed>
+                        <PieFixed
                           data={wonChartData}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
                         >
                           {wonChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                            <CellFixed key={`cell-${index}`} fill={entry.fill} />
                           ))}
-                        </Pie>
+                        </PieFixed>
                         <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+                        <LegendFixed />
+                      </PieChartFixed>
+                    </ResponsiveContainerFixed>
                   ) : (
                     <div className="flex items-center justify-center h-full text-gray-500">
                       Aucun point gagné enregistré
@@ -418,26 +429,26 @@ export default function GameStatsPage() {
               <CardContent>
                 <div className="h-80">
                   {lostChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
+                    <ResponsiveContainerFixed width="100%" height="100%">
+                      <PieChartFixed>
+                        <PieFixed
                           data={lostChartData}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
                         >
                           {lostChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                            <CellFixed key={`cell-${index}`} fill={entry.fill} />
                           ))}
-                        </Pie>
+                        </PieFixed>
                         <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+                        <LegendFixed />
+                      </PieChartFixed>
+                    </ResponsiveContainerFixed>
                   ) : (
                     <div className="flex items-center justify-center h-full text-gray-500">
                       Aucun point perdu enregistré
