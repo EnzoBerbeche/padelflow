@@ -6,283 +6,200 @@ import { ProtectedRoute } from '@/components/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, BarChart3, Undo2, Share2, Download, FileText, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Undo2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAnalysis } from '@/hooks/use-analysis';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { PadelScoreManager, type GameConfig } from '@/lib/padel-score-logic';
-import { GameStats } from '@/components/game-stats';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-// Types pour le suivi du match
-interface PointAction {
-  id: string;
-  team: 'team1' | 'team2';
-  player?: 'player1' | 'player2'; // Seulement pour team1
-  action: string;
-  timestamp: Date;
-}
 
-interface GameScore {
-  sets: number[];
-  current_set: number;
-  current_game: number[];
-  tie_break: boolean;
-  tie_break_score?: number[];
-}
-
-interface PadelGame {
-  id: string;
-  team1_player1: string;
-  team1_player2: string;
-  team2_player1: string;
-  team2_player2: string;
-  sets_to_win: number;
-  games_per_set: number;
-  no_advantage: boolean;
-  status: 'in_progress' | 'completed';
-  created_at: string;
-  updated_at: string;
-  current_score: GameScore;
-}
-
-const POINT_ACTIONS = [
-  { id: 'fault', label: 'Faute directe', icon: '❌', description: 'Filet, dehors, vitre ratée' },
-  { id: 'winner', label: 'Point gagnant', icon: '🎯', description: 'Winner sans retour possible' },
-  { id: 'smash', label: 'Smash gagnant', icon: '💥', description: 'Par3/Par4 gagnant' },
-  { id: 'bandeja', label: 'Bandeja/Víborá', icon: '🏓', description: 'Bandeja ou Víborá gagnante' },
-  { id: 'amorti', label: 'Amorti/Chiquita', icon: '🎾', description: 'Amorti ou Chiquita gagnante' },
-  { id: 'lob', label: 'Lob gagnant', icon: '🌙', description: 'Lob qui finit le point' },
-  { id: 'ace', label: 'Ace', icon: '🎯', description: 'Service gagnant direct' },
-  { id: 'double_fault', label: 'Double faute', icon: '⚠️', description: 'Service raté deux fois' },
-];
 
 export default function GameTrackingPage() {
+  console.log('🔍 GameTrackingPage - Component started');
+  
   const { toast } = useToast();
   const params = useParams();
   const gameId = params.id as string;
-  
-  const [game, setGame] = useState<PadelGame | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showStats, setShowStats] = useState(false);
-  const [pointHistory, setPointHistory] = useState<PointAction[]>([]);
+
+  console.log('🔍 GameTrackingPage - gameId:', gameId);
+
+  const { 
+    analysis, 
+    points, 
+    stats: analysisStats, 
+    loading, 
+    error, 
+    addPoint, 
+    undoLastPoint 
+  } = useAnalysis(gameId);
+
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<'player1' | 'player2' | null>(null);
-  const [scoreManager, setScoreManager] = useState<PadelScoreManager | null>(null);
+  const [showSubTagDialog, setShowSubTagDialog] = useState(false);
+  const [showSubSubTagDialog, setShowSubSubTagDialog] = useState(false);
+  const [showDirectionDialog, setShowDirectionDialog] = useState(false);
+  const [showPlayerDialog, setShowPlayerDialog] = useState(false);
+  const [showFaultLocationDialog, setShowFaultLocationDialog] = useState(false);
+  const [selectedSubTag, setSelectedSubTag] = useState<any>(null);
+  const [selectedSubSubTag, setSelectedSubSubTag] = useState<any>(null);
+  const [selectedDirection, setSelectedDirection] = useState<any>(null);
+  const [selectedFaultLocation, setSelectedFaultLocation] = useState<any>(null);
 
-  useEffect(() => {
-    if (gameId) {
-      loadGame();
-    }
-  }, [gameId]);
 
-  const loadGame = async () => {
+  const handlePointAction = async (actionKey: string, playerPosition?: 'player1' | 'player2') => {
     try {
-      setLoading(true);
-      // TODO: Implémenter l'API pour récupérer la partie
-      // Pour l'instant, on utilise des données mockées
-      const mockGame: PadelGame = {
-        id: gameId,
-        team1_player1: 'Jean Dupont',
-        team1_player2: 'Marie Martin',
-        team2_player1: 'Pierre Durand',
-        team2_player2: 'Sophie Bernard',
-        sets_to_win: 2,
-        games_per_set: 6,
-        no_advantage: true,
-        status: 'in_progress',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        current_score: {
-          sets: [6, 4],
-          current_set: 2,
-          current_game: [3, 2],
-          tie_break: false,
-        },
-      };
-      
-      setGame(mockGame);
-      
-      // Initialiser le gestionnaire de score
-      const config: GameConfig = {
-        sets_to_win: mockGame.sets_to_win,
-        games_per_set: mockGame.games_per_set,
-        no_advantage: mockGame.no_advantage,
-        tie_break_enabled: true,
-      };
-      const manager = new PadelScoreManager(config);
-      
-      // Initialiser avec le score existant
-      if (mockGame.current_score.sets.length > 0) {
-        // Restaurer le score existant
-        manager.restoreScore(mockGame.current_score);
-      }
-      
-      setScoreManager(manager);
-      
-      // Charger l'historique des points
-      const mockHistory: PointAction[] = [
-        { id: '1', team: 'team1', player: 'player1', action: 'winner', timestamp: new Date() },
-        { id: '2', team: 'team2', action: 'fault', timestamp: new Date() },
-        { id: '3', team: 'team1', player: 'player2', action: 'smash', timestamp: new Date() },
-      ];
-      setPointHistory(mockHistory);
-      
+      await addPoint(actionKey, playerPosition);
+      toast({
+        title: "Point enregistré",
+        description: "Le point a été ajouté avec succès",
+      });
     } catch (error) {
-      console.error('Error loading game:', error);
+      console.error('Error adding point:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de charger la partie",
+        description: "Impossible d'ajouter le point",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handlePointAction = (action: string) => {
-    setSelectedAction(action);
-    setSelectedPlayer(null);
+  const handleSimplePointAction = (actionType: 'gagne' | 'perdu') => {
+    if (!analysis) {
+      toast({
+        title: "Erreur",
+        description: "Analyse non chargée",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Déclencher le système de sous-catégories
+    setSelectedAction(actionType);
+    setShowSubTagDialog(true);
   };
 
-  const handlePlayerSelection = (player: 'player1' | 'player2') => {
+  const handleSubTagClick = async (subTag: any) => {
+    setShowSubTagDialog(false);
+    setSelectedSubTag(subTag);
+
+    // Actions avec directions (Droite, Gauche, Milieu) - Points gagnés
+    const actionsWithDirection = ['passing', 'volley', 'lob', 'vibora_bandeja', 'bajada'];
+    
+    // Actions avec types spécifiques (Par 3, Par 4, A/R) - Points gagnés
+    const actionsWithTypes = ['smash'];
+    
+    // Actions sans sous-catégorie et sans joueur - Points gagnés
+    const actionsWithoutPlayer = ['faute_direct_adverse'];
+    
+    // Actions sans sous-catégorie et sans joueur - Points perdus
+    const actionsWithoutPlayerPerdu = ['forced_error'];
+    
+    // Actions sans sous-catégorie mais avec joueur
+    const actionsWithoutSubCategory = [];
+    
+    // Actions avec sous-catégories spécifiques - Points perdus
+    const actionsWithSpecificSubCategories = ['winner_on_error'];
+
+    if (subTag.id === 'unforced_error') {
+      setShowSubSubTagDialog(true);
+    } else if (actionsWithDirection.includes(subTag.id)) {
+      setShowDirectionDialog(true);
+    } else if (actionsWithTypes.includes(subTag.id)) {
+      setShowSubSubTagDialog(true);
+    } else if (actionsWithoutPlayer.includes(subTag.id) || actionsWithoutPlayerPerdu.includes(subTag.id)) {
+      // Actions qui n'ont pas besoin de joueur - enregistrer directement
+      const actionKey = `${selectedAction}_${subTag.id}`;
+      
+      // Enregistrer le point via Supabase
+      try {
+        await handlePointAction(actionKey, undefined);
+        resetState();
+      } catch (error) {
+        console.error('Error recording point:', error);
+      }
+    } else if (actionsWithSpecificSubCategories.includes(subTag.id)) {
+      setShowSubSubTagDialog(true);
+    } else {
+      setShowPlayerDialog(true);
+    }
+  };
+
+  const handleSubSubTagClick = (subSubTag: any) => {
+    setShowSubSubTagDialog(false);
+    setSelectedSubSubTag(subSubTag);
+    
+    // Pour Unforced Error, on va au 4ème niveau (lieu de la faute)
+    if (selectedSubTag?.id === 'unforced_error') {
+      setShowFaultLocationDialog(true);
+    } else {
+      setShowPlayerDialog(true);
+    }
+  };
+
+  const handleDirectionClick = (direction: any) => {
+    setShowDirectionDialog(false);
+    setSelectedDirection(direction);
+    setShowPlayerDialog(true);
+  };
+
+  const handleFaultLocationClick = (faultLocation: any) => {
+    setShowFaultLocationDialog(false);
+    setSelectedFaultLocation(faultLocation);
+    setShowPlayerDialog(true);
+  };
+
+  const handlePlayerSelection = async (player: 'player1' | 'player2') => {
+    setShowPlayerDialog(false);
     setSelectedPlayer(player);
     
-    // Déterminer si c'est un point gagné ou perdu
-    const isPointWon = ['winner', 'smash', 'bandeja', 'amorti', 'lob', 'ace'].includes(selectedAction!);
+    // Enregistrer le point avec toutes les informations
+    let actionKey = selectedAction || 'unknown';
     
-    if (isPointWon) {
-      // Point gagné par notre équipe
-      const newPoint: PointAction = {
-        id: Date.now().toString(),
-        team: 'team1',
-        player,
-        action: selectedAction!,
-        timestamp: new Date(),
-      };
-      
-      setPointHistory(prev => [newPoint, ...prev]);
-      updateScore('team1');
-      
-      toast({
-        title: "Point gagné !",
-        description: `Point gagné par ${player === 'player1' ? game?.team1_player1 : game?.team1_player2}`,
-      });
-    } else {
-      // Point perdu par notre équipe
-      const newPoint: PointAction = {
-        id: Date.now().toString(),
-        team: 'team1',
-        player,
-        action: selectedAction!,
-        timestamp: new Date(),
-      };
-      
-      setPointHistory(prev => [newPoint, ...prev]);
-      updateScore('team2'); // L'adversaire gagne le point
-      
-      toast({
-        title: "Point perdu",
-        description: `Faute commise par ${player === 'player1' ? game?.team1_player1 : game?.team1_player2}`,
-        variant: "destructive",
-      });
+    if (selectedSubTag) {
+      actionKey += `_${selectedSubTag.id}`;
     }
     
-    // Réinitialiser la sélection
+    if (selectedDirection) {
+      actionKey += `_${selectedDirection.id}`;
+    }
+    
+    if (selectedSubSubTag) {
+      actionKey += `_${selectedSubSubTag.id}`;
+    }
+    
+    if (selectedFaultLocation) {
+      actionKey += `_${selectedFaultLocation.id}`;
+    }
+
+    // Enregistrer le point via Supabase
+    try {
+      await handlePointAction(actionKey, player);
+      resetState();
+    } catch (error) {
+      console.error('Error recording point:', error);
+    }
+  };
+
+  const resetState = () => {
     setSelectedAction(null);
     setSelectedPlayer(null);
+    setSelectedSubTag(null);
+    setSelectedSubSubTag(null);
+    setSelectedDirection(null);
+    setSelectedFaultLocation(null);
+    setShowSubTagDialog(false);
+    setShowSubSubTagDialog(false);
+    setShowDirectionDialog(false);
+    setShowPlayerDialog(false);
+    setShowFaultLocationDialog(false);
   };
 
-  const handleOpponentPoint = (action: string) => {
-    const newPoint: PointAction = {
-      id: Date.now().toString(),
-      team: 'team2',
-      action,
-      timestamp: new Date(),
-    };
-    
-    setPointHistory(prev => [newPoint, ...prev]);
-    updateScore('team2');
-    
-    toast({
-      title: "Point adverse",
-      description: "Point gagné par l'équipe adverse",
-      variant: "destructive",
-    });
-  };
 
-  const updateScore = (team: 'team1' | 'team2') => {
-    if (!game || !scoreManager) return;
-    
-    const result = scoreManager.addPoint(team);
-    const newScore = scoreManager.getScore();
-    
-    setGame(prev => {
-      if (!prev) return prev;
-      
-      return {
-        ...prev,
-        current_score: newScore,
-      };
-    });
-    
-    // Vérifier si le match est terminé
-    if (result.matchWon) {
-      toast({
-        title: "Match terminé !",
-        description: `L'équipe ${team === 'team1' ? 'votre équipe' : 'adverse'} a gagné le match !`,
-      });
-      
-      // Mettre à jour le statut
-      setGame(prev => {
-        if (!prev) return prev;
-        return { ...prev, status: 'completed' as const };
-      });
-    }
-  };
 
-  const undoLastAction = () => {
-    if (pointHistory.length === 0) return;
-    
-    setPointHistory(prev => prev.slice(1));
-    // TODO: Mettre à jour le score en conséquence
-    
-    toast({
-      title: "Action annulée",
-      description: "Dernière action supprimée",
-    });
-  };
 
-  const getActionStats = () => {
-    const stats = {
-      team1: { total: 0, actions: {} as Record<string, number> },
-      team2: { total: 0, actions: {} as Record<string, number> },
-      player1: { total: 0, actions: {} as Record<string, number> },
-      player2: { total: 0, actions: {} as Record<string, number> },
-    };
 
-    pointHistory.forEach(point => {
-      if (point.team === 'team1') {
-        stats.team1.total++;
-        stats.team1.actions[point.action] = (stats.team1.actions[point.action] || 0) + 1;
-        
-        if (point.player) {
-          const playerKey = point.player as 'player1' | 'player2';
-          stats[playerKey].total++;
-          stats[playerKey].actions[point.action] = (stats[playerKey].actions[point.action] || 0) + 1;
-        }
-      } else {
-        stats.team2.total++;
-        stats.team2.actions[point.action] = (stats.team2.actions[point.action] || 0) + 1;
-      }
-    });
 
-    return stats;
-  };
-
-  const formatScore = (score: GameScore) => {
-    if (!scoreManager) return '0-0';
-    return scoreManager.getFormattedScore();
-  };
 
   if (loading) {
     return (
@@ -296,12 +213,13 @@ export default function GameTrackingPage() {
     );
   }
 
-  if (!game) {
+  if (error) {
     return (
       <ProtectedRoute>
         <DashboardLayout>
           <div className="text-center py-12">
-            <h2 className="text-xl font-medium text-gray-900 mb-2">Partie non trouvée</h2>
+            <h2 className="text-xl font-medium text-gray-900 mb-2">Erreur de chargement</h2>
+            <p className="text-gray-500 mb-4">{error}</p>
             <Button asChild>
               <Link href="/dashboard/game-analyzer">
                 Retour à la liste
@@ -313,367 +231,330 @@ export default function GameTrackingPage() {
     );
   }
 
-  const stats = getActionStats();
+  if (!analysis) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="text-center py-12">
+            <h2 className="text-xl font-medium text-gray-900 mb-2">Analyse non trouvée</h2>
+            <Button asChild>
+              <Link href="/dashboard/game-analyzer">
+                Retour à la liste
+              </Link>
+            </Button>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
 
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard/game-analyzer">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Retour
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Suivi du match</h1>
-                <p className="text-gray-600 mt-2">
-                  {game.team1_player1} & {game.team1_player2} vs {game.team2_player1} & {game.team2_player2}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Button variant="outline" onClick={undoLastAction} disabled={pointHistory.length === 0}>
-                <Undo2 className="h-4 w-4 mr-2" />
+        <div className="h-screen flex flex-col overflow-hidden">
+          {/* Header minimaliste */}
+          <div className="flex items-center justify-between p-4">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/game-analyzer">
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 Retour
-              </Button>
-              <Button variant="outline" onClick={() => setShowStats(!showStats)}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Stats
+              </Link>
+            </Button>
+            
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={undoLastPoint} disabled={points.length === 0}>
+                <Undo2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* Score en temps réel - Format tennis standard */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-center text-2xl">Score du match</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Tableau de score principal */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="w-32"></th>
-                        {scoreManager && scoreManager.getScore().sets.map((_, index) => (
-                          <th key={index} className="px-3 py-2 text-center font-medium text-gray-700">
-                            Set {index + 1}
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 text-center font-medium text-gray-700">
-                          Jeu
-                        </th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-700">
-                          Points
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Équipe suivie */}
-                      <tr className="border-b">
-                        <td className="py-3 px-2">
-                          <div className="bg-primary text-white px-3 py-2 rounded font-medium text-center">
-                            {game.team1_player1} & {game.team1_player2}
-                          </div>
-                        </td>
-                        {scoreManager && scoreManager.getScore().sets.map((setScore, index) => (
-                          <td key={index} className="px-3 py-3 text-center">
-                            <span className="text-xl font-bold">
-                              {setScore}
-                              {scoreManager.getScore().tie_break && index === scoreManager.getScore().current_set && (
-                                <sup className="text-sm text-gray-600 ml-1">
-                                  {scoreManager.getScore().tie_break_score?.[0] || 0}
-                                </sup>
-                              )}
-                            </span>
-                          </td>
-                        ))}
-                        <td className="px-3 py-3 text-center">
-                          <span className="text-lg font-medium">
-                            {scoreManager ? scoreManager.getScore().current_game[0] : 0}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <div className="text-lg font-medium text-gray-900 border-2 border-gray-300 px-3 py-1 rounded bg-gray-50">
-                            {scoreManager ? scoreManager.getCurrentGameScore().split(' - ')[0] : '0'}
-                          </div>
-                        </td>
-                      </tr>
-                      {/* Équipe adverse */}
-                      <tr>
-                        <td className="py-3 px-2">
-                          <div className="bg-gray-600 text-white px-3 py-2 rounded font-medium text-center">
-                            {game.team2_player1} & {game.team2_player2}
-                          </div>
-                        </td>
-                        {scoreManager && scoreManager.getScore().sets.map((setScore, index) => (
-                          <td key={index} className="px-3 py-3 text-center">
-                            <span className="text-xl font-bold">
-                              {setScore}
-                              {scoreManager.getScore().tie_break && index === scoreManager.getScore().current_set && (
-                                <sup className="text-sm text-gray-600 ml-1">
-                                  {scoreManager.getScore().tie_break_score?.[1] || 0}
-                                </sup>
-                              )}
-                            </span>
-                          </td>
-                        ))}
-                        <td className="px-3 py-3 text-center">
-                          <span className="text-lg font-medium">
-                            {scoreManager ? scoreManager.getScore().current_game[1] : 0}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <div className="text-lg font-medium text-gray-900 border-2 border-gray-300 px-3 py-1 rounded bg-gray-50">
-                            {scoreManager ? scoreManager.getCurrentGameScore().split(' - ')[1] : '0'}
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+          {/* Boutons principaux - prennent tout l'espace */}
+          <div className="flex-1 flex flex-col">
+            <div className="flex-1 grid grid-cols-2 gap-2 p-4">
+              {/* Bouton Gagné */}
+              <button
+                onClick={() => handleSimplePointAction('gagne')}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold text-4xl rounded-lg flex flex-col items-center justify-center h-full transition-colors"
+              >
+                <div>Gagné</div>
+                <div className="text-6xl mt-2">✅</div>
+              </button>
 
-                {/* Informations du match */}
-                <div className="text-center text-sm text-gray-600 space-y-1">
-                  <div>
-                    {game.sets_to_win === 1 ? '1 set' : `${game.sets_to_win} sets`} • {game.games_per_set} jeux
-                    {game.no_advantage ? ' • No Ad' : ' • Avantage'}
-                    {game.games_per_set === 9 && ' • Tie-break à 8-8'}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {/* Bouton Perdu */}
+              <button
+                onClick={() => handleSimplePointAction('perdu')}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold text-4xl rounded-lg flex flex-col items-center justify-center h-full transition-colors"
+              >
+                <div>Perdu</div>
+                <div className="text-6xl mt-2">❌</div>
+              </button>
+            </div>
+          </div>
 
-          {/* Actions de points - Bloc principal unique */}
-          <Card className="border-2 border-primary">
-            <CardHeader>
-              <CardTitle className="text-primary text-center">Mon équipe</CardTitle>
-              <CardDescription className="text-center">
-                Cliquez sur une raison pour enregistrer le point
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-medium text-gray-900">
-                  {game.team1_player1} & {game.team1_player2}
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Colonne Points gagnés */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <span className="text-2xl">✅</span>
-                    <h4 className="text-lg font-semibold text-green-700">Points gagnés</h4>
-                  </div>
-                  
-                  {selectedAction && ['winner', 'smash', 'bandeja', 'amorti', 'lob', 'ace'].includes(selectedAction) ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-600 text-center">
-                        Sélectionnez le joueur responsable
-                      </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => handlePlayerSelection('player1')}
-                          className="h-16 bg-green-50 hover:bg-green-100 border-green-200"
-                        >
-                          {game.team1_player1}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => handlePlayerSelection('player2')}
-                          className="h-16 bg-green-50 hover:bg-green-100 border-green-200"
-                        >
-                          {game.team1_player2}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      {POINT_ACTIONS.filter(action => 
-                        ['winner', 'smash', 'bandeja', 'amorti', 'lob', 'ace'].includes(action.id)
-                      ).map((action) => (
-                        <Button
-                          key={action.id}
-                          variant="outline"
-                          onClick={() => handlePointAction(action.id)}
-                          className="h-20 flex flex-col items-center justify-center p-2 bg-green-50 hover:bg-green-100 border-green-200"
-                        >
-                          <div className="text-2xl mb-1">{action.icon}</div>
-                          <div className="text-xs text-center font-medium">{action.label}</div>
-                          {action.id === 'smash' && (
-                            <div className="text-xs text-gray-500">Par3/Par4</div>
-                          )}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
-                {/* Colonne Points perdus */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <span className="text-2xl">❌</span>
-                    <h4 className="text-lg font-semibold text-red-700">Points perdus</h4>
-                  </div>
-                  
-                  {selectedAction && ['fault', 'double_fault'].includes(selectedAction) ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-600 text-center">
-                        Sélectionnez qui a commis la faute
-                      </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => handlePlayerSelection('player1')}
-                          className="h-16 bg-red-50 hover:bg-red-100 border-red-200"
-                        >
-                          {game.team1_player1}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => handlePlayerSelection('player2')}
-                          className="h-16 bg-red-50 hover:bg-red-100 border-red-200"
-                        >
-                          {game.team1_player2}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      {POINT_ACTIONS.filter(action => 
-                        ['fault', 'double_fault'].includes(action.id)
-                      ).map((action) => (
-                        <Button
-                          key={action.id}
-                          variant="outline"
-                          onClick={() => handlePointAction(action.id)}
-                          className="h-20 flex flex-col items-center justify-center p-2 bg-red-50 hover:bg-red-100 border-red-200"
-                        >
-                          <div className="text-2xl mb-1">{action.icon}</div>
-                          <div className="text-xs text-center font-medium">{action.label}</div>
-                          {action.id === 'fault' && (
-                            <div className="text-xs text-gray-500">Filet, dehors, vitre</div>
-                          )}
-                        </Button>
-                      ))}
-                      
-                      {/* Actions adverses qui causent des points perdus */}
-                      <Button
-                        variant="outline"
-                        onClick={() => handleOpponentPoint('smash')}
-                        className="h-20 flex flex-col items-center justify-center p-2 bg-red-50 hover:bg-red-100 border-red-200"
-                      >
-                        <div className="text-2xl mb-1">💥</div>
-                        <div className="text-xs text-center font-medium">Smash adverse</div>
-                        <div className="text-xs text-gray-500">Par3/Par4</div>
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={() => handleOpponentPoint('winner')}
-                        className="h-20 flex flex-col items-center justify-center p-2 bg-red-50 hover:bg-red-100 border-red-200"
-                      >
-                        <div className="text-2xl mb-1">🎯</div>
-                        <div className="text-xs text-center font-medium">Retour raté</div>
-                        <div className="text-xs text-gray-500">Winner adverse</div>
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Statistiques */}
-          {showStats && (
-            <GameStats
-              stats={stats}
-              game={{
-                team1_player1: game.team1_player1,
-                team1_player2: game.team1_player2,
-                team2_player1: game.team2_player1,
-                team2_player2: game.team2_player2,
-                status: game.status,
-                created_at: game.created_at,
-              }}
-              onExport={() => {
-                // TODO: Implémenter l'export CSV
-                toast({
-                  title: "Export",
-                  description: "Fonctionnalité d'export à venir",
-                });
-              }}
-              onShare={() => {
-                // TODO: Implémenter le partage
-                const shareText = `Match de padel : ${game.team1_player1} & ${game.team1_player2} vs ${game.team2_player1} & ${game.team2_player2}\nScore : ${formatScore(game.current_score)}\nStatistiques disponibles sur PadelFlow`;
-                
-                if (navigator.share) {
-                  navigator.share({
-                    title: 'Statistiques du match',
-                    text: shareText,
-                  });
-                } else {
-                  navigator.clipboard.writeText(shareText);
-                  toast({
-                    title: "Partagé !",
-                    description: "Résumé copié dans le presse-papiers",
-                  });
-                }
-              }}
-            />
-          )}
-
-          {/* Historique des points */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Historique des points</CardTitle>
-              <CardDescription>
-                Derniers points enregistrés
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pointHistory.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Aucun point enregistré pour le moment</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {pointHistory.map((point) => (
-                    <div
-                      key={point.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+          {/* Dialog pour les sous-catégories */}
+          <Dialog open={showSubTagDialog} onOpenChange={setShowSubTagDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedAction === 'gagne' ? 'Points gagnés' : 'Points perdus'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {selectedAction === 'gagne' ? (
+                  <>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'passing', label: 'Passing' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
                     >
-                      <div className="flex items-center space-x-3">
-                        <Badge variant={point.team === 'team1' ? 'default' : 'secondary'}>
-                          {point.team === 'team1' ? 'Votre équipe' : 'Adversaires'}
-                        </Badge>
-                        {point.player && (
-                          <span className="text-sm text-gray-600">
-                            {point.player === 'player1' ? game.team1_player1 : game.team1_player2}
-                          </span>
-                        )}
-                        <span className="text-sm text-gray-500">
-                          {POINT_ACTIONS.find(a => a.id === point.action)?.label}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {point.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      🏃 Passing
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'volley', label: 'Volley' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ✋ Volley
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'smash', label: 'Smash' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 Smash
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'lob', label: 'Lob' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🏸 Lob
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'vibora_bandeja', label: 'Vibora/Bandeja' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🎯 Vibora/Bandeja
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'bajada', label: 'Bajada' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ⬇️ Bajada
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'faute_direct_adverse', label: 'Faute direct Adverse' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ❌ Faute direct Adverse
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'forced_error', label: 'Forced Error' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ⚡ Forced Error
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'winner_on_error', label: 'Winner on error' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🎯 Winner on error
+                    </button>
+                    <button
+                      onClick={() => handleSubTagClick({ id: 'unforced_error', label: 'Unforced Error' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🚫 Unforced Error
+                    </button>
+                  </>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog pour la sélection de direction */}
+          <Dialog open={showDirectionDialog} onOpenChange={setShowDirectionDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Direction</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <button
+                  onClick={() => handleDirectionClick({ id: 'gauche', label: 'Gauche' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  ⬅️ Gauche
+                </button>
+                <button
+                  onClick={() => handleDirectionClick({ id: 'milieu', label: 'Milieu' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  ⬆️ Milieu
+                </button>
+                <button
+                  onClick={() => handleDirectionClick({ id: 'droite', label: 'Droite' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  ➡️ Droite
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog pour les sous-sous-catégories (Smash types, Winner on error, ou Unforced Error) */}
+          <Dialog open={showSubSubTagDialog} onOpenChange={setShowSubSubTagDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedSubTag?.id === 'smash' ? 'Type de Smash' : 
+                   selectedSubTag?.id === 'winner_on_error' ? 'Type d\'erreur' :
+                   'Type de coup'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {selectedSubTag?.id === 'smash' ? (
+                  <>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'par_3', label: 'Par 3' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 Par 3
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'par_4', label: 'Par 4' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 Par 4
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'ar', label: 'A/R' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 A/R
+                    </button>
+                  </>
+                ) : selectedSubTag?.id === 'winner_on_error' ? (
+                  <>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'contre_smash', label: 'Contre-smash' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 Contre-smash
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'lob_court', label: 'Lob court' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🏸 Lob court
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'erreur_zone', label: 'Erreur de zone' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🎯 Erreur de zone
+                    </button>
+                  </>
+                ) : (
+                  // Unforced Error - Types de coups (Category_3)
+                  <>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'passing', label: 'Passing' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🏃 Passing
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'volley', label: 'Volley' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ✋ Volley
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'smash', label: 'Smash' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      💥 Smash
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'lob', label: 'Lob' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🏸 Lob
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'vibora_bandeja', label: 'Vibora/Bandeja' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      🎯 Vibora/Bandeja
+                    </button>
+                    <button
+                      onClick={() => handleSubSubTagClick({ id: 'bajada', label: 'Bajada' })}
+                      className="p-3 text-left border rounded-lg hover:bg-gray-50"
+                    >
+                      ⬇️ Bajada
+                    </button>
+                  </>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog pour le lieu de la faute (4ème niveau - Unforced Error) */}
+          <Dialog open={showFaultLocationDialog} onOpenChange={setShowFaultLocationDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Lieu de la faute</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <button
+                  onClick={() => handleFaultLocationClick({ id: 'filet', label: 'Filet' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  🚫 Filet
+                </button>
+                <button
+                  onClick={() => handleFaultLocationClick({ id: 'vitre', label: 'Vitre' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  🚫 Vitre
+                </button>
+                <button
+                  onClick={() => handleFaultLocationClick({ id: 'grille', label: 'Grille' })}
+                  className="p-3 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  🚫 Grille
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog pour la sélection du joueur */}
+          <Dialog open={showPlayerDialog} onOpenChange={setShowPlayerDialog}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Qui a fait l'action ?</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <button
+                  onClick={() => handlePlayerSelection('player2')}
+                  className="p-4 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="text-lg font-medium">{analysis?.player_left}</div>
+                  <div className="text-sm text-gray-500">Joueur Gauche</div>
+                </button>
+                <button
+                  onClick={() => handlePlayerSelection('player1')}
+                  className="p-4 text-center border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="text-lg font-medium">{analysis?.player_right}</div>
+                  <div className="text-sm text-gray-500">Joueur Droite</div>
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+
         </div>
       </DashboardLayout>
     </ProtectedRoute>

@@ -1,133 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Play, BarChart3, Calendar, Users, Clock, Eye } from 'lucide-react';
-import { useCurrentUserId } from '@/hooks/use-current-user';
+import { Plus, BarChart3, Clock, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react';
+import { useAnalyses } from '@/hooks/use-analysis';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-// Types pour les parties de padel
-interface PadelGame {
-  id: string;
-  team1_player1: string;
-  team1_player2: string;
-  team2_player1: string;
-  team2_player2: string;
-  sets_to_win: number;
-  games_per_set: number;
-  no_advantage: boolean;
-  status: 'in_progress' | 'completed';
-  created_at: string;
-  updated_at: string;
-  current_score: {
-    sets: number[];
-    current_set: number;
-    current_game: number[];
-    tie_break: boolean;
-  };
-}
-
 export default function GameAnalyzerPage() {
+  const { analyses, loading, error, refreshAnalyses } = useAnalyses();
   const { toast } = useToast();
-  const currentUserId = useCurrentUserId();
-  const [games, setGames] = useState<PadelGame[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (currentUserId) {
-      fetchGames();
+  const handleDeleteAnalysis = async (analysisId: string, analysisName: string) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'analyse "${analysisName}" ?`)) {
+      return;
     }
-  }, [currentUserId]);
 
-  const fetchGames = async () => {
     try {
-      setLoading(true);
-      // TODO: Implémenter l'API pour récupérer les parties
-      // Pour l'instant, on utilise des données mockées
-      const mockGames: PadelGame[] = [
-        {
-          id: '1',
-          team1_player1: 'Jean Dupont',
-          team1_player2: 'Marie Martin',
-          team2_player1: 'Pierre Durand',
-          team2_player2: 'Sophie Bernard',
-          sets_to_win: 2,
-          games_per_set: 6,
-          no_advantage: true,
-          status: 'in_progress',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          current_score: {
-            sets: [6, 4],
-            current_set: 2,
-            current_game: [3, 2],
-            tie_break: false,
-          },
-        },
-        {
-          id: '2',
-          team1_player1: 'Alexandre Moreau',
-          team1_player2: 'Camille Petit',
-          team2_player1: 'Thomas Roux',
-          team2_player2: 'Julie Leroy',
-          sets_to_win: 2,
-          games_per_set: 6,
-          no_advantage: false,
-          status: 'completed',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          updated_at: new Date(Date.now() - 86400000).toISOString(),
-          current_score: {
-            sets: [6, 4, 6],
-            current_set: 3,
-            current_game: [0, 0],
-            tie_break: false,
-          },
-        },
-      ];
+      // Import dynamique pour éviter les problèmes de SSR
+      const { analysisService } = await import('@/lib/services/supabase-analysis-service');
+      await analysisService.deleteAnalysis(analysisId);
       
-      setGames(mockGames);
-    } catch (error) {
-      console.error('Error fetching games:', error);
       toast({
-        title: "Error",
-        description: "Failed to load games",
+        title: "Analyse supprimée",
+        description: "L'analyse a été supprimée avec succès",
+      });
+      
+      // Recharger la liste des analyses
+      await refreshAnalyses();
+    } catch (error) {
+      console.error('Error deleting analysis:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'analyse",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const getStatusBadge = (status: string) => {
-    if (status === 'in_progress') {
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-200">En cours</Badge>;
-    }
-    return <Badge className="bg-green-100 text-green-800 border-green-200">Terminé</Badge>;
-  };
-
-  const formatScore = (game: PadelGame) => {
-    const { sets, current_set, current_game } = game.current_score;
-    const currentSetIndex = current_set - 1;
-    
-    let scoreDisplay = sets.map((set, index) => {
-      if (index === currentSetIndex) {
-        return `${set}-${current_game[0]}`;
-      }
-      return set.toString();
-    }).join(' | ');
-    
-    if (game.current_score.tie_break) {
-      scoreDisplay += ' (TB)';
-    }
-    
-    return scoreDisplay;
   };
 
   if (loading) {
@@ -136,6 +49,20 @@ export default function GameAnalyzerPage() {
         <DashboardLayout>
           <div className="flex items-center justify-center min-h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="text-center py-12">
+            <XCircle className="h-16 w-16 mx-auto mb-4 text-red-500" />
+            <h3 className="text-lg font-medium mb-2">Erreur de chargement</h3>
+            <p className="text-gray-500">{error}</p>
           </div>
         </DashboardLayout>
       </ProtectedRoute>
@@ -157,7 +84,7 @@ export default function GameAnalyzerPage() {
             <Button asChild>
               <Link href="/dashboard/game-analyzer/new">
                 <Plus className="h-4 w-4 mr-2" />
-                Nouvelle partie
+                Nouvelle analyse
               </Link>
             </Button>
           </div>
@@ -166,126 +93,135 @@ export default function GameAnalyzerPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Parties totales</CardTitle>
-                <Play className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Analyses totales</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{games.length}</div>
+                <div className="text-2xl font-bold">{analyses.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  Toutes vos parties
+                  Toutes vos analyses
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">En cours</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {games.filter(g => g.status === 'in_progress').length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Parties actives
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Terminées</CardTitle>
+                <CardTitle className="text-sm font-medium">Points enregistrés</CardTitle>
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {games.filter(g => g.status === 'completed').length}
+                  {analyses.reduce((total, analysis) => total + (analysis as any).points_count || 0, 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Parties finies
+                  Total des points
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Format préféré</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Analyses récentes</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {games.filter(g => g.no_advantage).length > games.filter(g => !g.no_advantage).length ? 'No Ad' : 'Avantage'}
+                  {analyses.filter(a => {
+                    const analysisDate = new Date(a.created_at);
+                    const today = new Date();
+                    const diffTime = Math.abs(today.getTime() - analysisDate.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays <= 7;
+                  }).length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Règle la plus utilisée
+                  Cette semaine
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Dernière analyse</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {analyses.length > 0 ? format(new Date(analyses[0].created_at), 'dd/MM', { locale: fr }) : '--'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Date de création
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Liste des parties */}
+          {/* Liste des analyses */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Play className="h-5 w-5" />
-                <span>Vos parties ({games.length})</span>
+                <BarChart3 className="h-5 w-5" />
+                <span>Vos analyses ({analyses.length})</span>
               </CardTitle>
               <CardDescription>
-                Gérez et suivez vos matchs de padel
+                Gérez et suivez vos analyses de match de padel
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {games.length === 0 ? (
+              {analyses.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
-                  <Play className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-medium mb-2">Aucune partie créée</h3>
-                  <p className="mb-6">Commencez par créer votre première partie pour analyser vos performances</p>
+                  <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium mb-2">Aucune analyse créée</h3>
+                  <p className="mb-6">Commencez par créer votre première analyse pour suivre vos performances</p>
                   <Button asChild>
                     <Link href="/dashboard/game-analyzer/new">
                       <Plus className="h-4 w-4 mr-2" />
-                      Créer une partie
+                      Créer une analyse
                     </Link>
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {games.map((game) => (
+                  {analyses.map((analysis) => (
                     <div
-                      key={game.id}
+                      key={analysis.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
                           <div className="flex-1">
                             <h3 className="font-medium text-gray-900">
-                              {game.team1_player1} & {game.team1_player2}
+                              {analysis.analysis_name}
                             </h3>
                             <p className="text-sm text-gray-500">
-                              vs {game.team2_player1} & {game.team2_player2}
+                              {analysis.player_right} & {analysis.player_left} vs {analysis.opponent_right} & {analysis.opponent_left}
                             </p>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-semibold text-gray-900">
-                              {formatScore(game)}
-                            </div>
                             <div className="text-sm text-gray-500">
-                              {game.sets_to_win === 1 ? '1 set' : `${game.sets_to_win} sets`} • {game.games_per_set} jeux
-                              {game.no_advantage ? ' • No Ad' : ' • Avantage'}
+                              {format(new Date(analysis.created_at), 'dd/MM/yyyy \'à\' HH:mm', { locale: fr })}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {format(new Date(analysis.updated_at), '\'Modifié le\' dd/MM', { locale: fr })}
                             </div>
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-3 ml-6">
-                        {getStatusBadge(game.status)}
-                        <div className="text-sm text-gray-500">
-                          {format(new Date(game.created_at), 'dd/MM/yyyy', { locale: fr })}
-                        </div>
                         <Button asChild size="sm">
-                          <Link href={`/dashboard/game-analyzer/${game.id}`}>
+                          <Link href={`/dashboard/game-analyzer/${analysis.id}`}>
                             <Eye className="h-4 w-4 mr-2" />
-                            {game.status === 'in_progress' ? 'Continuer' : 'Voir'}
+                            Ouvrir
                           </Link>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleDeleteAnalysis(analysis.id, analysis.analysis_name)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
