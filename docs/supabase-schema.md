@@ -347,9 +347,32 @@ order by r.licence, r.ranking_year desc, r.ranking_month desc;
 
 ---
 
+### public.user_player_links
+- Purpose: allows users to link their account to a specific player in the rankings database for personalized experience
+- RLS: enabled (owner-only policies)
+- Primary/unique constraints:
+  - PRIMARY KEY (id) - `user_player_links_pkey`
+  - UNIQUE (user_id) - `user_player_links_user_id_key` (one link per user)
+  - FOREIGN KEY (user_id) → `auth.users(id)` - `user_player_links_user_id_fkey`
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - user_id uuid NOT NULL REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - licence text NOT NULL -- player licence number from rankings
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
+- RLS policies (all restricted to `auth.uid()`):
+  - "Users can view their own player link": SELECT where `auth.uid() = user_id`
+  - "Users can insert their own player link": INSERT (no restriction, user_id auto-filled)
+  - "Users can update their own player link": UPDATE where `auth.uid() = user_id`
+  - "Users can delete their own player link": DELETE where `auth.uid() = user_id`
+- Usage: Users can link to players via the Settings page to see personalized ranking information
+
+---
+
 ### Notes
 - `auth.users` is system-managed. Use Supabase Auth APIs for mutations; do not write tokens/confirmation columns directly.
 - No `public.profiles` table exists; any code referencing it should be treated as unused until created.
+- Tables `tenup`, `tenup_latest`, and `tenup_tournaments` have been removed as they were obsolete.
 
 ---
 
