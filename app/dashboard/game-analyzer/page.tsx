@@ -5,7 +5,7 @@ import { ProtectedRoute } from '@/components/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, BarChart3, Clock, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react';
+import { Plus, BarChart3, XCircle, Eye, Trash2 } from 'lucide-react';
 import { useAnalyses } from '@/hooks/use-analysis';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -89,72 +89,6 @@ export default function GameAnalyzerPage() {
             </Button>
           </div>
 
-          {/* Statistiques rapides */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Analyses totales</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analyses.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Toutes vos analyses
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Points enregistrés</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analyses.reduce((total, analysis) => total + (analysis as any).points_count || 0, 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Total des points
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Analyses récentes</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analyses.filter(a => {
-                    const analysisDate = new Date(a.created_at);
-                    const today = new Date();
-                    const diffTime = Math.abs(today.getTime() - analysisDate.getTime());
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    return diffDays <= 7;
-                  }).length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Cette semaine
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Dernière analyse</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analyses.length > 0 ? format(new Date(analyses[0].created_at), 'dd/MM', { locale: fr }) : '--'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Date de création
-                </p>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Liste des analyses */}
           <Card>
