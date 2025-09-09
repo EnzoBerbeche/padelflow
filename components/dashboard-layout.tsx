@@ -166,7 +166,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
               <Link href="/dashboard" className="flex items-center space-x-2">
                 <Trophy className="h-8 w-8 text-primary" />
-                <span className="text-xl font-bold text-gray-900">PadelFlow</span>
+                <span className="text-xl font-bold text-gray-900">NeyoPadel</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">

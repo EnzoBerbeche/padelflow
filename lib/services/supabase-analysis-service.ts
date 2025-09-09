@@ -53,6 +53,20 @@ export interface AnalysisStats {
 
 class SupabaseAnalysisService {
   // =============================================
+  // POINT ACTIONS
+  // =============================================
+
+  async getPointActions(): Promise<PointAction[]> {
+    const { data, error } = await supabase
+      .from('point_actions')
+      .select('*')
+      .order('id');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // =============================================
   // ANALYSES
   // =============================================
 
@@ -290,19 +304,6 @@ class SupabaseAnalysisService {
   // =============================================
   // ACTIONS DE RÉFÉRENCE
   // =============================================
-
-  async getPointActions(): Promise<PointAction[]> {
-    const { data: actions, error } = await supabase
-      .from('point_actions')
-      .select('*')
-      .order('id');
-
-    if (error) {
-      throw new Error(`Erreur lors de la récupération des actions: ${error.message}`);
-    }
-
-    return actions || [];
-  }
 
   async getPointActionById(id: number): Promise<PointAction | null> {
     const { data: action, error } = await supabase

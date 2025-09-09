@@ -419,19 +419,45 @@ delete from public.players where user_id = auth.uid() and licence = '1234567';
   - PRIMARY KEY (id)
 - Columns (name, type, nullability, default):
   - id integer NOT NULL
-  - category_1 text NOT NULL
+  - category_1 text NOT NULL -- 'gagne' | 'perdu'
   - id_1 integer NOT NULL
-  - category_2 text NOT NULL
+  - category_2 text NOT NULL -- Type de coup (passing, volley, smash, etc.)
   - id_2 integer NOT NULL
-  - category_3 text NULL
+  - category_3 text NULL -- Direction ou type spécifique (droite, gauche, milieu, etc.)
   - id_3 integer NULL
-  - category_4 text NULL
+  - category_4 text NULL -- Lieu de la faute pour unforced_error (filet, vitre, grille)
   - id_4 integer NULL
   - requires_player boolean NULL DEFAULT true
   - created_at timestamptz NULL DEFAULT now()
 
 - Usage: Referenced by `match_points.action_id` for point categorization
 - Configuration: Managed via `lib/config/point-actions.ts`
+
+#### Point Actions Structure
+- **category_1**: Distinguishes between won and lost points
+  - `'gagne'`: Points won by the team
+  - `'perdu'`: Points lost by the team
+- **category_2**: Type of shot or error
+  - For won points: `passing`, `volley`, `smash`, `lob`, `vibora_bandeja`, `bajada`, `faute_direct_adverse`
+  - For lost points: `forced_error`, `winner_on_error`, `unforced_error`
+- **category_3**: Direction or specific type
+  - For most shots: `droite`, `gauche`, `milieu`
+  - For smash: `par_3`, `par_4`, `ar`
+  - For winner_on_error: `contre_smash`, `lob_court`, `erreur_zone`
+  - For unforced_error: Type of shot that caused the error
+- **category_4**: Error location (only for unforced_error)
+  - `filet`, `vitre`, `grille`
+
+#### Example Data
+```json
+{
+  "id": 1,
+  "category_1": "gagne",
+  "category_2": "passing",
+  "category_3": "droite",
+  "requires_player": true
+}
+```
 
 ---
 
