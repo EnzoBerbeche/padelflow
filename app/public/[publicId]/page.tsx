@@ -57,9 +57,25 @@ export default function PublicTournamentPage({ params }: PublicTournamentPagePro
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    // Could add a toast notification here
+  const copyLink = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(window.location.href);
+        // Could add a toast notification here
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = window.location.href;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        // Could add a toast notification here
+      }
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      // Could add a toast notification here for error
+    }
   };
 
   const goToOrganizerView = () => {

@@ -160,14 +160,37 @@ export default function TournamentPage({ params }: TournamentPageProps) {
     }
   };
 
-  const copyPublicLink = () => {
+  const copyPublicLink = async () => {
     if (tournament) {
       const publicUrl = `${window.location.origin}/public/${tournament.public_id}`;
-      navigator.clipboard.writeText(publicUrl);
-      toast({
-        title: "Success",
-        description: "Public link copied to clipboard!",
-      });
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(publicUrl);
+          toast({
+            title: "Success",
+            description: "Public link copied to clipboard!",
+          });
+        } else {
+          // Fallback for older browsers or non-secure contexts
+          const textArea = document.createElement('textarea');
+          textArea.value = publicUrl;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          toast({
+            title: "Success",
+            description: "Public link copied to clipboard!",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to copy link:', error);
+        toast({
+          title: "Error",
+          description: "Failed to copy link to clipboard",
+          variant: "destructive",
+        });
+      }
     }
   };
 

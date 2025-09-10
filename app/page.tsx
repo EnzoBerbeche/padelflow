@@ -111,10 +111,11 @@ export default function Home() {
       
       if (error) {
         console.error('❌ Search error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
+          message: error.message || 'Unknown error',
+          details: error.details || 'No details available',
+          hint: error.hint || 'No hint available',
+          code: error.code || 'No error code',
+          fullError: error
         });
         setSearchResults([]);
         setAllResults([]);

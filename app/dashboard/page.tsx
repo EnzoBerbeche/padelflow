@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3 } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -35,7 +35,7 @@ export default function HomePage() {
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [rankingFilter, setRankingFilter] = useState<string>('all');
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<'nom_complet' | 'licence' | 'classement' | 'ligue' | 'age_sportif'>('nom_complet');
+  const [sortField, setSortField] = useState<'nom_complet' | 'licence' | 'classement' | 'ligue' | 'age_sportif'>('classement');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -298,7 +298,17 @@ export default function HomePage() {
             </Card>
           </div>
 
-
+          {/* My Stats Button */}
+          {playerLink && (
+            <div className="flex justify-center">
+              <Button asChild className="bg-primary hover:bg-primary/90 text-white">
+                <Link href={`/dashboard/players/${playerLink.licence}`}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View My Stats
+                </Link>
+              </Button>
+            </div>
+          )}
 
           {/* Enhanced Followed Players Section */}
           {followedPlayers.length > 0 && (
