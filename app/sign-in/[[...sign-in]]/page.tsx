@@ -2,7 +2,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -59,116 +58,135 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50 p-4">
-      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-        <CardHeader className="text-center pb-6">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
-            <LogIn className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            Welcome Back
-          </CardTitle>
-          <CardDescription className="text-gray-600 text-base">
-            Sign in to manage your tournaments
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center">
-                <Mail className="w-4 h-4 mr-2" />
-                Email
-              </Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="you@example.com" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
-              />
+    <div className="min-h-screen bg-white">
+      {/* NeyoPadel Header */}
+      <header className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold text-sm">N</span>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-gray-700 flex items-center">
-                <Lock className="w-4 h-4 mr-2" />
-                Password
-              </Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-
-            {message && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-sm text-red-600">{message}</p>
-              </div>
-            )}
-
-            <Button 
-              className="w-full h-11 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" 
-              onClick={signInWithPassword} 
-              disabled={loading || !email || !password}
-            >
-              {loading ? 'Signing in…' : 'Sign In'}
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <Link 
-                href={`/sign-up?email=${encodeURIComponent(email || '')}`} 
-                className="text-green-600 hover:text-green-700 font-medium flex items-center hover:underline"
-              >
-                <UserPlus className="w-4 h-4 mr-1" />
-                Create an account
-              </Link>
-              <button
-                type="button"
-                className="text-gray-600 hover:text-gray-900 flex items-center hover:underline"
-                onClick={async () => {
-                  if (!email) { setMessage('Enter your email to reset your password.'); return; }
-                  setMessage(null);
-                  try {
-                    const res = await fetch('/api/auth/check-email', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email }),
-                    });
-                    if (res.ok) {
-                      const json = await res.json();
-                      if (!json?.exists) {
-                        setMessage('No account found with this email. Please sign up.');
-                        return;
-                      }
-                    }
-                  } catch {
-                    // If check fails, continue to call reset to avoid blocking
-                  }
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
-                  setMessage(error ? error.message : 'Check your email to reset your password.');
-                }}
-              >
-                Forgot password?
-              </button>
-            </div>
-            
-            <div className="h-px bg-gray-200" />
-            
-            <div className="flex flex-col space-y-2">
-              <Link href="/" className="text-gray-700 hover:text-gray-900 font-medium flex items-center justify-center hover:underline">
+            <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
+          </Link>
+          <div className="flex items-center space-x-3">
+            <Link href="/sign-up">
+              <Button variant="ghost" size="sm">Sign Up</Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline" size="sm">
                 <Home className="w-4 h-4 mr-2" />
                 Back to home
-              </Link>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-20">
+        <div className="max-w-md w-full">
+          {/* Logo and Title */}
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
+                <LogIn className="w-8 h-8 text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome Back
+            </h1>
+            <p className="text-gray-600">
+              Sign in to manage your tournaments
+            </p>
+          </div>
+
+          {/* Sign In Form */}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email
+                </Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="you@example.com" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                />
+              </div>
+
+              {message && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{message}</p>
+                </div>
+              )}
+
+              <Button 
+                className="w-full h-11 bg-green-600 hover:bg-green-700 text-white font-medium" 
+                onClick={signInWithPassword} 
+                disabled={loading || !email || !password}
+              >
+                {loading ? 'Signing in…' : 'Sign In'}
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <Link 
+                  href={`/sign-up?email=${encodeURIComponent(email || '')}`} 
+                  className="text-green-600 hover:text-green-700 font-medium hover:underline"
+                >
+                  Create an account
+                </Link>
+                <button
+                  type="button"
+                  className="text-gray-600 hover:text-gray-900 hover:underline"
+                  onClick={async () => {
+                    if (!email) { setMessage('Enter your email to reset your password.'); return; }
+                    setMessage(null);
+                    try {
+                      const res = await fetch('/api/auth/check-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email }),
+                      });
+                      if (res.ok) {
+                        const json = await res.json();
+                        if (!json?.exists) {
+                          setMessage('No account found with this email. Please sign up.');
+                          return;
+                        }
+                      }
+                    } catch {
+                      // If check fails, continue to call reset to avoid blocking
+                    }
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
+                    setMessage(error ? error.message : 'Check your email to reset your password.');
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </main>
     </div>
   );
-} 
+}
