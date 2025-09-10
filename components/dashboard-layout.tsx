@@ -14,10 +14,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-// Base navigation for all users
-const baseNavigation = [
+// Base navigation for player users (limited access)
+const playerNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -36,13 +35,12 @@ const adminNavigation = [
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
-// Club-specific navigation (if needed in the future)
+// Club-specific navigation
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Club Management', href: '/dashboard/club', icon: Users },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -63,7 +61,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Get navigation based on user role
   const getNavigation = () => {
-    if (roleLoading) return baseNavigation;
+    if (roleLoading) return playerNavigation;
     
     switch (role) {
       case 'admin':
@@ -72,7 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         return clubNavigation;
       case 'player':
       default:
-        return baseNavigation;
+        return playerNavigation;
     }
   };
 

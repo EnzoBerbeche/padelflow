@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
+import { useUserRole } from '@/hooks/use-user-role';
 
 // Supabase RLS enforces ownership
 
@@ -26,6 +27,7 @@ function TournamentForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
+  const { isClub, isAdmin } = useUserRole();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTournament, setEditingTournament] = useState<AppTournament | null>(null);
@@ -198,6 +200,27 @@ function TournamentForm() {
       setLoading(false);
     }
   };
+
+  // Check if user has permission to create tournaments
+  if (!isClub && !isAdmin) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center py-12">
+          <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès restreint</h1>
+          <p className="text-gray-600 mb-6">
+            Seuls les profils Club et Admin peuvent créer des tournois.
+          </p>
+          <Link href="/dashboard">
+            <Button variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour au tableau de bord
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -481,7 +504,7 @@ function LoadingFallback() {
 
 export default function NewTournament() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={['club', 'admin']}>
       <DashboardLayout>
         <Suspense fallback={<LoadingFallback />}>
           <TournamentForm />

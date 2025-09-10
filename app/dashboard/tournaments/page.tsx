@@ -5,6 +5,7 @@ import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
+import { useUserRole } from '@/hooks/use-user-role';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export default function TournamentsPage() {
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
+  const { role, isClub, isAdmin } = useUserRole();
   const [tournaments, setTournaments] = useState<AppTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
@@ -139,6 +141,26 @@ export default function TournamentsPage() {
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  // Check if user has permission to access tournaments
+  if (!isClub && !isAdmin) {
+    return (
+      <ProtectedRoute allowedRoles={['club', 'admin']}>
+        <DashboardLayout>
+          <div className="text-center py-12">
+            <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès aux tournois restreint</h1>
+            <p className="text-gray-600 mb-6">
+              Seuls les profils Club et Admin peuvent accéder à la gestion des tournois.
+            </p>
+            <p className="text-sm text-gray-500">
+              Contactez un administrateur pour obtenir les permissions nécessaires.
+            </p>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -150,7 +172,7 @@ export default function TournamentsPage() {
   }
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={['club', 'admin']}>
       <DashboardLayout>
         <div className="space-y-6">
         {/* Header */}
