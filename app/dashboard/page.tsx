@@ -229,39 +229,30 @@ export default function HomePage() {
             <h1 className="text-3xl font-bold mb-2">
               Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
             </h1>
-            <p className="text-primary-foreground/90 text-lg">
-              {playerLink ? (
-                <>
-                  You are linked to <span className="font-semibold">{playerLink.nom_complet}</span> (P{playerLink.classement})
-                </>
-              ) : (
-                "Your padel journey continues. Here's what's happening with your profile and followed players."
-              )}
-            </p>
           </div>
 
           {/* User Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tournaments Played</CardTitle>
-                <Trophy className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
+                <CardTitle className="text-xs md:text-sm font-medium">Tournaments Played</CardTitle>
+                <Trophy className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalTournaments}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 md:p-4 pt-0">
+                <div className="text-lg md:text-2xl font-bold">{stats.totalTournaments}</div>
+                <p className="text-xs text-muted-foreground hidden md:block">
                   Total tournaments participated
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Evolution</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
+                <CardTitle className="text-xs md:text-sm font-medium">Evolution</CardTitle>
+                <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="p-3 md:p-4 pt-0">
+                <div className="text-lg md:text-2xl font-bold">
                   {playerLink?.evolution ? (
                     <div className="flex items-center">
                       {getEvolutionIcon(playerLink.evolution)}
@@ -273,33 +264,33 @@ export default function HomePage() {
                     <span className="text-muted-foreground">-</span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground hidden md:block">
                   {playerLink?.evolution ? (playerLink.evolution > 0 ? 'Improved' : 'Declined') : 'No change'}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Ranking</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
+                <CardTitle className="text-xs md:text-sm font-medium">Current Ranking</CardTitle>
+                <Target className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">P{stats.averageRanking}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 md:p-4 pt-0">
+                <div className="text-lg md:text-2xl font-bold">P{stats.averageRanking}</div>
+                <p className="text-xs text-muted-foreground hidden md:block">
                   Your current ranking
                 </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Best Ranking</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
+                <CardTitle className="text-xs md:text-sm font-medium">Best Ranking</CardTitle>
+                <Award className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">P{stats.bestRanking}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 md:p-4 pt-0">
+                <div className="text-lg md:text-2xl font-bold">P{stats.bestRanking}</div>
+                <p className="text-xs text-muted-foreground hidden md:block">
                   Your best achievement
                 </p>
               </CardContent>
