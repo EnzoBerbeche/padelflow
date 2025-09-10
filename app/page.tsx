@@ -65,33 +65,39 @@ export default function Home() {
     
     setIsSearching(true);
     try {
+      // Search in tenup_latest table for players (no limit)
+      // Split query into individual words and normalize case
+      const searchWords = query.trim().split(/\s+/).filter(word => word.length > 0);
+      
       // Debug: Check Supabase configuration
       console.log('🔍 Search started for:', query);
       console.log('🌐 Environment:', process.env.NODE_ENV);
       console.log('🔗 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing');
       console.log('🔑 Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing');
-      
-      // Search in tenup_latest table for players (no limit)
-      // Split query into individual words for more flexible search
-      const searchWords = query.trim().split(/\s+/).filter(word => word.length > 0);
+      console.log('📝 Search words:', searchWords);
       
       let searchQuery = supabase
         .from('tenup_latest')
-        .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue');
+        .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue')
+        .order('classement', { ascending: true });
       
       if (searchWords.length === 1) {
-        // Single word search - search in all fields
-        searchQuery = searchQuery.or(`nom.ilike.%${searchWords[0]}%,prenom.ilike.%${searchWords[0]}%,nom_complet.ilike.%${searchWords[0]}%`);
-      } else {
-        // Multiple words search - use a more flexible approach
-        // Search for the full query in nom_complet first, then individual words
-        const fullQuery = searchWords.join(' ');
+        // Single word search - search ONLY in nom_complet
+        const word = searchWords[0].toLowerCase();
+        searchQuery = searchQuery.ilike('nom_complet', `%${word}%`);
+      } else if (searchWords.length === 2) {
+        // Two words search - search both orders in nom_complet
+        const word1 = searchWords[0].toLowerCase();
+        const word2 = searchWords[1].toLowerCase();
+        
+        // Search for both word orders in nom_complet
         searchQuery = searchQuery.or(
-          `nom_complet.ilike.%${fullQuery}%,` +
-          `nom_complet.ilike.%${searchWords.join('%')}%,` +
-          searchWords.map(word => `nom.ilike.%${word}%`).join(',') + ',' +
-          searchWords.map(word => `prenom.ilike.%${word}%`).join(',')
+          `nom_complet.ilike.%${word1} ${word2}%,nom_complet.ilike.%${word2} ${word1}%`
         );
+      } else {
+        // More than 2 words - search exact combination as written
+        const exactQuery = searchWords.join(' ').toLowerCase();
+        searchQuery = searchQuery.ilike('nom_complet', `%${exactQuery}%`);
       }
       
       const { data, error } = await searchQuery;
