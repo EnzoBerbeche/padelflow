@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trophy, Users, Calendar, Share2, Search, TrendingUp, BarChart3, UserPlus, MapPin, Trophy as TrophyIcon } from 'lucide-react';
+import { Trophy, Users, Calendar, Share2, Search, TrendingUp, BarChart3, UserPlus, MapPin, Trophy as TrophyIcon, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useSupabaseAuth } from '@/hooks/use-current-user';
@@ -19,6 +19,8 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [allResults, setAllResults] = useState<{id: string; email: string; player?: any}[]>([]);
+  const [showIOSInstallPrompt, setShowIOSInstallPrompt] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const resultsPerPage = 10;
   
   // Redirect authenticated users to home dashboard
@@ -27,6 +29,31 @@ export default function Home() {
       router.replace('/dashboard');
     }
   }, [isLoaded, isSignedIn, router]);
+
+  // Detect iOS and show install prompt
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+    setIsIOS(isIOSDevice);
+    
+    // Check if user has already dismissed the prompt
+    const hasDismissedPrompt = localStorage.getItem('ios-install-prompt-dismissed');
+    
+    if (isIOSDevice && !hasDismissedPrompt) {
+      // Show prompt after a short delay
+      const timer = setTimeout(() => {
+        setShowIOSInstallPrompt(true);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Handle iOS install prompt
+  const handleDismissIOSPrompt = () => {
+    setShowIOSInstallPrompt(false);
+    localStorage.setItem('ios-install-prompt-dismissed', 'true');
+  };
 
   // Handle search when button is clicked
   const handleSearchClick = () => {
@@ -162,9 +189,11 @@ export default function Home() {
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">N</span>
-            </div>
+            <img 
+              src="/icons/icon.svg?v=2" 
+              alt="NeyoPadel Logo" 
+              className="w-8 h-8"
+            />
             <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
           </div>
           <div className="flex items-center space-x-3">
@@ -193,14 +222,45 @@ export default function Home() {
         </div>
       </header>
 
+      {/* iOS Install Prompt */}
+      {showIOSInstallPrompt && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Smartphone className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Install NeyoPadel on your iPhone
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Tap the Share button <Share2 className="inline h-3 w-3" /> and select "Add to Home Screen"
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleDismissIOSPrompt}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Centered Hero Section - Google-like positioning */}
       <main className="min-h-screen flex flex-col items-center justify-start px-4 pt-32">
         <div className="max-w-4xl w-full text-center">
           {/* Logo and Tagline */}
           <div className="mb-8">
             <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-3xl">N</span>
+              <div className="w-20 h-20">
+                <img 
+                  src="/icons/icon.svg?v=2" 
+                  alt="NeyoPadel Logo" 
+                  className="w-full h-full"
+                />
               </div>
             </div>
             <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-3">
@@ -213,7 +273,7 @@ export default function Home() {
 
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto">
-            <div className="relative mb-4">
+            <div className="relative mb-6">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <Input
                 type="text"
@@ -250,7 +310,7 @@ export default function Home() {
 
           {/* Search Results Table */}
           {searchResults.length > 0 && (
-            <div className="max-w-6xl mx-auto mb-8">
+            <div className="max-w-6xl mx-auto mb-8 mt-8">
               <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">

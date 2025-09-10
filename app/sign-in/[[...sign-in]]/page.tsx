@@ -63,9 +63,11 @@ export default function SignInPage() {
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">N</span>
-            </div>
+            <img 
+              src="/icons/icon.svg?v=2" 
+              alt="NeyoPadel Logo" 
+              className="w-8 h-8"
+            />
             <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
           </Link>
           <div className="flex items-center space-x-3">
@@ -88,8 +90,12 @@ export default function SignInPage() {
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
-                <LogIn className="w-8 h-8 text-white" />
+              <div className="w-16 h-16">
+                <img 
+                  src="/icons/icon.svg?v=2" 
+                  alt="NeyoPadel Logo" 
+                  className="w-full h-full"
+                />
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">

@@ -167,7 +167,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
               <Link href="/dashboard" className="flex items-center space-x-2">
-                <Trophy className="h-8 w-8 text-primary" />
+                <img 
+                  src="/icons/icon.svg?v=2" 
+                  alt="NeyoPadel Logo" 
+                  className="h-8 w-8"
+                />
                 <span className="text-xl font-bold text-gray-900">NeyoPadel</span>
               </Link>
             </div>
