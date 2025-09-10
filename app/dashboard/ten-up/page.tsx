@@ -451,8 +451,8 @@ export default function TenUpPage() {
                                      {/* Mobile Cards View */}
                    <div className="block sm:hidden space-y-3">
                      {getCurrentPagePlayers().map((player) => (
-                       <Card key={player.id} className="p-4">
-                         <div className="space-y-3">
+                       <Card key={player.id} className="p-3">
+                         <div className="space-y-2">
                            {/* Player Header */}
                            <div className="flex items-center justify-between">
                              <div className="flex items-center space-x-2">
@@ -468,69 +468,49 @@ export default function TenUpPage() {
                                  {player.first_name} {player.last_name}
                                </Link>
                              </div>
-                             <Badge className={getRankingColor(player.ranking)}>
-                               P{player.ranking}
-                             </Badge>
+                             <div className="flex items-center space-x-2">
+                               <Badge className={getRankingColor(player.ranking)}>
+                                 P{player.ranking}
+                               </Badge>
+                               {myLicences.includes(player.license_number) ? (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => removePlayerFromList(player)}
+                                   disabled={addingPlayer === player.id}
+                                   className="text-red-600 px-2 py-1 h-7 text-xs"
+                                 >
+                                   {addingPlayer === player.id ? (
+                                     <Loader2 className="h-3 w-3 animate-spin" />
+                                   ) : (
+                                     "Unfollow"
+                                   )}
+                                 </Button>
+                               ) : (
+                                 <Button
+                                   size="sm"
+                                   onClick={() => addPlayerToLocal(player)}
+                                   disabled={addingPlayer === player.id}
+                                   className="px-2 py-1 h-7 text-xs"
+                                 >
+                                   {addingPlayer === player.id ? (
+                                     <Loader2 className="h-3 w-3 animate-spin" />
+                                   ) : (
+                                     "Follow"
+                                   )}
+                                 </Button>
+                               )}
+                             </div>
                            </div>
                            
-                           {/* Player Details */}
-                           <div className="grid grid-cols-2 gap-2 text-sm">
-                             <div>
-                               <span className="text-gray-500">License:</span>
-                               <span className="ml-2 font-mono">{player.license_number}</span>
-                             </div>
-                             <div>
-                               <span className="text-gray-500">League:</span>
-                               <span className="ml-2">{player.league}</span>
-                             </div>
-                             <div>
-                               <span className="text-gray-500">Birth Year:</span>
-                               <span className="ml-2">{player.birth_year}</span>
-                             </div>
-                           </div>
-                           
-                           {/* Action Button */}
-                           <div className="pt-2">
-                             {myLicences.includes(player.license_number) ? (
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => removePlayerFromList(player)}
-                                 disabled={addingPlayer === player.id}
-                                 className="w-full text-red-600"
-                               >
-                                 {addingPlayer === player.id ? (
-                                   <>
-                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                     Removing...
-                                   </>
-                                 ) : (
-                                   <>
-                                     <Trash2 className="h-4 w-4 mr-2" />
-                                     Remove from My Players
-                                   </>
-                                 )}
-                               </Button>
-                             ) : (
-                               <Button
-                                 size="sm"
-                                 onClick={() => addPlayerToLocal(player)}
-                                 disabled={addingPlayer === player.id}
-                                 className="w-full"
-                               >
-                                 {addingPlayer === player.id ? (
-                                   <>
-                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                     Adding...
-                                   </>
-                                 ) : (
-                                   <>
-                                     <UserPlus className="h-4 w-4 mr-2" />
-                                     Add to My Players
-                                   </>
-                                 )}
-                               </Button>
-                             )}
+                           {/* Player Details - Compact */}
+                           <div className="flex items-center justify-between text-sm text-gray-600">
+                             <span className="truncate max-w-[60%]">
+                               {player.league}
+                             </span>
+                             <span className="text-xs">
+                               Age: {player.birth_year}
+                             </span>
                            </div>
                          </div>
                        </Card>
@@ -545,12 +525,6 @@ export default function TenUpPage() {
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('name')}>
                                <span>Name</span>
-                               <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                             </button>
-                           </th>
-                           <th className="text-left py-3 px-4 font-medium text-gray-900">
-                             <button className="inline-flex items-center gap-1" onClick={() => toggleSort('license')}>
-                               <span>License</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
                              </button>
                            </th>
@@ -593,16 +567,15 @@ export default function TenUpPage() {
                                  </Link>
                                </div>
                              </td>
-                             <td className="py-3 px-4 text-gray-600">
-                               {player.license_number}
-                             </td>
                              <td className="py-3 px-4">
                                <Badge className={getRankingColor(player.ranking)}>
                                  P{player.ranking}
                                </Badge>
                              </td>
                              <td className="py-3 px-4 text-gray-600">
-                               {player.league}
+                               <span className="truncate block max-w-[200px]" title={player.league}>
+                                 {player.league}
+                               </span>
                              </td>
                              <td className="py-3 px-4 text-gray-600">
                                {player.birth_year}
@@ -614,18 +587,12 @@ export default function TenUpPage() {
                                    variant="outline"
                                    onClick={() => removePlayerFromList(player)}
                                    disabled={addingPlayer === player.id}
-                                   className="flex items-center space-x-2 text-red-600"
+                                   className="text-red-600 px-2 py-1 h-7 text-xs"
                                  >
                                    {addingPlayer === player.id ? (
-                                     <>
-                                       <Loader2 className="h-4 w-4 animate-spin" />
-                                       <span>Removing...</span>
-                                     </>
+                                     <Loader2 className="h-3 w-3 animate-spin" />
                                    ) : (
-                                     <>
-                                       <Trash2 className="h-4 w-4" />
-                                       <span>Remove from My Players</span>
-                                     </>
+                                     "Unfollow"
                                    )}
                                  </Button>
                                ) : (
@@ -633,18 +600,12 @@ export default function TenUpPage() {
                                  size="sm"
                                  onClick={() => addPlayerToLocal(player)}
                                  disabled={addingPlayer === player.id}
-                                 className="w-full"
+                                 className="px-2 py-1 h-7 text-xs"
                                >
                                  {addingPlayer === player.id ? (
-                                   <>
-                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                     <span>Adding...</span>
-                                   </>
+                                   <Loader2 className="h-3 w-3 animate-spin" />
                                  ) : (
-                                   <>
-                                     <UserPlus className="h-4 w-4" />
-                                     <span>Add to My Players</span>
-                                   </>
+                                   "Follow"
                                  )}
                                </Button>
                                )}
