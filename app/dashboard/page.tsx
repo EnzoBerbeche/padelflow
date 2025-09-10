@@ -10,12 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3 } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3, Smartphone } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { InstallGuideModal } from '@/components/install-guide-modal';
 
 export default function HomePage() {
   const { user } = useSupabaseUser();
@@ -227,9 +228,21 @@ export default function HomePage() {
         <div className="space-y-6">
           {/* Welcome Header */}
           <div className="bg-gradient-to-r from-primary to-primary/80 rounded-lg p-6 text-white">
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
-            </h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold mb-2">
+                Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
+              </h1>
+              <InstallGuideModal>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                >
+                  <Smartphone className="h-4 w-4 mr-2" />
+                  Installer l'app
+                </Button>
+              </InstallGuideModal>
+            </div>
           </div>
 
           {/* User Statistics */}
