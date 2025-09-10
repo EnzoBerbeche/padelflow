@@ -95,7 +95,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const renderNavigationItem = (item: any) => {
-    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+    // More precise active detection to avoid conflicts between /dashboard and /dashboard/ten-up
+    const isActive = pathname === item.href || 
+      (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
     
     if (item.children) {
       // Render expandable admin section

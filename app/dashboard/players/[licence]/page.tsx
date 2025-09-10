@@ -543,12 +543,17 @@ export default function PlayerStatisticsPage() {
       const { supabase } = await import('@/lib/supabase');
       const { data, error } = await supabase
         .from('tenup_latest')
-        .select('idcrm, nom_complet, sexe, ligue, classement, points')
+        .select('id, idcrm, nom, prenom, nom_complet, sexe, ligue, classement, points, evolution, meilleur_classement, nationalite, age_sportif, nombre_tournois, date_classement, ranking_year, ranking_month')
         .order('nom_complet')
         .limit(100); // Limit initial load for performance
       
       if (error) {
-        console.error('Error fetching initial players:', error);
+        console.error('Error fetching initial players:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return;
       }
       
@@ -573,7 +578,7 @@ export default function PlayerStatisticsPage() {
       
       let query = supabase
         .from('tenup_latest')
-        .select('idcrm, nom_complet, sexe, ligue, classement, points')
+        .select('id, idcrm, nom, prenom, nom_complet, sexe, ligue, classement, points, evolution, meilleur_classement, nationalite, age_sportif, nombre_tournois, date_classement, ranking_year, ranking_month')
         .order('nom_complet')
         .limit(200);
       
