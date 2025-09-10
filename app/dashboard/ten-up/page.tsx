@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -47,6 +47,7 @@ export default function TenUpPage() {
   const [myLicences, setMyLicences] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<'name' | 'license' | 'ranking' | 'league' | 'birth_year'>('ranking');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchAllPlayers();
@@ -280,20 +281,21 @@ export default function TenUpPage() {
             </div>
           </div>
 
-                     {/* Search Controls */}
-           <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center space-x-2">
-                 <Database className="h-5 w-5" />
-                 <span>Search Players</span>
-               </CardTitle>
-               <CardDescription>
-                 Search and add players from the national database to your roster
-               </CardDescription>
-             </CardHeader>
-             <CardContent className="space-y-4">
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="space-y-2">
+          {/* Search Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Database className="h-5 w-5" />
+                <span>Search Players</span>
+              </CardTitle>
+              <CardDescription>
+                Search and add players from the national database to your roster
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search Bar - Always Visible */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 space-y-2">
                   <Label htmlFor="search">Search</Label>
                   <Input
                     id="search"
@@ -303,60 +305,11 @@ export default function TenUpPage() {
                     onKeyPress={(e) => e.key === 'Enter' && searchPlayers()}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select value={genderFilter} onValueChange={(value: 'men' | 'women' | 'all') => setGenderFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="men">Men</SelectItem>
-                      <SelectItem value="women">Women</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ranking-min">Min Ranking</Label>
-                  <Input
-                    id="ranking-min"
-                    type="number"
-                    placeholder="0"
-                    value={rankingMin}
-                    onChange={(e) => setRankingMin(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ranking-max">Max Ranking</Label>
-                  <Input
-                    id="ranking-max"
-                    type="number"
-                    placeholder="2000"
-                    value={rankingMax}
-                    onChange={(e) => setRankingMax(e.target.value)}
-                  />
-                </div>
-              </div>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="league">League</Label>
-                  <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Leagues</SelectItem>
-                      {leagues.map(league => (
-                        <SelectItem key={league} value={league}>{league}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
                   <Button 
                     onClick={searchPlayers}
                     disabled={searching}
-                    className="flex-1"
+                    className="flex-1 sm:flex-none"
                   >
                     {searching ? (
                       <>
@@ -370,6 +323,22 @@ export default function TenUpPage() {
                       </>
                     )}
                   </Button>
+                </div>
+              </div>
+
+              {/* Filter Toggle Button */}
+              <div className="flex justify-between items-center">
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center space-x-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                  {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+                
+                {showFilters && (
                   <Button 
                     variant="outline"
                     onClick={() => {
@@ -380,12 +349,70 @@ export default function TenUpPage() {
                       setLeagueFilter('all');
                       fetchAllPlayers();
                     }}
+                    className="flex items-center space-x-2"
                   >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Clear
+                    <Filter className="h-4 w-4" />
+                    <span>Clear Filters</span>
                   </Button>
-                </div>
+                )}
               </div>
+
+              {/* Collapsible Filter Controls */}
+              {showFilters && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Gender</Label>
+                        <Select value={genderFilter} onValueChange={(value: 'men' | 'women' | 'all') => setGenderFilter(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="men">Men</SelectItem>
+                            <SelectItem value="women">Women</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ranking-min">Min Ranking</Label>
+                        <Input
+                          id="ranking-min"
+                          type="number"
+                          placeholder="0"
+                          value={rankingMin}
+                          onChange={(e) => setRankingMin(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ranking-max">Max Ranking</Label>
+                        <Input
+                          id="ranking-max"
+                          type="number"
+                          placeholder="2000"
+                          value={rankingMax}
+                          onChange={(e) => setRankingMax(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="league">League</Label>
+                        <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Leagues</SelectItem>
+                            {leagues.map(league => (
+                              <SelectItem key={league} value={league}>{league}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
