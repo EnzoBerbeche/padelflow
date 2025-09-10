@@ -263,7 +263,7 @@ export default function Home() {
                 />
               </div>
             </div>
-            <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-3">
+            <h1 className="text-5xl md:text-6xl font-semibold text-gray-900 mb-3">
               NeyoPadel
             </h1>
             <p className="text-xl text-gray-600 font-light">
