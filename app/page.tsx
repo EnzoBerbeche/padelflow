@@ -14,8 +14,13 @@ export default function Home() {
   const { isSignedIn, isLoaded } = useSupabaseAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{id: string; email: string}[]>([]);
+  const [searchResults, setSearchResults] = useState<{id: string; email: string; player?: any}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+  const [allResults, setAllResults] = useState<{id: string; email: string; player?: any}[]>([]);
+  const resultsPerPage = 10;
+  
   
   // Redirect authenticated users to home dashboard
   useEffect(() => {
@@ -24,41 +29,74 @@ export default function Home() {
     }
   }, [isSignedIn, isLoaded, router]);
 
-  // Handle search when query changes
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
+  // Handle search when button is clicked
+  const handleSearchClick = () => {
+    if (searchQuery.trim()) {
       handleSearch(searchQuery);
-    }, 300);
+    }
+  };
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  // Handle pagination
+  const handlePageChange = (page: number) => {
+    const startIndex = (page - 1) * resultsPerPage;
+    const endIndex = startIndex + resultsPerPage;
+    const pageResults = allResults.slice(startIndex, endIndex);
+    
+    setSearchResults(pageResults);
+    setCurrentPage(page);
+  };
+
+
+  // Calculate pagination info
+  const totalPages = Math.ceil(totalResults / resultsPerPage);
+  const startResult = (currentPage - 1) * resultsPerPage + 1;
+  const endResult = Math.min(currentPage * resultsPerPage, totalResults);
+
 
   // Handle search functionality
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
+      setAllResults([]);
+      setTotalResults(0);
+      setCurrentPage(1);
       return;
     }
     
     setIsSearching(true);
     try {
-      // For now, we'll simulate a search with mock data
-      // In the future, this will search players, clubs, tournaments from your actual tables
-      const mockResults = [
-        { id: '1', email: 'player1@example.com' },
-        { id: '2', email: 'player2@example.com' },
-        { id: '3', email: 'player3@example.com' },
-      ].filter(player => 
-        player.email.toLowerCase().includes(query.toLowerCase())
-      );
+      // Search in tenup_latest table for players (no limit)
+      const { data, error } = await supabase
+        .from('tenup_latest')
+        .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue')
+        .or(`nom.ilike.%${query}%,prenom.ilike.%${query}%,nom_complet.ilike.%${query}%`);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setSearchResults(mockResults);
+      if (error) {
+        console.error('Search error:', error);
+        setSearchResults([]);
+        setAllResults([]);
+        setTotalResults(0);
+      } else {
+        // Transform the data to match our search results format
+        const transformedResults = (data || []).map(player => ({
+          id: player.idcrm.toString(),
+          email: `${player.nom_complet || `${player.prenom} ${player.nom}`} (${player.classement})`,
+          player: player
+        }));
+        
+        setAllResults(transformedResults);
+        setTotalResults(transformedResults.length);
+        setCurrentPage(1);
+        
+        // Show first page of results
+        const firstPageResults = transformedResults.slice(0, resultsPerPage);
+        setSearchResults(firstPageResults);
+      }
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      setAllResults([]);
+      setTotalResults(0);
     } finally {
       setIsSearching(false);
     }
@@ -132,75 +170,179 @@ export default function Home() {
           </div>
 
           {/* Search Bar */}
-          <div className="max-w-2xl mx-auto mb-8 relative">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                type="text"
-                placeholder="Search players, clubs, tournaments..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                }}
-                className="pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-full focus:border-green-500 focus:ring-0 shadow-sm"
-              />
-            </div>
-            
-            {/* Search Results Dropdown */}
-            {searchQuery && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Input
+                  type="text"
+                  placeholder="Search players, clubs, tournaments..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearchClick();
+                    }
+                  }}
+                  className="pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-full focus:border-green-500 focus:ring-0 shadow-sm"
+                />
+              </div>
+              <Button 
+                onClick={handleSearchClick}
+                disabled={!searchQuery.trim() || isSearching}
+                className="bg-green-600 hover:bg-green-700 px-8 py-4 rounded-full"
+              >
                 {isSearching ? (
-                  <div className="p-4 text-center text-gray-500">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mx-auto mb-2"></div>
-                    Searching...
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  <div className="py-2">
-                    {searchResults.map((result, index) => (
-                      <div key={index} className="px-4 py-2 hover:bg-gray-50 cursor-pointer">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-gray-600 text-sm font-medium">
-                              {result.email?.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-gray-900">{result.email}</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Searching...</span>
                   </div>
                 ) : (
-                  <div className="p-4 text-center text-gray-500">
-                    No results found
+                  'Search'
+                )}
+              </Button>
+            </div>
+          </div>
+
+
+          {/* Search Results Table */}
+          {searchResults.length > 0 && (
+            <div className="max-w-6xl mx-auto mb-8">
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Search Results ({totalResults} players found)
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Showing {startResult}-{endResult} of {totalResults} results
+                  </p>
+                </div>
+                <div className="overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Player
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ranking
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Gender
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          League
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {searchResults.map((result, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {result.player?.nom_complet || `${result.player?.prenom} ${result.player?.nom}`}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              #{result.player?.classement || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {result.player?.sexe || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {result.player?.ligue || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => {
+                                if (isSignedIn) {
+                                  // TODO: Navigate to player profile
+                                  console.log('Navigate to player:', result.player);
+                                } else {
+                                  // Redirect to sign up page
+                                  router.push('/sign-up');
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              {isSignedIn ? 'View Profile' : 'Sign Up to View'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        
+                        {/* Page Numbers */}
+                        <div className="flex space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum: number;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                            
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => handlePageChange(pageNum)}
+                                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                                  currentPage === pageNum
+                                    ? 'bg-green-600 text-white'
+                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                      
+                      <div className="text-sm text-gray-500">
+                        Page {currentPage} of {totalPages}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {isSignedIn ? (
-              <Link href="/dashboard">
-                <Button size="lg" className="bg-green-600 hover:bg-green-700 px-8 py-3">
-                  Go to Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/sign-up">
-                  <Button size="lg" className="bg-green-600 hover:bg-green-700 px-8 py-3">
-                    Get Started
-                  </Button>
-                </Link>
-                <Link href="/sign-in">
-                  <Button size="lg" variant="outline" className="px-8 py-3">
-                    Sign In
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
         </div>
       </main>
 
