@@ -196,49 +196,44 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col">
       {/* Première étape : Gagné ou Perdu */}
-      <Card className="border-gray-200 bg-gray-50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-gray-800">🎾 Type de point</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              onClick={() => handleTypeClick('gagné')}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              <span className="mr-2">✅</span>
-              Gagné
-            </Button>
-            <Button
-              onClick={() => handleTypeClick('perdu')}
-              className="h-16 text-lg bg-red-600 hover:bg-red-700 text-white"
-            >
-              <span className="mr-2">❌</span>
-              Perdu
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="grid grid-cols-2 gap-4 h-full">
+          <Button
+            onClick={() => handleTypeClick('gagné')}
+            className="h-full min-h-[200px] text-xl bg-green-600 hover:bg-green-700 text-white"
+          >
+            <span className="mr-2">✅</span>
+            Gagné
+          </Button>
+          <Button
+            onClick={() => handleTypeClick('perdu')}
+            className="h-full min-h-[200px] text-xl bg-red-600 hover:bg-red-700 text-white"
+          >
+            <span className="mr-2">❌</span>
+            Perdu
+          </Button>
+        </div>
+      </div>
 
       {/* Dialog Actions */}
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-sm">
-              {selectedType === 'gagné' ? 'Points gagnés' : 'Points perdus'} - Choisir l'action
+            <DialogTitle className="text-lg text-center">
+              {selectedType === 'gagné' ? '✅ Points gagnés' : '❌ Points perdus'}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 py-4">
             {(selectedType === 'gagné' ? gagnéActions : perduActions).map((action) => (
               <Button
                 key={action.id}
                 onClick={() => handleActionClick(action)}
-                className="w-full h-10 text-sm"
+                className="w-full h-16 text-base font-medium"
                 variant="outline"
               >
-                <span className="mr-2">🎾</span>
+                <span className="mr-3 text-2xl">🎾</span>
                 {formatActionName(action.category_2)}
               </Button>
             ))}
@@ -248,21 +243,21 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
 
       {/* Dialog Sous-tags */}
       <Dialog open={showSubTagDialog} onOpenChange={setShowSubTagDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-sm">
-              {selectedAction && formatActionName(selectedAction.category_2)} - Choisir le type
+            <DialogTitle className="text-lg text-center">
+              {selectedAction && formatActionName(selectedAction.category_2)}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 py-4">
             {selectedAction && getSubTags(selectedAction.category_2).map((subTag) => (
               <Button
                 key={subTag.id}
                 onClick={() => handleSubTagClick(subTag)}
-                className="w-full h-10 text-sm"
+                className="w-full h-16 text-base font-medium"
                 variant="outline"
               >
-                <span className="mr-2">🎾</span>
+                <span className="mr-3 text-2xl">🎾</span>
                 {formatActionName(subTag.label)}
               </Button>
             ))}
@@ -272,21 +267,21 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
 
       {/* Dialog Sub-sub-tags (pour Unforced Error) */}
       <Dialog open={showSubSubTagDialog} onOpenChange={setShowSubSubTagDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-sm">
+            <DialogTitle className="text-lg text-center">
               {selectedAction && formatActionName(selectedAction.category_2)} - Lieu de la faute
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 py-4">
             {selectedAction && selectedSubTag && getSubSubTags(selectedAction.category_2, selectedSubTag).map((subSubTag) => (
               <Button
                 key={subSubTag.id}
                 onClick={() => handleSubSubTagClick(subSubTag)}
-                className="w-full h-10 text-sm"
+                className="w-full h-16 text-base font-medium"
                 variant="outline"
               >
-                <span className="mr-2">🎾</span>
+                <span className="mr-3 text-2xl">🎾</span>
                 {formatActionName(subSubTag.label)}
               </Button>
             ))}
@@ -296,26 +291,28 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
 
       {/* Dialog Joueur */}
       <Dialog open={showPlayerDialog} onOpenChange={setShowPlayerDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm">
+            <DialogTitle className="text-lg text-center">
               Qui a fait cette action ?
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 py-6">
             <Button
               onClick={() => handlePlayerSelect('right')}
-              className="w-full h-10 text-sm"
+              className="w-full h-20 text-lg font-medium"
               variant="outline"
             >
-              {playerRight || 'Joueur Droite'}
+              <span className="mr-3 text-3xl">👤</span>
+              {playerRight || 'Joueur Droite'} (D)
             </Button>
             <Button
               onClick={() => handlePlayerSelect('left')}
-              className="w-full h-10 text-sm"
+              className="w-full h-20 text-lg font-medium"
               variant="outline"
             >
-              {playerLeft || 'Joueur Gauche'}
+              <span className="mr-3 text-3xl">👤</span>
+              {playerLeft || 'Joueur Gauche'} (G)
             </Button>
           </div>
         </DialogContent>
