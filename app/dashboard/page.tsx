@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -37,6 +37,7 @@ export default function HomePage() {
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<'nom_complet' | 'licence' | 'classement' | 'ligue' | 'age_sportif'>('nom_complet');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -305,83 +306,88 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Eye className="h-5 w-5" />
-                  <span>Players You Follow ({filteredPlayers.length})</span>
+                  <span>My Players ({filteredPlayers.length})</span>
                 </CardTitle>
-                <CardDescription>
-                  Track the performance of your followed players with advanced filtering and search
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Search and Filter Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="player-search">Search</Label>
-                    <Input
-                      id="player-search"
-                      placeholder="Name or license..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="player-gender">Gender</Label>
-                    <Select value={genderFilter} onValueChange={(value: string) => setGenderFilter(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="H">Men</SelectItem>
-                        <SelectItem value="F">Women</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="player-ranking">Max Ranking</Label>
-                    <Select value={rankingFilter} onValueChange={(value: string) => setRankingFilter(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Rankings</SelectItem>
-                        <SelectItem value="p25">P25 and below</SelectItem>
-                        <SelectItem value="p100">P100 and below</SelectItem>
-                        <SelectItem value="p250">P250 and below</SelectItem>
-                        <SelectItem value="p500">P500 and below</SelectItem>
-                        <SelectItem value="p1000">P1000 and below</SelectItem>
-                        <SelectItem value="p1500">P1500 and below</SelectItem>
-                        <SelectItem value="p2000">P2000 and below</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="player-league">League</Label>
-                    <Select value={leagueFilter} onValueChange={(value: string) => setLeagueFilter(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Leagues</SelectItem>
-                        {uniqueLeagues.map(league => (
-                          <SelectItem key={league} value={league}>{league}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                {/* Clear Filters Button */}
-                <div className="flex justify-end">
+                {/* Filter Toggle Button */}
+                <div className="flex justify-between items-center">
                   <Button 
                     variant="outline"
-                    onClick={clearFilters}
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="flex items-center space-x-2"
                   >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Clear Filters
+                    <Filter className="h-4 w-4" />
+                    <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                    {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
+                  
+                  {showFilters && (
+                    <Button 
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="flex items-center space-x-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      <span>Clear Filters</span>
+                    </Button>
+                  )}
                 </div>
 
-                {/* Enhanced Table */}
+                {/* Collapsible Filter Controls */}
+                {showFilters && (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="player-gender">Gender</Label>
+                        <Select value={genderFilter} onValueChange={(value: string) => setGenderFilter(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="H">Men</SelectItem>
+                            <SelectItem value="F">Women</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="player-ranking">Max Ranking</Label>
+                        <Select value={rankingFilter} onValueChange={(value: string) => setRankingFilter(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Rankings</SelectItem>
+                            <SelectItem value="p25">P25 and below</SelectItem>
+                            <SelectItem value="p100">P100 and below</SelectItem>
+                            <SelectItem value="p250">P250 and below</SelectItem>
+                            <SelectItem value="p500">P500 and below</SelectItem>
+                            <SelectItem value="p1000">P1000 and below</SelectItem>
+                            <SelectItem value="p1500">P1500 and below</SelectItem>
+                            <SelectItem value="p2000">P2000 and below</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="player-league">League</Label>
+                        <Select value={leagueFilter} onValueChange={(value: string) => setLeagueFilter(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Leagues</SelectItem>
+                            {uniqueLeagues.map(league => (
+                              <SelectItem key={league} value={league}>{league}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile-Optimized Player List */}
                 {sortedPlayers.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -389,107 +395,164 @@ export default function HomePage() {
                     <p className="text-sm">Try adjusting your search criteria or filters.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button
-                              onClick={() => handleSort('nom_complet')}
-                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                            >
-                              <span>Player</span>
-                              {sortField === 'nom_complet' && (
-                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                          </th>
-                          
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button
-                              onClick={() => handleSort('classement')}
-                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                            >
-                              <span>Current Ranking</span>
-                              {sortField === 'classement' && (
-                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">
-                            <button
-                              onClick={() => handleSort('ligue')}
-                              className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                            >
-                              <span>League</span>
-                              {sortField === 'ligue' && (
-                                <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                          </th>
-                                                     <th className="text-left py-3 px-4 font-medium text-gray-900">
-                             <button
-                               onClick={() => handleSort('age_sportif')}
-                               className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                             >
-                               <span>Age</span>
-                               {sortField === 'age_sportif' && (
-                                 <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                               )}
-                             </button>
-                           </th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
-                          <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedPlayers.map((player) => (
-                          <tr key={player.player_id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-2">
-                                {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
-                                <Link 
-                                  href={`/dashboard/players/${player.licence}`}
-                                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                  <div className="space-y-3">
+                    {/* Desktop Table - Hidden on Mobile */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('nom_complet')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Player</span>
+                                {sortField === 'nom_complet' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('classement')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Current Ranking</span>
+                                {sortField === 'classement' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('ligue')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>League</span>
+                                {sortField === 'ligue' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              <button
+                                onClick={() => handleSort('age_sportif')}
+                                className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                              >
+                                <span>Age</span>
+                                {sortField === 'age_sportif' && (
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </button>
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedPlayers.map((player) => (
+                            <tr key={player.player_id} className="border-b hover:bg-gray-50">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center space-x-2">
+                                  {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
+                                  <Link 
+                                    href={`/dashboard/players/${player.licence}`}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                  >
+                                    {player.nom_complet || `Player ${player.licence}`}
+                                  </Link>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <Badge className={getRankingColor(player.classement || 0)}>
+                                  P{player.classement || 'N/A'}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4 text-gray-600">
+                                {player.ligue || '-'}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600">
+                                {player.age_sportif || '-'}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center">
+                                  {getEvolutionIcon(player.evolution)}
+                                  <span className={`ml-1 ${getEvolutionColor(player.evolution)}`}>
+                                    {getEvolutionText(player.evolution)}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => unfollowPlayer(player.player_id)}
                                 >
-                                  {player.nom_complet || `Player ${player.licence}`}
-                                </Link>
-                              </div>
-                            </td>
-                            
-                            <td className="py-3 px-4">
-                              <Badge className={getRankingColor(player.classement || 0)}>
+                                  <UserMinus className="h-4 w-4 mr-1" />
+                                  Unfollow
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards - Visible only on Mobile */}
+                    <div className="md:hidden space-y-3">
+                      {sortedPlayers.map((player) => (
+                        <div key={player.player_id} className="bg-white border rounded-lg p-4 shadow-sm">
+                          {/* Player Name and Gender */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
+                              <Link 
+                                href={`/dashboard/players/${player.licence}`}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-lg"
+                              >
+                                {player.nom_complet || `Player ${player.licence}`}
+                              </Link>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => unfollowPlayer(player.player_id)}
+                              className="text-xs"
+                            >
+                              <UserMinus className="h-3 w-3 mr-1" />
+                              Unfollow
+                            </Button>
+                          </div>
+
+                          {/* Main Info Row - Ranking and Evolution */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-3">
+                              <Badge className={`${getRankingColor(player.classement || 0)} text-sm`}>
                                 P{player.classement || 'N/A'}
                               </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.ligue || '-'}
-                            </td>
-                            <td className="py-3 px-4 text-gray-600">
-                              {player.age_sportif || '-'}
-                            </td>
-                            <td className="py-3 px-4">
                               <div className="flex items-center">
                                 {getEvolutionIcon(player.evolution)}
-                                <span className={`ml-1 ${getEvolutionColor(player.evolution)}`}>
-                                  {getEvolutionText(player.evolution)}
+                                <span className={`ml-1 text-sm font-medium ${getEvolutionColor(player.evolution)}`}>
+                                  {player.evolution ? (player.evolution > 0 ? `+${player.evolution}` : player.evolution) : 'No change'}
                                 </span>
                               </div>
-                            </td>
-                                                         <td className="py-3 px-4 text-right">
-                               <Button 
-                                 size="sm" 
-                                 variant="outline"
-                                 onClick={() => unfollowPlayer(player.player_id)}
-                               >
-                                 <UserMinus className="h-4 w-4 mr-1" />
-                                 Unfollow
-                               </Button>
-                             </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+
+                          {/* Secondary Info - League and Age */}
+                          <div className="flex items-center justify-between text-sm text-gray-600">
+                            <span className="truncate max-w-[60%]">
+                              {player.ligue || 'No league'}
+                            </span>
+                            {player.age_sportif && (
+                              <span className="text-xs">
+                                Age: {player.age_sportif}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -502,7 +565,7 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Eye className="h-5 w-5" />
-                  <span>Players You Follow</span>
+                  <span>My Players</span>
                 </CardTitle>
                 <CardDescription>
                   Start following players to track their performance
