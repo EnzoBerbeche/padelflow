@@ -21,13 +21,12 @@ export default function Home() {
   const [allResults, setAllResults] = useState<{id: string; email: string; player?: any}[]>([]);
   const resultsPerPage = 10;
   
-  
   // Redirect authenticated users to home dashboard
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       router.replace('/dashboard');
     }
-  }, [isSignedIn, isLoaded, router]);
+  }, [isLoaded, isSignedIn, router]);
 
   // Handle search when button is clicked
   const handleSearchClick = () => {
@@ -46,12 +45,10 @@ export default function Home() {
     setCurrentPage(page);
   };
 
-
   // Calculate pagination info
   const totalPages = Math.ceil(totalResults / resultsPerPage);
   const startResult = (currentPage - 1) * resultsPerPage + 1;
   const endResult = Math.min(currentPage * resultsPerPage, totalResults);
-
 
   // Handle search functionality
   const handleSearch = async (query: string) => {
@@ -63,9 +60,17 @@ export default function Home() {
       return;
     }
     
+    // Check if Supabase is properly configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('❌ Supabase not configured properly');
+      setSearchResults([]);
+      setAllResults([]);
+      setTotalResults(0);
+      return;
+    }
+    
     setIsSearching(true);
     try {
-      // Search in tenup_latest table for players (no limit)
       // Split query into individual words and normalize case
       const searchWords = query.trim().split(/\s+/).filter(word => word.length > 0);
       
@@ -82,7 +87,7 @@ export default function Home() {
         .order('classement', { ascending: true });
       
       if (searchWords.length === 1) {
-        // Single word search - search ONLY in nom_complet
+        // Single word search - search ONLY in nom_complet (case insensitive)
         const word = searchWords[0].toLowerCase();
         searchQuery = searchQuery.ilike('nom_complet', `%${word}%`);
       } else if (searchWords.length === 2) {
@@ -105,12 +110,16 @@ export default function Home() {
       console.log('📊 Search result:', { data: data?.length || 0, error });
       
       if (error) {
-        console.error('❌ Search error:', error);
+        console.error('❌ Search error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         setSearchResults([]);
         setAllResults([]);
         setTotalResults(0);
       } else {
-        // Transform the data to match our search results format
         const transformedResults = (data || []).map(player => ({
           id: player.idcrm.toString(),
           email: `${player.nom_complet || `${player.prenom} ${player.nom}`} (${player.classement})`,
@@ -121,7 +130,6 @@ export default function Home() {
         setTotalResults(transformedResults.length);
         setCurrentPage(1);
         
-        // Show first page of results
         const firstPageResults = transformedResults.slice(0, resultsPerPage);
         setSearchResults(firstPageResults);
       }
@@ -146,7 +154,7 @@ export default function Home() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-white">
       {/* Minimal Header */}
@@ -184,17 +192,17 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Google-like Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-20">
+      {/* Centered Hero Section - Google-like positioning */}
+      <main className="min-h-screen flex flex-col items-center justify-start px-4 pt-32">
         <div className="max-w-4xl w-full text-center">
           {/* Logo and Tagline */}
-          <div className="mb-12">
-            <div className="flex justify-center mb-6">
+          <div className="mb-8">
+            <div className="flex justify-center mb-4">
               <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-3xl">N</span>
               </div>
             </div>
-            <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-4">
+            <h1 className="text-5xl md:text-6xl font-light text-gray-900 mb-3">
               NeyoPadel
             </h1>
             <p className="text-xl text-gray-600 font-light">
@@ -203,29 +211,29 @@ export default function Home() {
           </div>
 
           {/* Search Bar */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  type="text"
-                  placeholder="Search players, clubs, tournaments..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSearchClick();
-                    }
-                  }}
-                  className="pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-full focus:border-green-500 focus:ring-0 shadow-sm"
-                />
-              </div>
+          <div className="max-w-2xl mx-auto">
+            <div className="relative mb-4">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                type="text"
+                placeholder="Search players, clubs, tournaments..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearchClick();
+                  }
+                }}
+                className="pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-full focus:border-green-500 focus:ring-0 shadow-sm w-full"
+              />
+            </div>
+            <div className="flex justify-center">
               <Button 
                 onClick={handleSearchClick}
                 disabled={!searchQuery.trim() || isSearching}
-                className="bg-green-600 hover:bg-green-700 px-8 py-4 rounded-full"
+                className="bg-green-600 hover:bg-green-700 px-8 py-2 rounded-full"
               >
                 {isSearching ? (
                   <div className="flex items-center space-x-2">
@@ -239,7 +247,6 @@ export default function Home() {
             </div>
           </div>
 
-
           {/* Search Results Table */}
           {searchResults.length > 0 && (
             <div className="max-w-6xl mx-auto mb-8">
@@ -248,11 +255,8 @@ export default function Home() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     Search Results ({totalResults} players found)
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Showing {startResult}-{endResult} of {totalResults} results
-                  </p>
                 </div>
-                <div className="overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
@@ -274,197 +278,136 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {searchResults.map((result, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
+                      {searchResults.map((result) => (
+                        <tr key={result.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {result.player?.nom_complet || `${result.player?.prenom} ${result.player?.nom}`}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              #{result.player?.classement || 'N/A'}
+                            <span className="text-sm text-gray-900 font-medium">
+                              {result.player?.classement || 'N/A'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {result.player?.sexe || 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-500">
+                              {result.player?.sexe || 'N/A'}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {result.player?.ligue || 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-500">
+                              {result.player?.ligue || 'N/A'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => {
-                                if (isSignedIn) {
-                                  // TODO: Navigate to player profile
-                                  console.log('Navigate to player:', result.player);
-                                } else {
-                                  // Redirect to sign up page
-                                  router.push('/sign-up');
-                                }
-                              }}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              {isSignedIn ? 'View Profile' : 'Sign Up to View'}
-                            </button>
+                            {isSignedIn ? (
+                              <Link href={`/dashboard/players/${result.player?.idcrm}`}>
+                                <Button size="sm" variant="outline">
+                                  View Profile
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Link href="/sign-up">
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                                  Sign Up to View
+                                </Button>
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-                        
-                        {/* Page Numbers */}
-                        <div className="flex space-x-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum: number;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
-                          }
-                            
-                            return (
-                              <button
-                                key={pageNum}
-                                onClick={() => handlePageChange(pageNum)}
-                                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                                  currentPage === pageNum
-                                    ? 'bg-green-600 text-white'
-                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                }`}
-                              >
-                                {pageNum}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      </div>
-                      
-                      <div className="text-sm text-gray-500">
-                        Page {currentPage} of {totalPages}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-sm text-gray-700">
+                    Showing {startResult} to {endResult} of {totalResults} results
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className={currentPage === pageNum ? "bg-green-600 hover:bg-green-700" : ""}
+                      >
+                        {pageNum}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
         </div>
       </main>
 
-      {/* Value Proposition Section */}
+      {/* Value Proposition Section - Only visible when scrolling */}
       <section className="py-16 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-semibold text-gray-900 mb-4">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">
               Everything you need to elevate your padel game
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-gray-600">
               Track your progress, analyze your matches, and connect with the padel community
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <Card className="text-center hover:shadow-lg transition-all duration-300 border-0 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="h-8 w-8 text-green-600" />
-                </div>
-                <CardTitle className="text-lg font-semibold">Track Your Progression</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-600">
-                  Monitor your ranking changes and performance improvements over time
-                </CardDescription>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <TrendingUp className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Track Progression</h3>
+            </div>
 
-            <Card className="text-center hover:shadow-lg transition-all duration-300 border-0 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="h-8 w-8 text-green-600" />
-                </div>
-                <CardTitle className="text-lg font-semibold">Analyze Your Matches</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-600">
-                  Get detailed statistics and insights from every point you play
-                </CardDescription>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <BarChart3 className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Analyze Matches</h3>
+            </div>
 
-            <Card className="text-center hover:shadow-lg transition-all duration-300 border-0 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <UserPlus className="h-8 w-8 text-green-600" />
-                </div>
-                <CardTitle className="text-lg font-semibold">Follow Players</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-600">
-                  Follow your favorite players and track their stats and progression
-                </CardDescription>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <UserPlus className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Follow Players</h3>
+            </div>
 
-            <Card className="text-center hover:shadow-lg transition-all duration-300 border-0 shadow-sm">
-              <CardHeader className="pb-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MapPin className="h-8 w-8 text-green-600" />
-                </div>
-                <CardTitle className="text-lg font-semibold">Discover Clubs & Tournaments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-gray-600">
-                  Find local clubs and tournaments to join the padel community
-                </CardDescription>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <MapPin className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Discover Clubs</h3>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-8 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xs">N</span>
-            </div>
-            <span className="text-lg font-semibold text-gray-900">NeyoPadel</span>
-          </div>
-          <p className="text-gray-500 text-sm">
-            The only padel app you need
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
