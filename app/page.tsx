@@ -72,10 +72,29 @@ export default function Home() {
       console.log('🔑 Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing');
       
       // Search in tenup_latest table for players (no limit)
-      const { data, error } = await supabase
+      // Split query into individual words for more flexible search
+      const searchWords = query.trim().split(/\s+/).filter(word => word.length > 0);
+      
+      let searchQuery = supabase
         .from('tenup_latest')
-        .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue')
-        .or(`nom.ilike.%${query}%,prenom.ilike.%${query}%,nom_complet.ilike.%${query}%`);
+        .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue');
+      
+      if (searchWords.length === 1) {
+        // Single word search - search in all fields
+        searchQuery = searchQuery.or(`nom.ilike.%${searchWords[0]}%,prenom.ilike.%${searchWords[0]}%,nom_complet.ilike.%${searchWords[0]}%`);
+      } else {
+        // Multiple words search - use a more flexible approach
+        // Search for the full query in nom_complet first, then individual words
+        const fullQuery = searchWords.join(' ');
+        searchQuery = searchQuery.or(
+          `nom_complet.ilike.%${fullQuery}%,` +
+          `nom_complet.ilike.%${searchWords.join('%')}%,` +
+          searchWords.map(word => `nom.ilike.%${word}%`).join(',') + ',' +
+          searchWords.map(word => `prenom.ilike.%${word}%`).join(',')
+        );
+      }
+      
+      const { data, error } = await searchQuery;
       
       console.log('📊 Search result:', { data: data?.length || 0, error });
       
