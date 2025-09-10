@@ -65,14 +65,22 @@ export default function Home() {
     
     setIsSearching(true);
     try {
+      // Debug: Check Supabase configuration
+      console.log('🔍 Search started for:', query);
+      console.log('🌐 Environment:', process.env.NODE_ENV);
+      console.log('🔗 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing');
+      console.log('🔑 Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing');
+      
       // Search in tenup_latest table for players (no limit)
       const { data, error } = await supabase
         .from('tenup_latest')
         .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue')
         .or(`nom.ilike.%${query}%,prenom.ilike.%${query}%,nom_complet.ilike.%${query}%`);
       
+      console.log('📊 Search result:', { data: data?.length || 0, error });
+      
       if (error) {
-        console.error('Search error:', error);
+        console.error('❌ Search error:', error);
         setSearchResults([]);
         setAllResults([]);
         setTotalResults(0);
