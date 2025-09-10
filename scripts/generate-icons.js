@@ -1,20 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 
-// Créer un canvas simple pour générer les icônes PNG
+// Lire l'icône principale et la redimensionner
 const createIcon = (size) => {
-  const canvas = `
-<svg width="${size}" height="${size}" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="64" fill="#000000"/>
-  <rect x="64" y="64" width="384" height="384" rx="32" fill="#ffffff"/>
-  <circle cx="256" cy="200" r="40" fill="#000000"/>
-  <rect x="216" y="240" width="80" height="120" rx="8" fill="#000000"/>
-  <rect x="180" y="360" width="40" height="40" rx="4" fill="#000000"/>
-  <rect x="292" y="360" width="40" height="40" rx="4" fill="#000000"/>
-  <text x="256" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000">PADEL</text>
-</svg>`;
+  const iconPath = path.join(__dirname, '..', 'public', 'icons', 'icon.svg');
+  const originalIcon = fs.readFileSync(iconPath, 'utf8');
   
-  return canvas;
+  // Remplacer la taille dans le SVG original
+  const resizedIcon = originalIcon
+    .replace(/width="48"/g, `width="${size}"`)
+    .replace(/height="48"/g, `height="${size}"`)
+    .replace(/viewBox="0 0 48 48"/g, `viewBox="0 0 48 48"`);
+  
+  return resizedIcon;
 };
 
 // Tailles d'icônes nécessaires
