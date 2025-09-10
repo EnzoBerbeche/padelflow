@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, MapPin, Calendar, Users, Target, Award, Flag, Building } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { playerStatisticsAPI, PlayerStatistics } from '@/lib/supabase';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -23,159 +24,72 @@ interface ChartData {
   points: number;
   tournaments: number;
   date: string;
+  year: number;
+  monthNumber: number;
 }
 
 const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonData?: ChartData[] }) => {
   if (data.length === 0) return <div className="text-gray-500 text-center py-8">No data available</div>;
   
-  const allRankings = [...data.map(d => d.ranking), ...(comparisonData?.map(d => d.ranking) || [])];
-  const maxRanking = Math.max(...allRankings);
-  const minRanking = Math.min(...allRankings);
-  const range = maxRanking - minRanking || 1;
-  
-  // Use container-based responsive dimensions
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
-  
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const isMobile = containerWidth < 640;
-        setDimensions({
-          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
-          height: isMobile ? 200 : 250
-        });
-      }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-  
-  const { width, height } = dimensions;
-  const padding = width < 640 ? 20 : 40;
-  const chartWidth = width - 2 * padding;
-  const chartHeight = height - 2 * padding;
-  
-  const points = data.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * chartWidth;
-    // Reversed Y-axis: lower ranking (better) at top, higher ranking (worse) at bottom
-    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
-    return { x, y, ...d };
-  });
+  // Prepare data for Recharts
+  const chartData = data.map((item, index) => ({
+    month: new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+    ranking: item.ranking,
+    comparisonRanking: comparisonData?.[index]?.ranking || null
+  }));
 
-  const comparisonPoints = comparisonData?.map((d, i) => {
-    const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
-    // Reversed Y-axis: lower ranking (better) at top, higher ranking (worse) at bottom
-    const y = padding + ((d.ranking - minRanking) / range) * chartHeight;
-    return { x, y, ...d };
-  }) || [];
-  
-  const pathData = points.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-
-  const comparisonPathData = comparisonPoints.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-  
   return (
-    <div ref={containerRef} className="w-full">
-      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
-        {/* Grid lines */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          return (
-            <line
-              key={i}
-              x1={padding}
-              y1={y}
-              x2={width - padding}
-              y2={y}
-              stroke="#e5e7eb"
-              strokeWidth={1}
-              strokeDasharray="3,3"
+    <div className="w-full h-full">
+      {/* @ts-ignore */}
+      <ResponsiveContainer width="100%" height="100%">
+        {/* @ts-ignore */}
+        <LineChart data={chartData} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
+          {/* @ts-ignore */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          {/* @ts-ignore */}
+          <XAxis 
+            dataKey="month" 
+            angle={-75}
+            textAnchor="end"
+            height={60}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <YAxis 
+            domain={['dataMin - 100', 'dataMax + 100']}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <Tooltip 
+            formatter={(value: any, name: string) => [
+              name === 'ranking' ? value : value,
+              name === 'ranking' ? 'Ranking' : 'Comparison'
+            ]}
+            labelFormatter={(label) => `Month: ${label}`}
+          />
+          {/* @ts-ignore */}
+          <Line 
+            type="monotone" 
+            dataKey="ranking" 
+            stroke="#3b82f6" 
+            strokeWidth={2}
+            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+          {comparisonData && comparisonData.length > 0 && (
+            /* @ts-ignore */
+            <Line 
+              type="monotone" 
+              dataKey="comparisonRanking" 
+              stroke="#f59e0b" 
+            strokeWidth={1.5}
+            strokeDasharray="5 5"
+            dot={{ fill: '#f59e0b', strokeWidth: 1, r: 2.5 }}
+            activeDot={{ r: 4 }}
             />
-          );
-        })}
-        
-        {/* Y-axis labels */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          // Labels go from minRanking (better) at top to maxRanking (worse) at bottom
-          const ranking = minRanking + (i / 4) * range;
-          return (
-            <text
-              key={i}
-              x={padding - 10}
-              y={y + 4}
-              textAnchor="end"
-              className="text-xs fill-gray-600"
-            >
-              P{Math.round(ranking)}
-            </text>
-          );
-        })}
-        
-        {/* Additional Y-axis label for the bottom to prevent cutoff */}
-        <text
-          x={padding - 10}
-          y={height - padding + 4}
-          textAnchor="end"
-          className="text-xs fill-gray-600"
-        >
-          P{Math.round(maxRanking)}
-        </text>
-        
-        {/* X-axis labels removed for cleaner look */}
-        
-        {/* Comparison chart line (dashed) */}
-        {comparisonData && comparisonData.length > 0 && (
-          <path
-            d={comparisonPathData}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            strokeDasharray="5,5"
-          />
-        )}
-        
-        {/* Main chart line */}
-        <path
-          d={pathData}
-          fill="none"
-          stroke="#3b82f6"
-          strokeWidth={3}
-        />
-        
-        {/* Comparison data points */}
-        {comparisonPoints.map((p, i) => (
-          <circle
-            key={`comp-${i}`}
-            cx={p.x}
-            cy={p.y}
-            r={3}
-            fill="#f59e0b"
-            stroke="white"
-            strokeWidth={1}
-          />
-        ))}
-        
-        {/* Main data points */}
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={4}
-            fill="#3b82f6"
-            stroke="white"
-            strokeWidth={2}
-          />
-        ))}
-      </svg>
+          )}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
@@ -183,151 +97,68 @@ const RankingChart = ({ data, comparisonData }: { data: ChartData[]; comparisonD
 const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonData?: ChartData[] }) => {
   if (data.length === 0) return <div className="text-gray-500 text-center py-8">No data available</div>;
   
-  const allPoints = [...data.map(d => d.points), ...(comparisonData?.map(d => d.points) || [])];
-  const maxPoints = Math.max(...allPoints);
-  const minPoints = Math.min(...allPoints);
-  const range = maxPoints - minPoints || 1;
-  
-  // Use container-based responsive dimensions
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
-  
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const isMobile = containerWidth < 640;
-        setDimensions({
-          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
-          height: isMobile ? 200 : 250
-        });
-      }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-  
-  const { width, height } = dimensions;
-  const padding = width < 640 ? 20 : 40;
-  const chartWidth = width - 2 * padding;
-  const chartHeight = height - 2 * padding;
-  
-  const points = data.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * chartWidth;
-    const y = padding + ((maxPoints - d.points) / range) * chartHeight;
-    return { x, y, ...d };
-  });
+  // Prepare data for Recharts
+  const chartData = data.map((entry, index) => ({
+    month: entry.month,
+    points: entry.points,
+    comparisonPoints: comparisonData?.[index]?.points
+  }));
 
-  const comparisonPoints = comparisonData?.map((d, i) => {
-    const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
-    const y = padding + ((maxPoints - d.points) / range) * chartHeight;
-    return { x, y, ...d };
-  }) || [];
-  
-  const pathData = points.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-
-  const comparisonPathData = comparisonPoints.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-  
   return (
-    <div ref={containerRef} className="w-full">
-      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
-        {/* Grid lines */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          return (
-            <line
-              key={i}
-              x1={padding}
-              y1={y}
-              x2={width - padding}
-              y2={y}
-              stroke="#e5e7eb"
-              strokeWidth={1}
-              strokeDasharray="3,3"
+    <div className="w-full h-full">
+      {/* @ts-ignore */}
+      <ResponsiveContainer width="100%" height="100%">
+        {/* @ts-ignore */}
+        <LineChart data={chartData} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
+          {/* @ts-ignore */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          {/* @ts-ignore */}
+          <XAxis 
+            dataKey="month" 
+            angle={-75}
+            textAnchor="end"
+            height={60}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <YAxis 
+            domain={['dataMin - 50', 'dataMax + 50']}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <Tooltip 
+            contentStyle={{ 
+              backgroundColor: 'white', 
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+            formatter={(value: any, name: string) => [value, name === 'points' ? 'Points' : 'Comparison Points']}
+            labelFormatter={(label) => `Month: ${label}`}
+          />
+          {/* @ts-ignore */}
+          <Line 
+            type="monotone" 
+            dataKey="points" 
+            stroke="#10b981" 
+            strokeWidth={2}
+            dot={{ fill: '#10b981', stroke: 'white', strokeWidth: 2, r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+          {comparisonData && comparisonData.length > 0 && (
+            /* @ts-ignore */
+            <Line 
+              type="monotone" 
+              dataKey="comparisonPoints" 
+              stroke="#f59e0b" 
+            strokeWidth={1.5}
+            strokeDasharray="5 5"
+            dot={{ fill: '#f59e0b', stroke: 'white', strokeWidth: 1, r: 2.5 }}
+            activeDot={{ r: 4 }}
             />
-          );
-        })}
-        
-        {/* Y-axis labels */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          const points = maxPoints - (i / 4) * range;
-          return (
-            <text
-              key={i}
-              x={padding - 10}
-              y={y + 4}
-              textAnchor="end"
-              className="text-xs fill-gray-500"
-            >
-              {Math.round(points)}
-            </text>
-          );
-        })}
-        
-        {/* Additional Y-axis label for the bottom to prevent cutoff */}
-        <text
-          x={padding - 10}
-          y={height - padding + 4}
-          textAnchor="end"
-          className="text-xs fill-gray-500"
-        >
-          {Math.round(minPoints)}
-        </text>
-        
-        {/* X-axis labels removed for cleaner look */}
-        
-        {/* Comparison chart line (dashed) */}
-        {comparisonData && comparisonData.length > 0 && (
-          <path
-            d={comparisonPathData}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            strokeDasharray="5,5"
-          />
-        )}
-        
-        {/* Main chart line */}
-        <path
-          d={pathData}
-          fill="none"
-          stroke="#10b981"
-          strokeWidth={3}
-        />
-        
-        {/* Comparison data points */}
-        {comparisonPoints.map((p, i) => (
-          <circle
-            key={`comp-${i}`}
-            cx={p.x}
-            cy={p.y}
-            r={3}
-            fill="#f59e0b"
-            stroke="white"
-            strokeWidth={1}
-          />
-        ))}
-        
-        {/* Main data points */}
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={4}
-            fill="#10b981"
-            stroke="white"
-            strokeWidth={2}
-          />
-        ))}
-      </svg>
+          )}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
@@ -335,151 +166,68 @@ const PointsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonDa
 const TournamentsChart = ({ data, comparisonData }: { data: ChartData[]; comparisonData?: ChartData[] }) => {
   if (data.length === 0) return <div className="text-gray-500 text-center py-8">No data available</div>;
   
-  const allTournaments = [...data.map(d => d.tournaments), ...(comparisonData?.map(d => d.tournaments) || [])];
-  const maxTournaments = Math.max(...allTournaments);
-  const minTournaments = Math.min(...allTournaments);
-  const range = maxTournaments - minTournaments || 1;
-  
-  // Use container-based responsive dimensions
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 200 });
-  
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const isMobile = containerWidth < 640;
-        setDimensions({
-          width: isMobile ? containerWidth : Math.min(containerWidth, 800),
-          height: isMobile ? 200 : 250
-        });
-      }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-  
-  const { width, height } = dimensions;
-  const padding = width < 640 ? 20 : 40;
-  const chartWidth = width - 2 * padding;
-  const chartHeight = height - 2 * padding;
-  
-  const points = data.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * chartWidth;
-    const y = padding + ((maxTournaments - d.tournaments) / range) * chartHeight;
-    return { x, y, ...d };
-  });
+  // Prepare data for Recharts
+  const chartData = data.map((entry, index) => ({
+    month: entry.month,
+    tournaments: entry.tournaments,
+    comparisonTournaments: comparisonData?.[index]?.tournaments
+  }));
 
-  const comparisonPoints = comparisonData?.map((d, i) => {
-    const x = padding + (i / (comparisonData.length - 1)) * chartWidth;
-    const y = padding + ((maxTournaments - d.tournaments) / range) * chartHeight;
-    return { x, y, ...d };
-  }) || [];
-  
-  const pathData = points.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-
-  const comparisonPathData = comparisonPoints.map((p, i) => 
-    `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-  ).join(' ');
-  
   return (
-    <div ref={containerRef} className="w-full">
-      <svg width={width} height={height} className="w-full h-auto" viewBox={`0 0 ${width} ${height}`}>
-        {/* Grid lines */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          return (
-            <line
-              key={i}
-              x1={padding}
-              y1={y}
-              x2={width - padding}
-              y2={y}
-              stroke="#e5e7eb"
-              strokeWidth={1}
-              strokeDasharray="3,3"
+    <div className="w-full h-full">
+      {/* @ts-ignore */}
+      <ResponsiveContainer width="100%" height="100%">
+        {/* @ts-ignore */}
+        <LineChart data={chartData} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
+          {/* @ts-ignore */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          {/* @ts-ignore */}
+          <XAxis 
+            dataKey="month" 
+            angle={-75}
+            textAnchor="end"
+            height={60}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <YAxis 
+            domain={['dataMin - 1', 'dataMax + 1']}
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+          />
+          {/* @ts-ignore */}
+          <Tooltip 
+            contentStyle={{ 
+              backgroundColor: 'white', 
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+            formatter={(value: any, name: string) => [value, name === 'tournaments' ? 'Tournaments' : 'Comparison Tournaments']}
+            labelFormatter={(label) => `Month: ${label}`}
+          />
+          {/* @ts-ignore */}
+          <Line 
+            type="monotone" 
+            dataKey="tournaments" 
+            stroke="#8b5cf6" 
+            strokeWidth={2}
+            dot={{ fill: '#8b5cf6', stroke: 'white', strokeWidth: 2, r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+          {comparisonData && comparisonData.length > 0 && (
+            /* @ts-ignore */
+            <Line 
+              type="monotone" 
+              dataKey="comparisonTournaments" 
+              stroke="#f59e0b" 
+            strokeWidth={1.5}
+            strokeDasharray="5 5"
+            dot={{ fill: '#f59e0b', stroke: 'white', strokeWidth: 1, r: 2.5 }}
+            activeDot={{ r: 4 }}
             />
-          );
-        })}
-        
-        {/* Y-axis labels */}
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = padding + (i / 4) * chartHeight;
-          const tournaments = maxTournaments - (i / 4) * range;
-          return (
-            <text
-              key={i}
-              x={padding - 10}
-              y={y + 4}
-              textAnchor="end"
-              className="text-xs fill-gray-600"
-            >
-              {Math.round(tournaments)}
-            </text>
-          );
-        })}
-        
-        {/* Additional Y-axis label for the bottom to prevent cutoff */}
-        <text
-          x={padding - 10}
-          y={height - padding + 4}
-          textAnchor="end"
-          className="text-xs fill-gray-600"
-        >
-          {Math.round(minTournaments)}
-        </text>
-        
-        {/* X-axis labels removed for cleaner look */}
-        
-        {/* Comparison chart line (dashed) */}
-        {comparisonData && comparisonData.length > 0 && (
-          <path
-            d={comparisonPathData}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            strokeDasharray="5,5"
-          />
-        )}
-        
-        {/* Main chart line */}
-        <path
-          d={pathData}
-          fill="none"
-          stroke="#8b5cf6"
-          strokeWidth={3}
-        />
-        
-        {/* Comparison data points */}
-        {comparisonPoints.map((p, i) => (
-          <circle
-            key={`comp-${i}`}
-            cx={p.x}
-            cy={p.y}
-            r={3}
-            fill="#f59e0b"
-            stroke="white"
-            strokeWidth={1}
-          />
-        ))}
-        
-        {/* Main data points */}
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={4}
-            fill="#8b5cf6"
-            stroke="white"
-            strokeWidth={2}
-          />
-        ))}
-      </svg>
+          )}
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
@@ -576,9 +324,29 @@ export default function PlayerStatisticsPage() {
       const trimmed = searchTerm.trim();
       const tokens = trimmed.split(/\s+/).filter(t => t.length > 0);
       
+      // First, get the user's followed players
+      const { data: followedPlayers, error: followedError } = await supabase
+        .from('players')
+        .select('licence')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+      
+      if (followedError) {
+        console.error('Error fetching followed players:', followedError);
+        setSearchResults([]);
+        return;
+      }
+      
+      if (!followedPlayers || followedPlayers.length === 0) {
+        setSearchResults([]);
+        return;
+      }
+      
+      const followedLicences = followedPlayers.map(p => p.licence);
+      
       let query = supabase
         .from('tenup_latest')
         .select('id, idcrm, nom, prenom, nom_complet, sexe, ligue, classement, points, evolution, meilleur_classement, nationalite, age_sportif, nombre_tournois, date_classement, ranking_year, ranking_month')
+        .in('idcrm', followedLicences)
         .order('nom_complet')
         .limit(200);
       
@@ -639,6 +407,16 @@ export default function PlayerStatisticsPage() {
     if (ranking <= 500) return 'bg-orange-100 text-orange-800';
     if (ranking <= 1000) return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const getRankingTextColor = (ranking: number | null) => {
+    if (!ranking) return 'text-gray-600';
+    if (ranking <= 25) return 'text-green-600';
+    if (ranking <= 100) return 'text-blue-600';
+    if (ranking <= 250) return 'text-purple-600';
+    if (ranking <= 500) return 'text-orange-600';
+    if (ranking <= 1000) return 'text-red-600';
+    return 'text-gray-600';
   };
 
   const getEvolutionIcon = (evolution: number | null) => {
@@ -702,6 +480,8 @@ export default function PlayerStatisticsPage() {
         points: entry.points || 0,
         tournaments: entry.tournaments_count || 0,
         date: `${entry.year}-${entry.month.toString().padStart(2, '0')}`,
+        year: entry.year,
+        monthNumber: entry.month
       }));
   };
 
@@ -717,6 +497,8 @@ export default function PlayerStatisticsPage() {
         points: entry.points || 0,
         tournaments: entry.tournaments_count || 0,
         date: `${entry.year}-${entry.month.toString().padStart(2, '0')}`,
+        year: entry.year,
+        monthNumber: entry.month
       }));
   };
 
@@ -796,39 +578,39 @@ export default function PlayerStatisticsPage() {
                          {/* Personal Information - One Line */}
              <Card>
                <CardContent className="pt-6">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
                   <div className="flex items-center space-x-2">
-                    <Award className="h-4 w-4 text-gray-500" />
+                    <Award className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                     <div>
                       <label className="text-xs font-medium text-gray-500">Gender</label>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">
                         {playerStats.genre === 'Homme' ? 'Men' : 'Women'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                     <div>
-                      <label className="text-xs font-medium text-gray-500">Birth Year</label>
-                      <p className="text-sm font-medium text-gray-900">
+                      <label className="text-xs font-medium text-gray-500">Age</label>
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">
                         {playerStats.birth_year || 'N/A'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Flag className="h-4 w-4 text-gray-500" />
+                    <Flag className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                     <div>
                       <label className="text-xs font-medium text-gray-500">Nationality</label>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">
                         {playerStats.nationality || 'N/A'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <div>
+                  <div className="flex items-start space-x-2">
+                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 mt-0.5" />
+                    <div className="flex-1 min-w-0">
                       <label className="text-xs font-medium text-gray-500">League</label>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900 break-words leading-tight">
                         {playerStats.ligue || 'N/A'}
                       </p>
                     </div>
@@ -838,14 +620,14 @@ export default function PlayerStatisticsPage() {
             </Card>
 
                          {/* KPI Stats Grid */}
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                              {/* Current Ranking */}
                <Card>
-                 <CardHeader className="pb-3">
-                   <CardTitle className="text-sm font-medium text-gray-600">Current Ranking</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Current Ranking</CardTitle>
                  </CardHeader>
-                 <CardContent>
-                   <div className="space-y-2">
+                 <CardContent className="py-3 sm:py-4">
+                   <div className="space-y-1 sm:space-y-2">
                      <div className="flex items-center space-x-2">
                        <Badge className={getRankingColor(playerStats.current_ranking)}>
                          P{playerStats.current_ranking || 'N/A'}
@@ -866,11 +648,11 @@ export default function PlayerStatisticsPage() {
                      </div>
                      {/* Add explanation for ranking evolution */}
                      <p className="text-xs text-gray-400 mt-1">
-                       {playerStats.ranking_evolution !== null && playerStats.ranking_evolution !== 0
-                         ? playerStats.ranking_evolution > 0 
-                           ? 'Positive = ranking got worse (higher number)' 
-                           : 'Negative = ranking improved (lower number)'
-                         : 'No change from last month'
+                       {playerStats.date_classement 
+                         ? new Date(playerStats.date_classement).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+                         : playerStats.ranking_month && playerStats.ranking_year
+                           ? `${playerStats.ranking_month}/${playerStats.ranking_year}`
+                           : 'Date unavailable'
                        }
                      </p>
                      {comparisonPlayer && (
@@ -896,8 +678,8 @@ export default function PlayerStatisticsPage() {
 
               {/* Best Ranking */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Best Ranking</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Best Ranking</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -921,8 +703,8 @@ export default function PlayerStatisticsPage() {
 
               {/* Current Points */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Current Points</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Current Points</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -942,8 +724,8 @@ export default function PlayerStatisticsPage() {
 
               {/* Tournaments Count */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Tournaments</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Tournaments</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -951,6 +733,7 @@ export default function PlayerStatisticsPage() {
                       <Users className="h-5 w-5 text-purple-500" />
                       <span className="text-2xl font-bold">{playerStats.current_tournaments_count || 'N/A'}</span>
                     </div>
+                    <p className="text-xs text-gray-500">On 12 months</p>
                     {comparisonPlayer && (
                       <div className="flex items-center space-x-2 pt-1 border-t border-gray-100">
                         <Users className="h-4 w-4 text-purple-400" />
@@ -963,11 +746,11 @@ export default function PlayerStatisticsPage() {
             </div>
 
                          {/* New Performance & Activity Metrics */}
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
               {/* Average Progression */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Average Progression</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Average Progression</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -992,23 +775,14 @@ export default function PlayerStatisticsPage() {
                       </div>
                     )}
                   </div>
-                                     <p className="text-xs text-gray-500 mt-1">Average ranking change</p>
-                   <p className="text-xs text-gray-400 mt-1">Last 12 months</p>
-                   <p className="text-xs text-gray-400 mt-1">
-                     {playerStats.average_progression && playerStats.average_progression < 0 
-                       ? 'Negative = ranking improved (better)' 
-                       : playerStats.average_progression && playerStats.average_progression > 0 
-                         ? 'Positive = ranking got worse' 
-                         : 'No change'
-                     }
-                   </p>
+                   <p className="text-xs text-gray-500 mt-1">Average over last 12 months</p>
                 </CardContent>
               </Card>
 
               {/* Average Points */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Average Points</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Average Points</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -1031,15 +805,14 @@ export default function PlayerStatisticsPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Current points ÷ 12 months</p>
-                  <p className="text-xs text-gray-400 mt-1">Monthly average</p>
+                  <p className="text-xs text-gray-500 mt-1">On 12 tournaments</p>
                 </CardContent>
               </Card>
 
               {/* Most Active Month */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Most Active Month</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">Most Active Month</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -1072,14 +845,13 @@ export default function PlayerStatisticsPage() {
                       </div>
                     )}
                   </div>
-                                    <p className="text-xs text-gray-400 mt-1">Tournaments in that month</p>
                 </CardContent>
               </Card>
 
               {/* League Position */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">League Position</CardTitle>
+                 <CardHeader className="pb-2 sm:pb-3">
+                   <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">League Position</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -1089,11 +861,6 @@ export default function PlayerStatisticsPage() {
                         <span className="text-lg font-bold text-gray-900">
                           {playerStats.league_position ? `#${playerStats.league_position}` : 'N/A'}
                         </span>
-                        {playerStats.league_position && (
-                          <p className="text-xs text-gray-500">
-                            in {playerStats.ligue || 'league'}
-                          </p>
-                        )}
                       </div>
                     </div>
                     {comparisonPlayer && (
@@ -1103,16 +870,11 @@ export default function PlayerStatisticsPage() {
                           <span className="text-sm font-bold text-indigo-600">
                             {comparisonPlayer.league_position ? `#${comparisonPlayer.league_position}` : 'N/A'}
                           </span>
-                          {comparisonPlayer.league_position && (
-                            <p className="text-xs text-gray-400">
-                              in {comparisonPlayer.ligue || 'league'}
-                            </p>
-                          )}
                         </div>
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Position in league ranking</p>
+                  <p className="text-xs text-gray-500 mt-1">Position in league</p>
                 </CardContent>
               </Card>
 
@@ -1126,22 +888,22 @@ export default function PlayerStatisticsPage() {
                  <TrendingUp className="h-5 w-5" />
                  <span>Ranking Evolution</span>
                </CardTitle>
-               <CardDescription>Last 12 months ranking progression (lower = better)</CardDescription>
+               <CardDescription>Last 12 months ranking progression</CardDescription>
              </CardHeader>
              <CardContent>
-                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {/* Chart */}
-                  <div className="lg:col-span-2">
-                    <div className="h-48 sm:h-64 w-full">
-                      <RankingChart 
-                        data={prepareChartData(playerStats.ranking_history)} 
-                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                      />
-                    </div>
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                 {/* Chart */}
+                 <div className="lg:col-span-2">
+                   <div className="h-80 sm:h-96 w-full">
+                     <RankingChart 
+                       data={prepareChartData(playerStats.ranking_history)} 
+                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                     />
+                   </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
-                     <div className="flex items-center justify-center space-x-6 text-sm mt-4">
+                     <div className="flex items-center justify-center space-x-6 text-sm mt-6">
                        <div className="flex items-center space-x-2">
                          <div className="w-4 h-0.5 bg-blue-500"></div>
                          <span className="text-gray-700 font-medium">{playerStats.nom || `Player ${playerStats.licence}`}</span>
@@ -1154,52 +916,44 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                                   {/* Monthly Details */}
-                  <div className="lg:col-span-1">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div>
-                      {/* Header */}
-                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
-                        <span>Month</span>
-                        <span className="text-center">{playerStats.nom || 'Player'}</span>
-                        {comparisonPlayer && (
-                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
-                        )}
-                      </div>
-                      
-                      {/* Data Rows */}
-                      <div className="space-y-1">
-                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
-                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
-                          return (
-                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
-                              <span className="text-gray-600">
-                                {formatMonthYear(entry.year, entry.month)}
-                              </span>
-                              <div className="flex items-center justify-center space-x-1">
-                                <Badge className={getRankingColor(entry.ranking)}>
-                                  P{entry.ranking || 'N/A'}
-                                </Badge>
-                                {entry.points && (
-                                  <span className="text-xs text-gray-500">({entry.points})</span>
-                                )}
-                              </div>
-                              {comparisonPlayer && comparisonEntry && (
-                                <div className="flex items-center justify-center space-x-1">
-                                  <Badge className={`${getRankingColor(comparisonEntry.ranking)} text-xs`} variant="outline">
-                                    P{comparisonEntry.ranking || 'N/A'}
-                                  </Badge>
-                                  {comparisonEntry.points && (
-                                    <span className="text-xs text-gray-400">({comparisonEntry.points})</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                 {/* Monthly Details */}
+                 <div className="lg:col-span-1 mt-4 lg:mt-0">
+                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                   <div className="space-y-1">
+                     {/* Header */}
+                     <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                       <span>Month</span>
+                       <span className="text-center">{playerStats.nom || 'Player'}</span>
+                       {comparisonPlayer && (
+                         <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                       )}
+                     </div>
+                     
+                     {/* Data Rows */}
+                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                       const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                       return (
+                         <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm py-1 border-b border-gray-100 last:border-b-0`}>
+                           <span className="text-gray-600">
+                             {formatMonthYear(entry.year, entry.month)}
+                           </span>
+                           <div className="flex items-center justify-center">
+                             <span className={`text-sm font-medium ${getRankingTextColor(entry.ranking)}`}>
+                               {entry.ranking || 'N/A'}
+                             </span>
+                           </div>
+                           {comparisonPlayer && comparisonEntry && (
+                             <div className="flex items-center justify-center">
+                               <span className={`text-sm font-medium ${getRankingTextColor(comparisonEntry.ranking)}`}>
+                                 {comparisonEntry.ranking || 'N/A'}
+                               </span>
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
                </div>
              </CardContent>
            </Card>
@@ -1214,19 +968,19 @@ export default function PlayerStatisticsPage() {
                <CardDescription>Points progression over time</CardDescription>
              </CardHeader>
              <CardContent>
-                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {/* Chart */}
-                  <div className="lg:col-span-2">
-                    <div className="h-48 sm:h-64 w-full">
-                      <PointsChart 
-                        data={prepareChartData(playerStats.ranking_history)} 
-                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                      />
-                    </div>
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                 {/* Chart */}
+                 <div className="lg:col-span-2">
+                   <div className="h-80 sm:h-96 w-full">
+                     <PointsChart 
+                       data={prepareChartData(playerStats.ranking_history)} 
+                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                     />
+                   </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
-                     <div className="flex items-center justify-center space-x-6 text-sm mt-4">
+                     <div className="flex items-center justify-center space-x-6 text-sm mt-6">
                        <div className="flex items-center space-x-2">
                          <div className="w-4 h-0.5 bg-green-500"></div>
                          <span className="text-gray-700 font-medium">{playerStats.nom || `Player ${playerStats.licence}`}</span>
@@ -1239,42 +993,40 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                                   {/* Monthly Details */}
-                  <div className="lg:col-span-1">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div>
-                      {/* Header */}
-                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
-                        <span>Month</span>
-                        <span className="text-center">{playerStats.nom || 'Player'}</span>
-                        {comparisonPlayer && (
-                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
-                        )}
-                      </div>
-                      
-                      {/* Data Rows */}
-                      <div className="space-y-1">
-                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
-                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
-                          return (
-                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
-                              <span className="text-gray-600">
-                                {formatMonthYear(entry.year, entry.month)}
-                              </span>
-                              <div className="flex items-center justify-center">
-                                <span className="font-medium">{entry.points || 'N/A'}</span>
-                              </div>
-                              {comparisonPlayer && comparisonEntry && (
-                                <div className="flex items-center justify-center">
-                                  <span className="text-gray-600">{comparisonEntry.points || 'N/A'}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                 {/* Monthly Details */}
+                 <div className="lg:col-span-1 mt-4 lg:mt-0">
+                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                   <div className="space-y-1">
+                     {/* Header */}
+                     <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                       <span>Month</span>
+                       <span className="text-center">{playerStats.nom || 'Player'}</span>
+                       {comparisonPlayer && (
+                         <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                       )}
+                     </div>
+                     
+                     {/* Data Rows */}
+                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                       const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                       return (
+                         <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm py-1 border-b border-gray-100 last:border-b-0`}>
+                           <span className="text-gray-600">
+                             {formatMonthYear(entry.year, entry.month)}
+                           </span>
+                           <div className="flex items-center justify-center">
+                             <span className="font-medium">{entry.points || 'N/A'}</span>
+                           </div>
+                           {comparisonPlayer && comparisonEntry && (
+                             <div className="flex items-center justify-center">
+                               <span className="text-gray-600">{comparisonEntry.points || 'N/A'}</span>
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
                </div>
              </CardContent>
            </Card>
@@ -1289,19 +1041,19 @@ export default function PlayerStatisticsPage() {
                <CardDescription>Number of tournaments over time</CardDescription>
              </CardHeader>
              <CardContent>
-                               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {/* Chart */}
-                  <div className="lg:col-span-2">
-                    <div className="h-48 sm:h-64 w-full">
-                      <TournamentsChart 
-                        data={prepareChartData(playerStats.ranking_history)} 
-                        comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
-                      />
-                    </div>
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                 {/* Chart */}
+                 <div className="lg:col-span-2">
+                   <div className="h-80 sm:h-96 w-full">
+                     <TournamentsChart 
+                       data={prepareChartData(playerStats.ranking_history)} 
+                       comparisonData={comparisonPlayer ? prepareComparisonChartData(comparisonPlayer.ranking_history) : undefined}
+                     />
+                   </div>
                    
                    {/* Chart Legend */}
                    {comparisonPlayer && (
-                     <div className="flex items-center justify-center space-x-6 text-sm mt-4">
+                     <div className="flex items-center justify-center space-x-6 text-sm mt-6">
                        <div className="flex items-center space-x-2">
                          <div className="w-4 h-0.5 bg-purple-500"></div>
                          <span className="text-gray-700 font-medium">{playerStats.nom || `Player ${playerStats.licence}`}</span>
@@ -1314,42 +1066,40 @@ export default function PlayerStatisticsPage() {
                    )}
                  </div>
                  
-                                   {/* Monthly Details */}
-                  <div className="lg:col-span-1">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
-                    <div>
-                      {/* Header */}
-                      <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
-                        <span>Month</span>
-                        <span className="text-center">{playerStats.nom || 'Player'}</span>
-                        {comparisonPlayer && (
-                          <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
-                        )}
-                      </div>
-                      
-                      {/* Data Rows */}
-                      <div className="space-y-1">
-                        {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
-                          const comparisonEntry = comparisonPlayer?.ranking_history[index];
-                          return (
-                            <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm`}>
-                              <span className="text-gray-600">
-                                {formatMonthYear(entry.year, entry.month)}
-                              </span>
-                              <div className="flex items-center justify-center">
-                                <span className="font-medium">{entry.tournaments_count || 'N/A'}</span>
-                              </div>
-                              {comparisonPlayer && comparisonEntry && (
-                                <div className="flex items-center justify-center">
-                                  <span className="text-gray-600">{comparisonEntry.tournaments_count || 'N/A'}</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                 {/* Monthly Details */}
+                 <div className="lg:col-span-1 mt-4 lg:mt-0">
+                   <h4 className="text-sm font-medium text-gray-700 mb-3">Monthly Details</h4>
+                   <div className="space-y-1">
+                     {/* Header */}
+                     <div className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-xs font-medium text-gray-500 border-b border-gray-200 pb-1`}>
+                       <span>Month</span>
+                       <span className="text-center">{playerStats.nom || 'Player'}</span>
+                       {comparisonPlayer && (
+                         <span className="text-center">{comparisonPlayer.nom || 'Comparison'}</span>
+                       )}
+                     </div>
+                     
+                     {/* Data Rows */}
+                     {playerStats.ranking_history.slice(0, 12).map((entry, index) => {
+                       const comparisonEntry = comparisonPlayer?.ranking_history[index];
+                       return (
+                         <div key={index} className={`grid ${comparisonPlayer ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-sm py-1 border-b border-gray-100 last:border-b-0`}>
+                           <span className="text-gray-600">
+                             {formatMonthYear(entry.year, entry.month)}
+                           </span>
+                           <div className="flex items-center justify-center">
+                             <span className="font-medium">{entry.tournaments_count || 'N/A'}</span>
+                           </div>
+                           {comparisonPlayer && comparisonEntry && (
+                             <div className="flex items-center justify-center">
+                               <span className="text-gray-600">{comparisonEntry.tournaments_count || 'N/A'}</span>
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 </div>
                </div>
              </CardContent>
            </Card>
@@ -1367,7 +1117,7 @@ export default function PlayerStatisticsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search players by name, license, or league..."
+                    placeholder="Search followed players by name, license, or league..."
                     value={playerSearch}
                     onChange={(e) => setPlayerSearch(e.target.value)}
                     className="pl-10"
@@ -1392,8 +1142,8 @@ export default function PlayerStatisticsPage() {
                   {!playerSearch.trim() && (
                     <div className="text-center py-16 text-gray-500">
                       <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p className="text-lg font-medium mb-2">Search for players to compare</p>
-                      <p className="text-sm">Enter a name, license number, or league to find players</p>
+                      <p className="text-lg font-medium mb-2">Search followed players to compare</p>
+                      <p className="text-sm">Enter a name, license number, or league to find players you follow</p>
                     </div>
                   )}
 

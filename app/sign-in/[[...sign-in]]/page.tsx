@@ -62,7 +62,7 @@ export default function SignInPage() {
       {/* NeyoPadel Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
             <img 
               src="/icons/icon.svg?v=2" 
               alt="NeyoPadel Logo" 
@@ -70,14 +70,13 @@ export default function SignInPage() {
             />
             <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
           </Link>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <Link href="/sign-up">
               <Button variant="ghost" size="sm">Sign Up</Button>
             </Link>
             <Link href="/">
               <Button variant="outline" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Back to home
+                <Home className="w-4 h-4" />
               </Button>
             </Link>
           </div>
@@ -102,7 +101,7 @@ export default function SignInPage() {
               Welcome Back
             </h1>
             <p className="text-gray-600">
-              Sign in to manage your tournaments
+              Sign in to access your padel dashboard
             </p>
           </div>
 

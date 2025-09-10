@@ -188,7 +188,7 @@ export default function Home() {
       {/* Minimal Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <img 
               src="/icons/icon.svg?v=2" 
               alt="NeyoPadel Logo" 
@@ -196,7 +196,7 @@ export default function Home() {
             />
             <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-shrink-0">
             {isSignedIn ? (
               <>
                 <Link href="/dashboard">

@@ -408,6 +408,9 @@ export interface PlayerStatistics {
   current_points: number | null;
   current_tournaments_count: number | null;
   ligue: string | null;
+  date_classement: string | null;
+  ranking_month: number | null;
+  ranking_year: number | null;
   ranking_history: {
     year: number;
     month: number;
@@ -552,6 +555,9 @@ export const playerStatisticsAPI = {
       current_points: latest.points,
       current_tournaments_count: latest.nombre_tournois,
       ligue: latest.ligue,
+      date_classement: latest.date_classement,
+      ranking_month: latest.ranking_month,
+      ranking_year: latest.ranking_year,
       ranking_history: rankingHistory,
       average_progression: averageProgression,
       participation_rate: participationRate,

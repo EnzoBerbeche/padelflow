@@ -9,7 +9,7 @@ export default function ThankYouPage() {
       {/* NeyoPadel Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
             <img 
               src="/icons/icon.svg?v=2" 
               alt="NeyoPadel Logo" 
@@ -17,14 +17,13 @@ export default function ThankYouPage() {
             />
             <span className="text-xl font-semibold text-gray-900">NeyoPadel</span>
           </Link>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <Link href="/sign-in">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
             <Link href="/">
               <Button variant="outline" size="sm">
-                <Home className="w-4 h-4 mr-2" />
-                Back to home
+                <Home className="w-4 h-4" />
               </Button>
             </Link>
           </div>

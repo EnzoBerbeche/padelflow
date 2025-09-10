@@ -518,7 +518,7 @@ export default function HomePage() {
                               {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
                               <Link 
                                 href={`/dashboard/players/${player.licence}`}
-                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-lg"
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-sm"
                               >
                                 {player.nom_complet || `Player ${player.licence}`}
                               </Link>
