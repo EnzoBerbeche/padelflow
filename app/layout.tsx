@@ -8,6 +8,27 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'NeyoPadel - Tournament Management',
   description: 'Professional padel tournament organization and management platform',
+  manifest: '/manifest.json',
+  themeColor: '#000000',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'NeyoPadel',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'NeyoPadel',
+    title: 'NeyoPadel - Tournament Management',
+    description: 'Professional padel tournament organization and management platform',
+  },
+  icons: {
+    icon: '/icons/icon-192x192.svg',
+    apple: '/icons/icon-192x192.svg',
+  },
 };
 
 export default function RootLayout({
