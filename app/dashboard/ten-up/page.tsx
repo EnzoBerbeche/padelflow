@@ -35,7 +35,7 @@ export default function TenUpPage() {
   // Results state
   const [allPlayers, setAllPlayers] = useState<SupabaseNationalPlayer[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<SupabaseNationalPlayer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false since we don't load anything initially
   const [searching, setSearching] = useState(false);
   
   // Pagination state
@@ -48,9 +48,10 @@ export default function TenUpPage() {
   const [sortKey, setSortKey] = useState<'name' | 'license' | 'ranking' | 'league' | 'birth_year'>('ranking');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
-    fetchAllPlayers();
+    // Don't fetch all players by default - wait for user to search
     fetchLeagues();
     // Load current user's licences to toggle Add/Remove
     (async () => {
@@ -147,6 +148,7 @@ export default function TenUpPage() {
       if (leagueFilter !== 'all') filters.league = leagueFilter;
       const results = await nationalPlayersAPI.search(searchTerm, filters);
       setAllPlayers(results);
+      setHasSearched(true); // Mark that a search has been completed
       
       if (results.length === 0) {
         toast({
@@ -283,16 +285,7 @@ export default function TenUpPage() {
 
           {/* Search Controls */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Database className="h-5 w-5" />
-                <span>Search Players</span>
-              </CardTitle>
-              <CardDescription>
-                Search and add players from the national database to your roster
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-6">
               {/* Search Bar - Always Visible */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 space-y-2">
@@ -347,7 +340,8 @@ export default function TenUpPage() {
                       setRankingMin('');
                       setRankingMax('');
                       setLeagueFilter('all');
-                      fetchAllPlayers();
+                      setAllPlayers([]);
+                      setHasSearched(false);
                     }}
                     className="flex items-center space-x-2"
                   >
@@ -416,37 +410,43 @@ export default function TenUpPage() {
             </CardContent>
           </Card>
 
-          {/* Results */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Players ({filteredPlayers.length})</CardTitle>
-                  <CardDescription>
-                    Showing {getCurrentPagePlayers().length} of {filteredPlayers.length} players
-                    {searchTerm.trim() && ` matching "${searchTerm}"`}
-                  </CardDescription>
-                </div>
-                {filteredPlayers.length > 0 && (
-                  <div className="text-sm text-gray-500">
-                    Page {currentPage} of {totalPages}
+          {/* Results - Only show when search has been completed */}
+          {(hasSearched || searching) && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Players ({filteredPlayers.length})</CardTitle>
+                    <CardDescription>
+                      Showing {getCurrentPagePlayers().length} of {filteredPlayers.length} players
+                      {searchTerm.trim() && ` matching "${searchTerm}"`}
+                    </CardDescription>
                   </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {filteredPlayers.length === 0 ? (
-                <div className="text-center py-12">
-                  <Database className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No players found</h3>
-                  <p className="text-gray-500">
-                    {searchTerm.trim() 
-                      ? "Try adjusting your search criteria or filters."
-                      : "No players available in the database."
-                    }
-                  </p>
+                  {filteredPlayers.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                  )}
                 </div>
-              ) : (
+              </CardHeader>
+              <CardContent>
+                {searching ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Searching...</h3>
+                    <p className="text-gray-500">
+                      Please wait while we search for players.
+                    </p>
+                  </div>
+                ) : filteredPlayers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Database className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No players found</h3>
+                    <p className="text-gray-500">
+                      Try adjusting your search criteria or filters.
+                    </p>
+                  </div>
+                ) : (
                 <>
                                      {/* Mobile Cards View */}
                    <div className="block sm:hidden space-y-3">
@@ -720,9 +720,10 @@ export default function TenUpPage() {
                      </div>
                    )}
                 </>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </DashboardLayout>
     </ProtectedRoute>
