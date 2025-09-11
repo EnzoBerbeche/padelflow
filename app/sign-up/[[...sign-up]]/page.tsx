@@ -32,7 +32,7 @@ export default function SignUpPage() {
     setMessage(null);
     if (password !== confirmPassword) {
       setLoading(false);
-      setMessage('Passwords do not match');
+      setMessage('Les mots de passe ne correspondent pas');
       return;
     }
     // Check duplicate email on server
@@ -46,7 +46,7 @@ export default function SignUpPage() {
         const json = await res.json();
         if (json?.exists) {
           setLoading(false);
-          setMessage('An account with this email already exists. Please sign in.');
+          setMessage('Un compte avec cet email existe déjà. Veuillez vous connecter.');
           return;
         }
       } else {
@@ -163,10 +163,10 @@ export default function SignUpPage() {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Join NeyoPadel
+              Rejoindre NeyoPadel
             </h1>
             <p className="text-gray-600">
-              Create your account to join the padel community
+              Créez votre compte pour rejoindre la communauté padel
             </p>
           </div>
 
@@ -239,7 +239,7 @@ export default function SignUpPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password <span className="text-red-500">*</span>
+                  Mot de passe <span className="text-red-500">*</span>
                 </Label>
                 <Input 
                   id="password" 
@@ -253,7 +253,7 @@ export default function SignUpPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="confirm" className="text-sm font-medium text-gray-700">
-                  Confirm Password <span className="text-red-500">*</span>
+                  Confirmer le mot de passe <span className="text-red-500">*</span>
                 </Label>
                 <Input 
                   id="confirm" 
@@ -276,7 +276,7 @@ export default function SignUpPage() {
                 onClick={signUpWithEmail} 
                 disabled={loading || !email}
               >
-                {loading ? 'Creating account…' : 'Create Account'}
+                {loading ? 'Création du compte…' : 'Créer le compte'}
               </Button>
             </div>
             
@@ -286,7 +286,7 @@ export default function SignUpPage() {
               <div className="flex flex-col space-y-2">
                 <Link href="/sign-in" className="text-gray-700 hover:text-gray-900 font-medium flex items-center justify-center hover:underline">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Already have an account? Sign in
+                  Vous avez déjà un compte ? Sign in
                 </Link>
               </div>
             </div>

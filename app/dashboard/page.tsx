@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3, Smartphone } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3, Smartphone, UserPlus } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -40,9 +40,11 @@ export default function HomePage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
 
+
   useEffect(() => {
     loadUserData();
   }, []);
+
 
   const loadUserData = async () => {
     setIsLoading(true);
@@ -232,18 +234,45 @@ export default function HomePage() {
               <h1 className="text-3xl font-bold mb-2">
                 Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
               </h1>
-              <InstallGuideModal>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Installer l'app
-                </Button>
-              </InstallGuideModal>
             </div>
           </div>
+
+          {/* Player Link CTA - Show only if user is not linked to a player */}
+          {!playerLink && (
+            <Card className="border-2 border-dashed border-green-200 bg-green-50/50">
+              <CardContent className="p-6 text-center">
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <UserCheck className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      Liez votre compte à votre profil joueur
+                    </h3>
+                    <p className="text-gray-600 max-w-md">
+                      Connectez votre compte à votre profil FFT pour accéder à vos statistiques personnalisées, 
+                      suivre votre évolution et profiter de toutes les fonctionnalités de NeyoPadel.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Link href="/dashboard/settings">
+                      <Button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2">
+                        <Search className="h-4 w-4 mr-2" />
+                        Rechercher mon profil
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="outline" 
+                      className="border-green-600 text-green-600 hover:bg-green-50 px-6 py-2"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Comment faire ?
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* User Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
@@ -322,6 +351,7 @@ export default function HomePage() {
               </Button>
             </div>
           )}
+
 
           {/* Enhanced Followed Players Section */}
           {followedPlayers.length > 0 && (

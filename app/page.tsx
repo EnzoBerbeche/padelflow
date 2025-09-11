@@ -247,7 +247,7 @@ export default function Home() {
               NeyoPadel
             </h1>
             <p className="text-xl text-gray-600 font-light">
-              The only padel app you need
+              La seule app padel dont vous avez besoin
             </p>
           </div>
 
@@ -257,7 +257,7 @@ export default function Home() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <Input
                 type="text"
-                placeholder="Search players, clubs, tournaments..."
+                placeholder="Rechercher des joueurs, clubs, tournois..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -294,7 +294,7 @@ export default function Home() {
               <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Search Results ({totalResults} players found)
+                    Résultats de recherche ({totalResults} joueurs trouvés)
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -302,16 +302,16 @@ export default function Home() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Player
+                          Joueur
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ranking
+                          Classement
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Gender
+                          Genre
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          League
+                          Ligue
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Action
@@ -345,13 +345,13 @@ export default function Home() {
                             {isSignedIn ? (
                               <Link href={`/dashboard/players/${result.player?.idcrm}`}>
                                 <Button size="sm" variant="outline">
-                                  View Profile
+                                  Voir le profil
                                 </Button>
                               </Link>
                             ) : (
                               <Link href="/sign-up">
                                 <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                                  Sign Up to View
+                                  S'inscrire pour voir
                                 </Button>
                               </Link>
                             )}
@@ -367,7 +367,7 @@ export default function Home() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-gray-700">
-                    Showing {startResult} to {endResult} of {totalResults} results
+                    Affichage de {startResult} à {endResult} sur {totalResults} résultats
                   </div>
                   <div className="flex space-x-2">
                     <Button
@@ -376,7 +376,7 @@ export default function Home() {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
                     >
-                      Previous
+                      Précédent
                     </Button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                       <Button
@@ -395,7 +395,7 @@ export default function Home() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                     >
-                      Next
+                      Suivant
                     </Button>
                   </div>
                 </div>

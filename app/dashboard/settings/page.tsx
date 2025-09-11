@@ -33,6 +33,7 @@ export default function SettingsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // User profile state
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -244,7 +245,7 @@ export default function SettingsPage() {
       
       let query = supabase
         .from('tenup_latest')
-        .select('idcrm, nom_complet, sexe, classement');
+        .select('idcrm, nom_complet, sexe, classement, age_sportif, ligue');
       
       if (isNumber) {
         // For numeric input, search in both name and exact idcrm match
@@ -353,6 +354,166 @@ export default function SettingsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
             <p className="text-gray-600 mt-1">Manage your account and application preferences</p>
           </div>
+
+          {/* Player Profile Section - Priority */}
+          <Card className="border-2 border-green-200 bg-green-50/30">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-green-800">
+                <UserCheck className="h-6 w-6" />
+                <span>Profil Joueur</span>
+              </CardTitle>
+              <CardDescription className="text-green-700">
+                Connectez votre compte à votre profil FFT pour accéder à vos statistiques personnalisées
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoadingLink ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="text-sm text-gray-600 mt-2">Chargement...</p>
+                </div>
+              ) : playerLink ? (
+                <div className="space-y-4">
+                  <div className="bg-green-100 border border-green-300 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <UserCheck className="h-5 w-5 text-green-600" />
+                        <span className="text-sm font-semibold text-green-800">✅ Profil lié avec succès</span>
+                      </div>
+                      <Badge variant="outline" className="text-green-700 border-green-400 bg-green-50">
+                        {playerLink.sexe === 'H' ? 'Homme' : 'Femme'}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="bg-white rounded p-3">
+                        <div className="font-medium text-gray-700">Nom complet</div>
+                        <div className="text-green-800 font-semibold">{playerLink.nom_complet || `Joueur ${playerLink.licence}`}</div>
+                      </div>
+                      <div className="bg-white rounded p-3">
+                        <div className="font-medium text-gray-700">Numéro de licence</div>
+                        <div className="text-green-800 font-semibold">{playerLink.licence}</div>
+                      </div>
+                      <div className="bg-white rounded p-3">
+                        <div className="font-medium text-gray-700">Classement actuel</div>
+                        <div className="text-green-800 font-semibold">P{playerLink.classement || 'N/A'}</div>
+                      </div>
+                      <div className="bg-white rounded p-3">
+                        <div className="font-medium text-gray-700">Évolution</div>
+                        <div className={`font-semibold ${playerLink.evolution && playerLink.evolution > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {playerLink.evolution ? (playerLink.evolution > 0 ? `+${playerLink.evolution}` : playerLink.evolution) : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button 
+                      onClick={() => setSearchInput('')} 
+                      variant="outline" 
+                      className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
+                    >
+                      <Link className="h-4 w-4 mr-2" />
+                      Changer de joueur
+                    </Button>
+                    <Button 
+                      onClick={handleUnlinkPlayer} 
+                      variant="outline" 
+                      className="flex-1 border-red-600 text-red-600 hover:bg-red-50"
+                    >
+                      <Unlink className="h-4 w-4 mr-2" />
+                      Délier le profil
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-800 mb-1">Pourquoi lier votre profil ?</h4>
+                        <ul className="text-sm text-blue-700 space-y-1">
+                          <li>• Accédez à vos statistiques personnalisées</li>
+                          <li>• Suivez votre évolution de classement</li>
+                          <li>• Profitez de toutes les fonctionnalités de NeyoPadel</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="licence" className="text-sm font-semibold text-gray-700">Rechercher votre profil FFT</Label>
+                      <Input
+                        id="licence"
+                        placeholder="Tapez votre nom ou numéro de licence FFT..."
+                        value={searchInput}
+                        onChange={(e) => {
+                          setSearchInput(e.target.value);
+                          // Clear previous timeout
+                          if (searchTimeout) {
+                            clearTimeout(searchTimeout);
+                          }
+                          // Only search if user has typed at least 3 characters
+                          if (e.target.value.trim().length >= 3) {
+                            // Search automatically after user stops typing for 800ms
+                            const timeoutId = setTimeout(() => {
+                              searchPlayers();
+                            }, 800);
+                            setSearchTimeout(timeoutId);
+                          } else {
+                            // Clear results if less than 3 characters
+                            setSearchResults([]);
+                          }
+                        }}
+                        className="mt-1 border-green-300 focus:border-green-500 focus:ring-green-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        💡 Tapez au moins 3 caractères pour lancer la recherche automatiquement
+                      </p>
+                    </div>
+
+                    {searchResults.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700">Résultats de recherche :</Label>
+                        <div className="space-y-1 max-h-60 overflow-y-auto">
+                          {searchResults.map((player) => (
+                            <div 
+                              key={player.idcrm}
+                              className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 transition-colors"
+                              onClick={() => handlePlayerSelect(player)}
+                            >
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{player.nom_complet || `Joueur ${player.idcrm}`}</div>
+                                <div className="text-sm text-gray-500">
+                                  <div className="flex flex-wrap gap-3">
+                                    <span>Âge: {player.age_sportif || 'N/A'} ans</span>
+                                    <span>Ligue: {player.ligue || 'N/A'}</span>
+                                    <span>Classement: P{player.classement || 'N/A'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={isLinking}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {isLinking ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                ) : (
+                                  'Lier'
+                                )}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Account Settings */}
@@ -494,125 +655,6 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Player Linking */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <UserCheck className="h-5 w-5" />
-                  <span>Player Profile</span>
-                </CardTitle>
-                <CardDescription>
-                  Link your account to a player in the rankings database
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingLink ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-600">Loading...</p>
-                  </div>
-                ) : playerLink ? (
-                  <div className="space-y-3">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <UserCheck className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-800">Linked to Player</span>
-                        </div>
-                        <Badge variant="outline" className="text-green-700 border-green-300">
-                          {playerLink.sexe === 'H' ? 'Men' : 'Women'}
-                        </Badge>
-                      </div>
-                      <div className="mt-2 space-y-1 text-sm text-green-700">
-                        <div><span className="font-medium">Name:</span> {playerLink.nom_complet || `Player ${playerLink.licence}`}</div>
-                        <div><span className="font-medium">Licence:</span> {playerLink.licence}</div>
-                        <div><span className="font-medium">Current Ranking:</span> P{playerLink.classement || 'N/A'}</div>
-                        <div><span className="font-medium">Evolution:</span> 
-                          <span className={playerLink.evolution && playerLink.evolution > 0 ? 'text-red-600' : 'text-green-600'}>
-                            {playerLink.evolution ? (playerLink.evolution > 0 ? `+${playerLink.evolution}` : playerLink.evolution) : 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button 
-                        onClick={() => setSearchInput('')} 
-                        variant="outline" 
-                        className="flex-1"
-                      >
-                        <Link className="h-4 w-4 mr-2" />
-                        Change Player
-                      </Button>
-                      <Button 
-                        onClick={handleUnlinkPlayer} 
-                        variant="outline" 
-                        className="flex-1"
-                      >
-                        <Unlink className="h-4 w-4 mr-2" />
-                        Unlink
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="text-sm text-gray-600">
-                      Link your account to a player in the rankings database to personalize your experience.
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="licence">Search for a Player</Label>
-                      <Input
-                        id="licence"
-                        placeholder="Search by name or licence number..."
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                      />
-                      <p className="text-xs text-gray-500">
-                        Start typing to search for players. Results appear automatically.
-                      </p>
-                    </div>
-
-                    {searchResults.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Search Results:</Label>
-                        <div className="space-y-1">
-                          {searchResults.map((player) => (
-                            <div 
-                              key={player.idcrm}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded border cursor-pointer hover:bg-gray-100 transition-colors"
-                              onClick={() => handlePlayerSelect(player)}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium">{player.nom_complet || `Player ${player.idcrm}`}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {player.sexe === 'H' ? 'Men' : 'Women'}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-gray-600">
-                                P{player.classement || 'N/A'}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {isSearching && (
-                      <div className="text-center py-4">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-500">Searching...</p>
-                      </div>
-                    )}
-
-                    {searchResults.length === 0 && searchInput.trim() && !isSearching && (
-                      <div className="text-center py-4 text-sm text-gray-500">
-                        No players found. Try a different search term.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Notifications */}
             <Card>

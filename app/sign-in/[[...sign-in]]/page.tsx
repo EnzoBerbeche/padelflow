@@ -98,10 +98,10 @@ export default function SignInPage() {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome Back
+              Bon retour
             </h1>
             <p className="text-gray-600">
-              Sign in to access your padel dashboard
+              Connectez-vous pour accéder à votre tableau de bord padel
             </p>
           </div>
 
@@ -124,7 +124,7 @@ export default function SignInPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
+                  Mot de passe
                 </Label>
                 <Input 
                   id="password" 
@@ -147,7 +147,7 @@ export default function SignInPage() {
                 onClick={signInWithPassword} 
                 disabled={loading || !email || !password}
               >
-                {loading ? 'Signing in…' : 'Sign In'}
+                {loading ? 'Connexion…' : 'Sign In'}
               </Button>
             </div>
 
@@ -157,13 +157,13 @@ export default function SignInPage() {
                   href={`/sign-up?email=${encodeURIComponent(email || '')}`} 
                   className="text-green-600 hover:text-green-700 font-medium hover:underline"
                 >
-                  Create an account
+                  Créer un compte
                 </Link>
                 <button
                   type="button"
                   className="text-gray-600 hover:text-gray-900 hover:underline"
                   onClick={async () => {
-                    if (!email) { setMessage('Enter your email to reset your password.'); return; }
+                    if (!email) { setMessage('Saisissez votre email pour réinitialiser votre mot de passe.'); return; }
                     setMessage(null);
                     try {
                       const res = await fetch('/api/auth/check-email', {
@@ -174,7 +174,7 @@ export default function SignInPage() {
                       if (res.ok) {
                         const json = await res.json();
                         if (!json?.exists) {
-                          setMessage('No account found with this email. Please sign up.');
+                          setMessage('Aucun compte trouvé avec cet email. Veuillez vous inscrire.');
                           return;
                         }
                       }
@@ -182,10 +182,10 @@ export default function SignInPage() {
                       // If check fails, continue to call reset to avoid blocking
                     }
                     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
-                    setMessage(error ? error.message : 'Check your email to reset your password.');
+                    setMessage(error ? error.message : 'Vérifiez votre email pour réinitialiser votre mot de passe.');
                   }}
                 >
-                  Forgot password?
+                  Mot de passe oublié ?
                 </button>
               </div>
             </div>
