@@ -88,6 +88,43 @@ const ACTION_CONFIG = {
     icon: XCircle
   },
   
+  // Nouvelles catégories category3 pour les points gagnés
+  'Balle Haute': {
+    label: 'Balle Haute',
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    icon: TrendingUp
+  },
+  'Volée': {
+    label: 'Volée',
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    icon: Zap
+  },
+  'Balle Basse': {
+    label: 'Balle Basse',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    icon: Target
+  },
+  'Service': {
+    label: 'Service',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    icon: Award
+  },
+  'Faute Directe Adverse': {
+    label: 'Faute Directe Adverse',
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200',
+    icon: XCircle
+  },
+  
   // Points perdus
   perdu: {
     label: 'Points Perdus',
@@ -187,7 +224,7 @@ const analyzeActions = (pointHistory: PointAction[]) => {
     
     if (parsed.category1 === 'gagne') {
       stats.pointsGagnes++;
-      stats.coupsGagnants[parsed.category2] = (stats.coupsGagnants[parsed.category2] || 0) + 1;
+      stats.coupsGagnants[parsed.category3] = (stats.coupsGagnants[parsed.category3] || 0) + 1;
       
       // Compter les directions
       if (parsed.category3 === 'droite') stats.directions.droite++;

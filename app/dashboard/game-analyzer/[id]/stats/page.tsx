@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAnalysis } from '@/hooks/use-analysis';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, LineChart, Line } from 'recharts';
 
 // Cast Recharts components to fix TypeScript compatibility issues
 const ResponsiveContainerFixed = ResponsiveContainer as any;
@@ -18,6 +18,13 @@ const PieChartFixed = PieChart as any;
 const PieFixed = Pie as any;
 const CellFixed = Cell as any;
 const LegendFixed = Legend as any;
+
+const BarChartFixed = BarChart as any;
+const BarFixed = Bar as any;
+const XAxisFixed = XAxis as any;
+const YAxisFixed = YAxis as any;
+const CartesianGridFixed = CartesianGrid as any;
+const TooltipFixed = Tooltip as any;
 
 interface MatchStats {
   totalPoints: number;
@@ -34,10 +41,11 @@ interface MatchStats {
     left: number;
     right: number;
   };
-  pointsWonByCategory2: { [key: string]: { left: number; right: number; total: number } };
-  pointsWonByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } };
+  pointsWonByCategory3: { [key: string]: { left: number; right: number; total: number } };
+  pointsWonByCategory3Grouped: { [key: string]: { [key: string]: { left: number; right: number; total: number } } };
   pointsLostByCategory2: { [key: string]: { left: number; right: number; total: number } };
   pointsLostByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } };
+  pointsLostByCategory3Direct: { [key: string]: { left: number; right: number; total: number } };
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -63,11 +71,15 @@ export default function GameStatsPage() {
     pointsLostByCategory: {},
     pointsWonByPlayer: { left: 0, right: 0 },
     pointsLostByPlayer: { left: 0, right: 0 },
-    pointsWonByCategory2: {},
     pointsWonByCategory3: {},
+    pointsWonByCategory3Grouped: {},
     pointsLostByCategory2: {},
-    pointsLostByCategory3: {}
+    pointsLostByCategory3: {},
+    pointsLostByCategory3Direct: {}
   });
+
+  // État pour le filtre de joueur
+  const [selectedPlayer, setSelectedPlayer] = useState<'both' | 'left' | 'right'>('both');
 
   useEffect(() => {
     if (points && points.length > 0) {
@@ -87,10 +99,11 @@ export default function GameStatsPage() {
     const pointsLostByCategory: { [key: string]: number } = {};
     const pointsWonByPlayer = { left: 0, right: 0 };
     const pointsLostByPlayer = { left: 0, right: 0 };
-    const pointsWonByCategory2: { [key: string]: { left: number; right: number; total: number } } = {};
-    const pointsWonByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } } = {};
+    const pointsWonByCategory3: { [key: string]: { left: number; right: number; total: number } } = {};
+    const pointsWonByCategory3Grouped: { [key: string]: { [key: string]: { left: number; right: number; total: number } } } = {};
     const pointsLostByCategory2: { [key: string]: { left: number; right: number; total: number } } = {};
     const pointsLostByCategory3: { [key: string]: { [key: string]: { left: number; right: number; total: number } } } = {};
+    const pointsLostByCategory3Direct: { [key: string]: { left: number; right: number; total: number } } = {};
 
     points.forEach((point: any) => {
       const action = point.point_actions;
@@ -111,38 +124,21 @@ export default function GameStatsPage() {
 
       if (isWon) {
         pointsWon++;
-        pointsWonByCategory[category2] = (pointsWonByCategory[category2] || 0) + 1;
+        pointsWonByCategory[category3] = (pointsWonByCategory[category3] || 0) + 1;
         
-        // Compter par Category_2 avec répartition par joueur
-        if (!pointsWonByCategory2[category2]) {
-          pointsWonByCategory2[category2] = { left: 0, right: 0, total: 0 };
+        // Compter par Category_3 avec répartition par joueur
+        if (!pointsWonByCategory3[category3]) {
+          pointsWonByCategory3[category3] = { left: 0, right: 0, total: 0 };
         }
-        pointsWonByCategory2[category2].total++;
+        pointsWonByCategory3[category3].total++;
         
-        // Compter par joueur pour Category_2
+        // Compter par joueur pour Category_3
         if (point.player_position === 'player1') {
-          pointsWonByCategory2[category2].right++;
+          pointsWonByCategory3[category3].right++;
         } else if (point.player_position === 'player2') {
-          pointsWonByCategory2[category2].left++;
+          pointsWonByCategory3[category3].left++;
         }
         
-        // Compter par Category_3 si elle existe, groupée par Category_2
-        if (category3) {
-          if (!pointsWonByCategory3[category2]) {
-            pointsWonByCategory3[category2] = {};
-          }
-          if (!pointsWonByCategory3[category2][category3]) {
-            pointsWonByCategory3[category2][category3] = { left: 0, right: 0, total: 0 };
-          }
-          pointsWonByCategory3[category2][category3].total++;
-          
-          // Compter par joueur pour Category_3
-          if (point.player_position === 'player1') {
-            pointsWonByCategory3[category2][category3].right++;
-          } else if (point.player_position === 'player2') {
-            pointsWonByCategory3[category2][category3].left++;
-          }
-        }
         
         // Compter par joueur
         if (point.player_position === 'player1') {
@@ -185,6 +181,21 @@ export default function GameStatsPage() {
           }
         }
         
+        // Compter par Category_3 directement pour le graphique
+        if (category3) {
+          if (!pointsLostByCategory3Direct[category3]) {
+            pointsLostByCategory3Direct[category3] = { left: 0, right: 0, total: 0 };
+          }
+          pointsLostByCategory3Direct[category3].total++;
+          
+          // Compter par joueur pour Category_3 direct
+          if (point.player_position === 'player1') {
+            pointsLostByCategory3Direct[category3].right++;
+          } else if (point.player_position === 'player2') {
+            pointsLostByCategory3Direct[category3].left++;
+          }
+        }
+        
         // Compter par joueur
         if (point.player_position === 'player1') {
           pointsLostByPlayer.right++;
@@ -214,10 +225,11 @@ export default function GameStatsPage() {
       pointsLostByCategory,
       pointsWonByPlayer,
       pointsLostByPlayer,
-      pointsWonByCategory2,
       pointsWonByCategory3,
+      pointsWonByCategory3Grouped,
       pointsLostByCategory2,
-      pointsLostByCategory3
+      pointsLostByCategory3,
+      pointsLostByCategory3Direct
     });
   };
 
@@ -247,6 +259,66 @@ export default function GameStatsPage() {
         value,
         fill: COLORS[index % COLORS.length]
       }));
+  };
+
+  const prepareComparisonData = () => {
+    console.log('🔍 Preparing comparison data...');
+    console.log('🔍 Selected player:', selectedPlayer);
+    console.log('🔍 stats.pointsWonByCategory3:', stats.pointsWonByCategory3);
+    console.log('🔍 stats.pointsLostByCategory3Direct:', stats.pointsLostByCategory3Direct);
+    
+    // Récupérer tous les types de coups uniques (category_3) des points gagnés et perdus
+    const allCategory3Types = new Set([
+      ...Object.keys(stats.pointsWonByCategory3),
+      ...Object.keys(stats.pointsLostByCategory3Direct)
+    ]);
+
+    console.log('🔍 All category3 types:', Array.from(allCategory3Types));
+
+    const data = Array.from(allCategory3Types)
+      .filter(category3 => {
+        let wonCount = 0;
+        let lostCount = 0;
+        
+        if (selectedPlayer === 'both') {
+          wonCount = stats.pointsWonByCategory3[category3]?.total || 0;
+          lostCount = stats.pointsLostByCategory3Direct[category3]?.total || 0;
+        } else {
+          wonCount = stats.pointsWonByCategory3[category3]?.[selectedPlayer] || 0;
+          lostCount = stats.pointsLostByCategory3Direct[category3]?.[selectedPlayer] || 0;
+        }
+        
+        console.log(`🔍 ${category3} (${selectedPlayer}): won=${wonCount}, lost=${lostCount}`);
+        return wonCount > 0 || lostCount > 0;
+      })
+      .map(category3 => {
+        let wonCount = 0;
+        let lostCount = 0;
+        
+        if (selectedPlayer === 'both') {
+          wonCount = stats.pointsWonByCategory3[category3]?.total || 0;
+          lostCount = stats.pointsLostByCategory3Direct[category3]?.total || 0;
+        } else {
+          wonCount = stats.pointsWonByCategory3[category3]?.[selectedPlayer] || 0;
+          lostCount = stats.pointsLostByCategory3Direct[category3]?.[selectedPlayer] || 0;
+        }
+        
+        const total = wonCount + lostCount;
+        
+        return {
+          name: formatCategoryName(category3),
+          gagnés: wonCount,
+          perdus: lostCount,
+          total: total,
+          // Pour le graphique empilé, on calcule les pourcentages
+          gagnésPercent: total > 0 ? (wonCount / total) * 100 : 0,
+          perdusPercent: total > 0 ? (lostCount / total) * 100 : 0
+        };
+      })
+      .sort((a, b) => b.total - a.total); // Trier par total décroissant
+
+    console.log('🔍 Final comparison data:', data);
+    return data;
   };
 
   if (loading) {
@@ -298,6 +370,12 @@ export default function GameStatsPage() {
 
   const wonChartData = prepareChartData(stats.pointsWonByCategory, 'won');
   const lostChartData = prepareChartData(stats.pointsLostByCategory, 'lost');
+  const lostChartDataByCategory3 = prepareChartData(
+    Object.fromEntries(
+      Object.entries(stats.pointsLostByCategory3Direct).map(([key, data]) => [key, data.total])
+    ), 
+    'lost'
+  );
 
   return (
     <ProtectedRoute>
@@ -322,7 +400,7 @@ export default function GameStatsPage() {
           </div>
 
           {/* Stats générales */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Points joués</CardTitle>
@@ -377,53 +455,13 @@ export default function GameStatsPage() {
           </div>
 
           {/* Graphiques */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Répartition des points gagnés */}
+          <div className="grid grid-cols-1 gap-6">
+            {/* Répartition des points perdus par type d'erreur */}
             <Card>
               <CardHeader>
-                <CardTitle>Points gagnés</CardTitle>
+                <CardTitle>Points perdus par type d'erreur</CardTitle>
                 <CardDescription>
-                  Distribution des points gagnés par type de coup
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  {wonChartData.length > 0 ? (
-                    <ResponsiveContainerFixed width="100%" height="100%">
-                      <PieChartFixed>
-                        <PieFixed
-                          data={wonChartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {wonChartData.map((entry, index) => (
-                            <CellFixed key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </PieFixed>
-                        <Tooltip />
-                        <LegendFixed />
-                      </PieChartFixed>
-                    </ResponsiveContainerFixed>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      Aucun point gagné enregistré
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Répartition des points perdus */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Points perdus</CardTitle>
-                <CardDescription>
-                  Distribution des points perdus par type d'erreur
+                  Distribution des points perdus par catégorie d'erreur
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -436,7 +474,7 @@ export default function GameStatsPage() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          label={({ percent }: any) => `${(percent * 100).toFixed(0)}%`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
@@ -454,6 +492,91 @@ export default function GameStatsPage() {
                       Aucun point perdu enregistré
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Graphique comparatif points gagnés vs perdus par type de coup */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Efficacité par type de coup</CardTitle>
+                <CardDescription>
+                  Comparaison des points gagnés et perdus pour chaque type de coup
+                </CardDescription>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Button
+                    variant={selectedPlayer === 'both' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedPlayer('both')}
+                    className="text-xs"
+                  >
+                    Les deux
+                  </Button>
+                  <Button
+                    variant={selectedPlayer === 'left' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedPlayer('left')}
+                    className="text-xs"
+                  >
+                    {analysis.player_left} (G)
+                  </Button>
+                  <Button
+                    variant={selectedPlayer === 'right' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedPlayer('right')}
+                    className="text-xs"
+                  >
+                    {analysis.player_right} (D)
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {(() => {
+                    const comparisonData = prepareComparisonData();
+                    console.log('🔍 Comparison data:', comparisonData);
+                    
+                    return comparisonData.length > 0 ? (
+                      comparisonData.map((entry, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{entry.name}</span>
+                            <span className="text-sm text-gray-600">
+                              {entry.gagnés}/{entry.total} gagnés
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-6 relative">
+                            <div 
+                              className="bg-green-500 h-6 rounded-l-full flex items-center justify-end pr-2"
+                              style={{ width: `${(entry.gagnés / entry.total) * 100}%` }}
+                            >
+                              <span className="text-white text-xs font-medium">
+                                {entry.gagnés}
+                              </span>
+                            </div>
+                            <div 
+                              className="bg-red-500 h-6 rounded-r-full absolute top-0 flex items-center justify-start pl-2"
+                              style={{ 
+                                width: `${(entry.perdus / entry.total) * 100}%`,
+                                left: `${(entry.gagnés / entry.total) * 100}%`
+                              }}
+                            >
+                              <span className="text-white text-xs font-medium">
+                                {entry.perdus}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center h-32 text-gray-500">
+                        <div className="text-center">
+                          <div className="text-lg font-medium mb-2">Aucun point enregistré</div>
+                          <div className="text-sm">Commencez à jouer pour voir les statistiques</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -530,25 +653,25 @@ export default function GameStatsPage() {
                   </div>
                 </div>
 
-                {/* Lignes pour chaque Category_2 */}
-                {Object.entries(stats.pointsWonByCategory2)
+                {/* Lignes pour chaque Category_3 */}
+                {Object.entries(stats.pointsWonByCategory3)
                   .filter(([_, data]) => data.total > 0)
-                  .map(([category2, data], index) => {
-                    const categoryColor = getCategoryColor(category2, index);
+                  .map(([category3, data], index) => {
+                    const categoryColor = getCategoryColor(category3, index);
                     return (
-                    <React.Fragment key={category2}>
-                      {/* Ligne Category_2 */}
+                    <React.Fragment key={category3}>
+                      {/* Ligne Category_3 */}
                       <div className="p-3 text-left border-r border-gray-200 border-t border-gray-200 bg-gray-50">
                         <h4 className="text-sm font-medium text-gray-700 ml-4 flex items-center">
                           <div 
                             className="w-3 h-3 rounded-full mr-2" 
                             style={{ backgroundColor: categoryColor }}
                           ></div>
-                          {formatCategoryName(category2)}
+                          {formatCategoryName(category3)}
                         </h4>
                       </div>
 
-                      {/* Category_2 - Joueur de gauche */}
+                      {/* Category_3 - Joueur de gauche */}
                       <div className="p-3 text-center border-r border-gray-200 border-t border-gray-200 bg-gray-50">
                         <div className="text-sm font-medium text-gray-700">
                           {data.left}
@@ -558,7 +681,7 @@ export default function GameStatsPage() {
                         </div>
                       </div>
 
-                      {/* Category_2 - Total équipe */}
+                      {/* Category_3 - Total équipe */}
                       <div className="p-3 text-center border-r border-gray-200 border-t border-gray-200 bg-gray-50">
                         <div className="text-sm font-medium text-gray-700">
                           {data.total}
@@ -568,7 +691,7 @@ export default function GameStatsPage() {
                         </div>
                       </div>
 
-                      {/* Category_2 - Joueur de droite */}
+                      {/* Category_3 - Joueur de droite */}
                       <div className="p-3 text-center border-t border-gray-200 bg-gray-50">
                         <div className="text-sm font-medium text-gray-700">
                           {data.right}
@@ -577,58 +700,6 @@ export default function GameStatsPage() {
                           ({calculatePercentage(data.right, stats.pointsWonByPlayer.right)})
                         </div>
                       </div>
-
-                      {/* Sous-lignes pour chaque Category_3 de cette Category_2 */}
-                      {stats.pointsWonByCategory3[category2] && Object.entries(stats.pointsWonByCategory3[category2])
-                        .filter(([_, data]) => data.total > 0)
-                        .map(([category3, data], subIndex) => {
-                          // Créer une couleur plus claire pour les sous-catégories
-                          const subCategoryColor = categoryColor + '40'; // Ajouter de la transparence
-                          return (
-                          <React.Fragment key={`${category2}-${category3}`}>
-                            {/* Ligne Category_3 */}
-                            <div className="p-2 text-left border-r border-gray-200 border-t border-gray-200">
-                              <h5 className="text-xs text-gray-600 ml-8 flex items-center">
-                                <div 
-                                  className="w-2 h-2 rounded-full mr-2" 
-                                  style={{ backgroundColor: subCategoryColor }}
-                                ></div>
-                                {formatCategoryName(category3)}
-                              </h5>
-                            </div>
-
-                            {/* Category_3 - Joueur de gauche */}
-                            <div className="p-2 text-center border-r border-gray-200 border-t border-gray-200">
-                              <div className="text-xs text-gray-600">
-                                {data.left}
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                ({calculatePercentage(data.left, stats.pointsWonByCategory2[category2].left)})
-                              </div>
-                            </div>
-
-                            {/* Category_3 - Total équipe */}
-                            <div className="p-2 text-center border-r border-gray-200 border-t border-gray-200">
-                              <div className="text-xs text-gray-600">
-                                {data.total}
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                ({calculatePercentage(data.total, stats.pointsWonByCategory2[category2].total)})
-                              </div>
-                            </div>
-
-                            {/* Category_3 - Joueur de droite */}
-                            <div className="p-2 text-center border-t border-gray-200">
-                              <div className="text-xs text-gray-600">
-                                {data.right}
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                ({calculatePercentage(data.right, stats.pointsWonByCategory2[category2].right)})
-                              </div>
-                            </div>
-                          </React.Fragment>
-                          );
-                        })}
                     </React.Fragment>
                     );
                   })}

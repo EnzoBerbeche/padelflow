@@ -16,10 +16,8 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
   const [selectedType, setSelectedType] = useState<'gagné' | 'perdu' | null>(null);
   const [selectedAction, setSelectedAction] = useState<PointAction | null>(null);
   const [selectedSubTag, setSelectedSubTag] = useState<string>('');
-  const [selectedSubSubTag, setSelectedSubSubTag] = useState<string>('');
   const [showActionDialog, setShowActionDialog] = useState(false);
   const [showSubTagDialog, setShowSubTagDialog] = useState(false);
-  const [showSubSubTagDialog, setShowSubSubTagDialog] = useState(false);
   const [showPlayerDialog, setShowPlayerDialog] = useState(false);
   const [pointActions, setPointActions] = useState<PointAction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +28,12 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
       try {
         const actions = await analysisService.getPointActions();
         console.log('🔍 Actions chargées depuis la DB:', actions);
+        console.log('🔍 Structure des actions:', actions.map(a => ({
+          id: a.id,
+          category_1: a.category_1,
+          category_2: a.category_2,
+          category_3: a.category_3
+        })));
         setPointActions(actions);
       } catch (error) {
         console.error('Erreur lors du chargement des actions:', error);
@@ -41,21 +45,46 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
     loadActions();
   }, []);
 
-  // Grouper les actions par category_2 pour éviter les doublons
-  const getUniqueActions = (actions: PointAction[]) => {
+  // Grouper les actions par category_3 pour les points gagnés (category_2 est null)
+  const getGagnéActions = (actions: PointAction[]) => {
     const uniqueActions = new Map();
-    actions.forEach(action => {
+    const gagneActions = actions.filter(action => action.category_1 === 'gagne' && action.category_2 === null);
+    console.log('🔍 Actions gagnées filtrées:', gagneActions);
+    
+    gagneActions.forEach(action => {
+      console.log('🔍 Action gagnée:', action.category_3, action);
+      if (!uniqueActions.has(action.category_3)) {
+        uniqueActions.set(action.category_3, action);
+      }
+    });
+    
+    const result = Array.from(uniqueActions.values());
+    console.log('🔍 Actions gagnées groupées:', result);
+    return result;
+  };
+
+  // Grouper les actions par category_2 pour les points perdus
+  const getPerduActions = (actions: PointAction[]) => {
+    const uniqueActions = new Map();
+    const perduActions = actions.filter(action => action.category_1 === 'perdu' && action.category_2 !== null);
+    console.log('🔍 Actions perdues filtrées:', perduActions);
+    
+    perduActions.forEach(action => {
+      console.log('🔍 Action perdue:', action.category_2, action);
       if (!uniqueActions.has(action.category_2)) {
         uniqueActions.set(action.category_2, action);
       }
     });
-    return Array.from(uniqueActions.values());
+    
+    const result = Array.from(uniqueActions.values());
+    console.log('🔍 Actions perdues groupées:', result);
+    return result;
   };
 
-  const gagnéActions = getUniqueActions(pointActions.filter(action => action.category_1 === 'gagne'));
-  const perduActions = getUniqueActions(pointActions.filter(action => action.category_1 === 'perdu'));
+  const gagnéActions = getGagnéActions(pointActions);
+  const perduActions = getPerduActions(pointActions);
 
-  // Récupérer les sous-tags (category_3) pour une action donnée
+  // Récupérer les sous-tags (category_3) pour une action donnée des points perdus
   const getSubTags = (category2: string) => {
     const uniqueSubTags = new Map();
     pointActions
@@ -71,41 +100,44 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
     return Array.from(uniqueSubTags.values());
   };
 
-  // Récupérer les sub-sub-tags (category_4) pour une action donnée
-  const getSubSubTags = (category2: string, category3: string) => {
-    const uniqueSubSubTags = new Map();
-    pointActions
-      .filter(action => action.category_2 === category2 && action.category_3 === category3 && action.category_4)
-      .forEach(action => {
-        if (!uniqueSubSubTags.has(action.category_4)) {
-          uniqueSubSubTags.set(action.category_4, {
-            id: action.category_4,
-            label: action.category_4
-          });
-        }
-      });
-    return Array.from(uniqueSubSubTags.values());
-  };
-
   // Fonction de formatage intelligente pour les noms d'actions
-  const formatActionName = (category2: string): string => {
+  const formatActionName = (name: string): string => {
     // Cas spéciaux pour les noms composés
     const specialCases: { [key: string]: string } = {
-      'faute_directe_adverse': 'Faute directe adverse',
-      'vibora_bandeja': 'Vibora/Bandeja',
-      'winner_on_error': 'Winner on error',
-      'unforced_error': 'Unforced error',
-      'forced_error': 'Forced error'
+      'Balle Haute': 'Balle Haute',
+      'Volée': 'Volée',
+      'Balle Basse': 'Balle Basse',
+      'Service': 'Service',
+      'Faute Directe Adverse': 'Faute Directe Adverse',
+      'Balle facile': 'Balle facile',
+      'Balle difficile': 'Balle difficile',
+      'Coup gagnant adverse': 'Coup gagnant adverse'
     };
 
-    if (specialCases[category2]) {
-      return specialCases[category2];
+    if (specialCases[name]) {
+      return specialCases[name];
     }
 
     // Formatage générique
-    return category2
+    return name
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (l: string) => l.toUpperCase());
+  };
+
+  // Fonction pour obtenir l'emoji approprié selon l'action
+  const getActionEmoji = (name: string): string => {
+    const emojiMap: { [key: string]: string } = {
+      'Balle Haute': '⬆️',
+      'Volée': '🏓',
+      'Balle Basse': '⬇️',
+      'Service': '🎯',
+      'Faute Directe Adverse': '❌',
+      'Balle facile': '😅',
+      'Balle difficile': '😰',
+      'Coup gagnant adverse': '💥'
+    };
+
+    return emojiMap[name] || '🎾';
   };
 
   const handleTypeClick = (type: 'gagné' | 'perdu') => {
@@ -117,12 +149,25 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
     setSelectedAction(action);
     setShowActionDialog(false);
     
-    if (!action.category_3) {
-      // 2 clics : Action → Joueur
+    // Si requires_player est false, enregistrer directement le point
+    if (!action.requires_player) {
+      onPointAction(action.id.toString(), '', undefined);
+      // Reset
+      setSelectedType(null);
+      setSelectedAction(null);
+      setSelectedSubTag('');
+      return;
+    }
+    
+    if (action.category_1 === 'gagne') {
+      // Pour les points gagnés : Action → Joueur (pas de sous-tags)
       setShowPlayerDialog(true);
-    } else {
-      // 3+ clics : Action → Sous-tag → ...
+    } else if (action.category_1 === 'perdu' && action.category_3) {
+      // Pour les points perdus avec category_3 : Action → Sous-tag → Joueur
       setShowSubTagDialog(true);
+    } else {
+      // Pour les points perdus sans category_3 : Action → Joueur
+      setShowPlayerDialog(true);
     }
   };
 
@@ -130,47 +175,40 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
     setSelectedSubTag(subTag.id);
     setShowSubTagDialog(false);
     
-    if (selectedAction?.category_2 === 'unforced_error') {
-      // 4 clics pour Unforced Error : Action → Type de coup → Lieu → Joueur
-      setShowSubSubTagDialog(true);
-    } else {
-      // 3 clics : Action → Sous-tag → Joueur
-      setShowPlayerDialog(true);
+    // Trouver l'action spécifique pour cette combinaison
+    const specificAction = pointActions.find(action => 
+      action.category_2 === selectedAction!.category_2 && 
+      action.category_3 === subTag.id
+    );
+    
+    // Si requires_player est false, enregistrer directement le point
+    if (specificAction && !specificAction.requires_player) {
+      onPointAction(specificAction.id.toString(), subTag.id, undefined);
+      // Reset
+      setSelectedType(null);
+      setSelectedAction(null);
+      setSelectedSubTag('');
+      return;
     }
-  };
-
-  const handleSubSubTagClick = (subSubTag: { id: string; label: string }) => {
-    setSelectedSubSubTag(subSubTag.id);
-    setShowSubSubTagDialog(false);
+    
     setShowPlayerDialog(true);
   };
 
   const handlePlayerSelect = (playerPosition: 'right' | 'left') => {
     setShowPlayerDialog(false);
     
-    // Trouver l'ID spécifique pour la combinaison category_2 + category_3 + category_4
+    // Trouver l'ID spécifique pour la combinaison
     let specificActionId = selectedAction!.id;
     
-    if (selectedSubTag) {
-      // Si on a une category_3 (comme "gauche", "droite", "milieu")
+    if (selectedAction!.category_1 === 'perdu' && selectedSubTag) {
+      // Si on a une category_3 pour les points perdus
       const specificAction = pointActions.find(action => 
         action.category_2 === selectedAction!.category_2 && 
-        action.category_3 === selectedSubTag &&
-        action.category_4 === selectedSubSubTag
+        action.category_3 === selectedSubTag
       );
       
       if (specificAction) {
         specificActionId = specificAction.id;
-      } else if (!selectedSubSubTag) {
-        // Si pas de category_4, chercher seulement avec category_2 + category_3
-        const specificAction = pointActions.find(action => 
-          action.category_2 === selectedAction!.category_2 && 
-          action.category_3 === selectedSubTag
-        );
-        
-        if (specificAction) {
-          specificActionId = specificAction.id;
-        }
       }
     }
     
@@ -180,7 +218,6 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
     setSelectedType(null);
     setSelectedAction(null);
     setSelectedSubTag('');
-    setSelectedSubSubTag('');
   };
 
   if (loading) {
@@ -226,63 +263,54 @@ export default function PointActionButtons({ onPointAction, playerLeft, playerRi
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 py-4">
-            {(selectedType === 'gagné' ? gagnéActions : perduActions).map((action) => (
-              <Button
-                key={action.id}
-                onClick={() => handleActionClick(action)}
-                className="w-full h-16 text-base font-medium"
-                variant="outline"
-              >
-                <span className="mr-3 text-2xl">🎾</span>
-                {formatActionName(action.category_2)}
-              </Button>
-            ))}
+            {(selectedType === 'gagné' ? gagnéActions : perduActions).map((action) => {
+              // Pour les points gagnés : afficher category_3
+              // Pour les points perdus : afficher category_2
+              const displayName = selectedType === 'gagné' 
+                ? (action.category_3 || '') 
+                : (action.category_2 || '');
+              
+              console.log('🔍 Rendu bouton:', {
+                selectedType,
+                actionId: action.id,
+                category_2: action.category_2,
+                category_3: action.category_3,
+                displayName
+              });
+              return (
+                <Button
+                  key={action.id}
+                  onClick={() => handleActionClick(action)}
+                  className="w-full h-16 text-base font-medium"
+                  variant="outline"
+                >
+                  <span className="mr-3 text-2xl">{getActionEmoji(displayName)}</span>
+                  {formatActionName(displayName)}
+                </Button>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Sous-tags */}
+      {/* Dialog Sous-tags (pour les points perdus avec category_3) */}
       <Dialog open={showSubTagDialog} onOpenChange={setShowSubTagDialog}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg text-center">
-              {selectedAction && formatActionName(selectedAction.category_2)}
+              {selectedAction && formatActionName(selectedAction.category_2 || '')}
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 py-4">
-            {selectedAction && getSubTags(selectedAction.category_2).map((subTag) => (
+            {selectedAction && getSubTags(selectedAction.category_2 || '').map((subTag) => (
               <Button
                 key={subTag.id}
                 onClick={() => handleSubTagClick(subTag)}
                 className="w-full h-16 text-base font-medium"
                 variant="outline"
               >
-                <span className="mr-3 text-2xl">🎾</span>
+                <span className="mr-3 text-2xl">{getActionEmoji(subTag.label)}</span>
                 {formatActionName(subTag.label)}
-              </Button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Sub-sub-tags (pour Unforced Error) */}
-      <Dialog open={showSubSubTagDialog} onOpenChange={setShowSubSubTagDialog}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg text-center">
-              {selectedAction && formatActionName(selectedAction.category_2)} - Lieu de la faute
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-3 py-4">
-            {selectedAction && selectedSubTag && getSubSubTags(selectedAction.category_2, selectedSubTag).map((subSubTag) => (
-              <Button
-                key={subSubTag.id}
-                onClick={() => handleSubSubTagClick(subSubTag)}
-                className="w-full h-16 text-base font-medium"
-                variant="outline"
-              >
-                <span className="mr-3 text-2xl">🎾</span>
-                {formatActionName(subSubTag.label)}
               </Button>
             ))}
           </div>

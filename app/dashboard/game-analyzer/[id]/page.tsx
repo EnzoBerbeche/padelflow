@@ -167,49 +167,39 @@ export default function GameTrackingPage() {
       <DashboardLayout>
         <div className="min-h-screen bg-gray-50">
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-4 py-2 space-y-2">
-            {/* Boutons d'action en haut */}
-            <div className="flex items-center justify-between">
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/dashboard/game-analyzer">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Retour
-                </Link>
-              </Button>
-              <div className="flex items-center space-x-1">
-                <Button asChild size="sm">
-                  <Link href={`/dashboard/game-analyzer/${analysis.id}/stats`}>
-                    <BarChart3 className="h-4 w-4 mr-1" />
-                    Stats
-                  </Link>
-                </Button>
-                <Button
-                  onClick={async () => {
-                    if (localPoints.length > 0) {
-                      await undoLastPoint();
-                      // Recharger les données après suppression
-                      await loadAnalysis(gameId);
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  disabled={!localPoints || localPoints.length === 0}
-                >
-                  <Undo2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Titre */}
-            <div className="text-center">
-              <h1 className="text-lg font-bold text-gray-900">{analysis.analysis_name}</h1>
-            </div>
-
-            {/* Joueurs */}
-            <div className="text-center">
+          <div className="bg-white border-b border-gray-200 px-4 py-4">
+            {/* Titre et joueurs */}
+            <div className="text-center mb-4">
+              <h1 className="text-xl font-bold text-gray-900 mb-1">{analysis.analysis_name}</h1>
               <p className="text-sm text-gray-600">
                 {analysis.player_left} - {analysis.player_right}
               </p>
+            </div>
+
+            {/* Boutons d'action */}
+            <div className="flex items-center justify-center gap-3">
+              <Button asChild size="sm">
+                <Link href={`/dashboard/game-analyzer/${analysis.id}/stats`}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Stats
+                </Link>
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (localPoints.length > 0) {
+                    await undoLastPoint();
+                    // Recharger les données après suppression
+                    await loadAnalysis(gameId);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                disabled={!localPoints || localPoints.length === 0}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Undo2 className="h-4 w-4 mr-2" />
+                Annuler dernière action
+              </Button>
             </div>
           </div>
 
