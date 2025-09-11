@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, Database, User as UserIcon, Wrench, Shield, BarChart3 } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, User as UserIcon, Wrench, Shield, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 // Base navigation for player users (limited access)
 const playerNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
@@ -26,7 +25,6 @@ const playerNavigation = [
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
@@ -39,7 +37,6 @@ const adminNavigation = [
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Ten\'Up', href: '/dashboard/ten-up', icon: Database },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];

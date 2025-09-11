@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, Database, UserPlus, Loader2, Circle, CircleDot, ChevronLeft, ChevronRight, Trash2, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, Database, UserPlus, Loader2, ChevronLeft, ChevronRight, Trash2, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/protected-route';
@@ -240,13 +240,12 @@ export default function TenUpPage() {
     }
   };
 
-  const getRankingColor = (ranking: number) => {
-    if (ranking <= 25) return 'bg-green-100 text-green-800';
-    if (ranking <= 100) return 'bg-blue-100 text-blue-800';
-    if (ranking <= 250) return 'bg-purple-100 text-purple-800';
-    if (ranking <= 500) return 'bg-orange-100 text-orange-800';
-    if (ranking <= 1000) return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-800';
+  const getRankingColor = (ranking: number, gender: string) => {
+    if (gender === 'women') {
+      return 'bg-pink-100 text-pink-800';
+    } else {
+      return 'bg-blue-100 text-blue-800';
+    }
   };
 
   const getCurrentPagePlayers = () => {
@@ -279,7 +278,7 @@ export default function TenUpPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Ten'Up</h1>
-              <p className="text-gray-600 mt-1">National Padel Players Database</p>
+              <p className="text-gray-600 mt-1">Base de données nationale des joueurs de padel</p>
             </div>
           </div>
 
@@ -289,10 +288,10 @@ export default function TenUpPage() {
               {/* Search Bar - Always Visible */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor="search">Search</Label>
+                  <Label htmlFor="search">Rechercher</Label>
                   <Input
                     id="search"
-                    placeholder="Name, license..."
+                    placeholder="Nom, licence..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && searchPlayers()}
@@ -307,12 +306,12 @@ export default function TenUpPage() {
                     {searching ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Searching...
+                        Recherche...
                       </>
                     ) : (
                       <>
                         <Search className="h-4 w-4 mr-2" />
-                        Search
+                        Rechercher
                       </>
                     )}
                   </Button>
@@ -327,7 +326,7 @@ export default function TenUpPage() {
                   className="flex items-center space-x-2"
                 >
                   <Filter className="h-4 w-4" />
-                  <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                  <span>{showFilters ? 'Masquer les Filtres' : 'Afficher les Filtres'}</span>
                   {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
                 
@@ -346,7 +345,7 @@ export default function TenUpPage() {
                     className="flex items-center space-x-2"
                   >
                     <Filter className="h-4 w-4" />
-                    <span>Clear Filters</span>
+                    <span>Effacer les Filtres</span>
                   </Button>
                 )}
               </div>
@@ -357,20 +356,20 @@ export default function TenUpPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="gender">Gender</Label>
+                        <Label htmlFor="gender">Genre</Label>
                         <Select value={genderFilter} onValueChange={(value: 'men' | 'women' | 'all') => setGenderFilter(value)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="men">Men</SelectItem>
-                            <SelectItem value="women">Women</SelectItem>
+                            <SelectItem value="all">Tous</SelectItem>
+                            <SelectItem value="men">Hommes</SelectItem>
+                            <SelectItem value="women">Femmes</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="ranking-min">Min Ranking</Label>
+                        <Label htmlFor="ranking-min">Classement Min</Label>
                         <Input
                           id="ranking-min"
                           type="number"
@@ -380,7 +379,7 @@ export default function TenUpPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="ranking-max">Max Ranking</Label>
+                        <Label htmlFor="ranking-max">Classement Max</Label>
                         <Input
                           id="ranking-max"
                           type="number"
@@ -390,13 +389,13 @@ export default function TenUpPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="league">League</Label>
+                        <Label htmlFor="league">Ligue</Label>
                         <Select value={leagueFilter} onValueChange={setLeagueFilter}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Leagues</SelectItem>
+                            <SelectItem value="all">Toutes les Ligues</SelectItem>
                             {leagues.map(league => (
                               <SelectItem key={league} value={league}>{league}</SelectItem>
                             ))}
@@ -416,15 +415,15 @@ export default function TenUpPage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>Players ({filteredPlayers.length})</CardTitle>
+                    <CardTitle>Joueurs ({filteredPlayers.length})</CardTitle>
                     <CardDescription>
-                      Showing {getCurrentPagePlayers().length} of {filteredPlayers.length} players
-                      {searchTerm.trim() && ` matching "${searchTerm}"`}
+                      Affichage de {getCurrentPagePlayers().length} sur {filteredPlayers.length} joueurs
+                      {searchTerm.trim() && ` correspondant à "${searchTerm}"`}
                     </CardDescription>
                   </div>
                   {filteredPlayers.length > 0 && (
                     <div className="text-sm text-gray-500">
-                      Page {currentPage} of {totalPages}
+                      Page {currentPage} sur {totalPages}
                     </div>
                   )}
                 </div>
@@ -433,17 +432,17 @@ export default function TenUpPage() {
                 {searching ? (
                   <div className="text-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Searching...</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Recherche...</h3>
                     <p className="text-gray-500">
-                      Please wait while we search for players.
+                      Veuillez patienter pendant que nous recherchons les joueurs.
                     </p>
                   </div>
                 ) : filteredPlayers.length === 0 ? (
                   <div className="text-center py-12">
                     <Database className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No players found</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun joueur trouvé</h3>
                     <p className="text-gray-500">
-                      Try adjusting your search criteria or filters.
+                      Essayez d'ajuster vos critères de recherche ou vos filtres.
                     </p>
                   </div>
                 ) : (
@@ -454,24 +453,19 @@ export default function TenUpPage() {
                        <Card key={player.id} className="p-3">
                          <div className="space-y-2">
                            {/* Player Header */}
-                           <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Link 
+                                  href={`/dashboard/players/${player.license_number}?from=ten-up`}
+                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                >
+                                  {player.first_name} {player.last_name}
+                                </Link>
+                              </div>
                              <div className="flex items-center space-x-2">
-                               {player.gender === 'men' ? (
-                                 <Circle className="h-4 w-4 text-blue-500" />
-                               ) : (
-                                 <CircleDot className="h-4 w-4 text-pink-500" />
-                               )}
-                               <Link 
-                                 href={`/dashboard/players/${player.license_number}?from=ten-up`}
-                                 className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                               >
-                                 {player.first_name} {player.last_name}
-                               </Link>
-                             </div>
-                             <div className="flex items-center space-x-2">
-                               <Badge className={getRankingColor(player.ranking)}>
-                                 P{player.ranking}
-                               </Badge>
+                                <Badge className={getRankingColor(player.ranking, player.gender)}>
+                                  {player.ranking}
+                                </Badge>
                                {myLicences.includes(player.license_number) ? (
                                  <Button
                                    size="sm"
@@ -524,25 +518,25 @@ export default function TenUpPage() {
                          <tr className="border-b">
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('name')}>
-                               <span>Name</span>
+                               <span>Nom</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
                              </button>
                            </th>
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('ranking')}>
-                               <span>Ranking</span>
+                               <span>Classement</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
                              </button>
                            </th>
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('league')}>
-                               <span>League</span>
+                               <span>Ligue</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
                              </button>
                            </th>
                            <th className="text-left py-3 px-4 font-medium text-gray-900">
                              <button className="inline-flex items-center gap-1" onClick={() => toggleSort('birth_year')}>
-                               <span>Birth Year</span>
+                                <span>Âge</span>
                                <ArrowUpDown className="h-3 w-3 text-gray-500" />
                              </button>
                            </th>
@@ -552,25 +546,20 @@ export default function TenUpPage() {
                        <tbody>
                          {getCurrentPagePlayers().map((player) => (
                            <tr key={player.id} className="border-b hover:bg-gray-50">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center space-x-2">
+                                  <Link 
+                                    href={`/dashboard/players/${player.license_number}?from=ten-up`}
+                                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                  >
+                                    {player.first_name} {player.last_name}
+                                  </Link>
+                                </div>
+                              </td>
                              <td className="py-3 px-4">
-                               <div className="flex items-center space-x-2">
-                                 {player.gender === 'men' ? (
-                                   <Circle className="h-4 w-4 text-blue-500" />
-                                 ) : (
-                                   <CircleDot className="h-4 w-4 text-pink-500" />
-                                 )}
-                                 <Link 
-                                   href={`/dashboard/players/${player.license_number}?from=ten-up`}
-                                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                                 >
-                                   {player.first_name} {player.last_name}
-                                 </Link>
-                               </div>
-                             </td>
-                             <td className="py-3 px-4">
-                               <Badge className={getRankingColor(player.ranking)}>
-                                 P{player.ranking}
-                               </Badge>
+                                <Badge className={getRankingColor(player.ranking, player.gender)}>
+                                  {player.ranking}
+                                </Badge>
                              </td>
                              <td className="py-3 px-4 text-gray-600">
                                <span className="truncate block max-w-[200px]" title={player.league}>

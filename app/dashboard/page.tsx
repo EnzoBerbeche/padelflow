@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, Circle, CircleDot, ChevronDown, UserMinus, ChevronUp, BarChart3, Smartphone, UserPlus } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Users, MapPin, Calendar, Target, Award, UserCheck, Eye, Search, Filter, ChevronDown, UserMinus, ChevronUp, BarChart3, Smartphone, UserPlus } from 'lucide-react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { userPlayerLinkAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
 import { playersAPI, SupabasePlayersEnrichedRow } from '@/lib/supabase';
@@ -82,12 +82,12 @@ export default function HomePage() {
     }
   };
 
-  const getRankingColor = (ranking: number) => {
-    if (ranking <= 100) return 'bg-red-100 text-red-800 border-red-200';
-    if (ranking <= 500) return 'bg-orange-100 text-orange-800 border-orange-200';
-    if (ranking <= 1000) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    if (ranking <= 1500) return 'bg-blue-100 text-blue-800 border-blue-200';
-    return 'bg-green-100 text-green-800 border-green-200';
+  const getRankingColor = (ranking: number, gender: string) => {
+    if (gender === 'F') {
+      return 'bg-pink-100 text-pink-800';
+    } else {
+      return 'bg-blue-100 text-blue-800';
+    }
   };
 
   const getEvolutionIcon = (evolution: number | null) => {
@@ -98,10 +98,10 @@ export default function HomePage() {
   };
 
   const getEvolutionText = (evolution: number | null) => {
-    if (!evolution) return 'No change';
-    if (evolution > 0) return `+${evolution} (Improved)`;
-    if (evolution < 0) return `${evolution} (Declined)`;
-    return 'No change';
+    if (!evolution) return 'Aucun changement';
+    if (evolution > 0) return `+${evolution}`;
+    if (evolution < 0) return `${evolution}`;
+    return 'Aucun changement';
   };
 
   const getEvolutionColor = (evolution: number | null) => {
@@ -232,7 +232,7 @@ export default function HomePage() {
           <div className="bg-gradient-to-r from-primary to-primary/80 rounded-lg p-6 text-white">
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold mb-2">
-                Welcome back, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Player'}! 🎾
+                Bon retour, {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Joueur'}! 🎾
               </h1>
             </div>
           </div>
@@ -278,20 +278,20 @@ export default function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
-                <CardTitle className="text-xs md:text-sm font-medium">Tournaments Played</CardTitle>
+                <CardTitle className="text-xs md:text-sm font-medium">Tournois Joués</CardTitle>
                 <Trophy className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 md:p-4 pt-0">
                 <div className="text-lg md:text-2xl font-bold">{stats.totalTournaments}</div>
                 <p className="text-xs text-muted-foreground hidden md:block">
-                  Total tournaments participated
+                  Total de tournois participés
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
-                <CardTitle className="text-xs md:text-sm font-medium">Evolution</CardTitle>
+                <CardTitle className="text-xs md:text-sm font-medium">Évolution</CardTitle>
                 <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 md:p-4 pt-0">
@@ -308,33 +308,33 @@ export default function HomePage() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground hidden md:block">
-                  {playerLink?.evolution ? (playerLink.evolution > 0 ? 'Improved' : 'Declined') : 'No change'}
+                  {playerLink?.evolution ? (playerLink.evolution > 0 ? 'Amélioré' : 'Décliné') : 'Aucun changement'}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
-                <CardTitle className="text-xs md:text-sm font-medium">Current Ranking</CardTitle>
+                <CardTitle className="text-xs md:text-sm font-medium">Classement Actuel</CardTitle>
                 <Target className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 md:p-4 pt-0">
                 <div className="text-lg md:text-2xl font-bold">P{stats.averageRanking}</div>
                 <p className="text-xs text-muted-foreground hidden md:block">
-                  Your current ranking
+                  Votre classement actuel
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-4">
-                <CardTitle className="text-xs md:text-sm font-medium">Best Ranking</CardTitle>
+                <CardTitle className="text-xs md:text-sm font-medium">Meilleur Classement</CardTitle>
                 <Award className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 md:p-4 pt-0">
                 <div className="text-lg md:text-2xl font-bold">P{stats.bestRanking}</div>
                 <p className="text-xs text-muted-foreground hidden md:block">
-                  Your best achievement
+                  Votre meilleure performance
                 </p>
               </CardContent>
             </Card>
@@ -346,7 +346,7 @@ export default function HomePage() {
               <Button asChild className="bg-primary hover:bg-primary/90 text-white">
                 <Link href={`/dashboard/players/${playerLink.licence}`}>
                   <BarChart3 className="h-4 w-4 mr-2" />
-                  View My Stats
+                  Voir Mes Statistiques
                 </Link>
               </Button>
             </div>
@@ -357,21 +357,29 @@ export default function HomePage() {
           {followedPlayers.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Eye className="h-5 w-5" />
-                  <span>My Players ({filteredPlayers.length})</span>
-                </CardTitle>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Eye className="h-5 w-5" />
+                    <span>Mes Joueurs ({filteredPlayers.length})</span>
+                  </CardTitle>
+                  <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
+                    <Link href="/dashboard/ten-up">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Ajouter des joueurs
+                    </Link>
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Filter Toggle Button */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <Button 
                     variant="outline"
                     onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 w-full sm:w-auto"
                   >
                     <Filter className="h-4 w-4" />
-                    <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                    <span>{showFilters ? 'Masquer les Filtres' : 'Afficher les Filtres'}</span>
                     {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                   
@@ -379,7 +387,7 @@ export default function HomePage() {
                     <Button 
                       variant="outline"
                       onClick={clearFilters}
-                      className="flex items-center space-x-2"
+                      className="flex items-center space-x-2 w-full sm:w-auto"
                     >
                       <Filter className="h-4 w-4" />
                       <span>Clear Filters</span>
@@ -423,13 +431,13 @@ export default function HomePage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="player-league">League</Label>
+                        <Label htmlFor="player-league">Ligue</Label>
                         <Select value={leagueFilter} onValueChange={(value: string) => setLeagueFilter(value)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Leagues</SelectItem>
+                            <SelectItem value="all">Toutes les Ligues</SelectItem>
                             {uniqueLeagues.map(league => (
                               <SelectItem key={league} value={league}>{league}</SelectItem>
                             ))}
@@ -459,7 +467,7 @@ export default function HomePage() {
                                 onClick={() => handleSort('nom_complet')}
                                 className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
-                                <span>Player</span>
+                                <span>Joueur</span>
                                 {sortField === 'nom_complet' && (
                                   <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                                 )}
@@ -470,7 +478,7 @@ export default function HomePage() {
                                 onClick={() => handleSort('classement')}
                                 className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
-                                <span>Current Ranking</span>
+                                <span>Classement Actuel</span>
                                 {sortField === 'classement' && (
                                   <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                                 )}
@@ -481,7 +489,7 @@ export default function HomePage() {
                                 onClick={() => handleSort('ligue')}
                                 className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
-                                <span>League</span>
+                                <span>Ligue</span>
                                 {sortField === 'ligue' && (
                                   <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                                 )}
@@ -492,13 +500,13 @@ export default function HomePage() {
                                 onClick={() => handleSort('age_sportif')}
                                 className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
                               >
-                                <span>Age</span>
+                                <span>Âge</span>
                                 {sortField === 'age_sportif' && (
                                   <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                                 )}
                               </button>
                             </th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">Evolution</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">Évolution</th>
                             <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
                           </tr>
                         </thead>
@@ -507,7 +515,6 @@ export default function HomePage() {
                             <tr key={player.player_id} className="border-b hover:bg-gray-50">
                               <td className="py-3 px-4">
                                 <div className="flex items-center space-x-2">
-                                  {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
                                   <Link 
                                     href={`/dashboard/players/${player.licence}`}
                                     className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
@@ -517,8 +524,8 @@ export default function HomePage() {
                                 </div>
                               </td>
                               <td className="py-3 px-4">
-                                <Badge className={getRankingColor(player.classement || 0)}>
-                                  P{player.classement || 'N/A'}
+                                <Badge className={getRankingColor(player.classement || 0, player.sexe || 'H')}>
+                                  {player.classement || 'N/A'}
                                 </Badge>
                               </td>
                               <td className="py-3 px-4 text-gray-600">
@@ -558,7 +565,6 @@ export default function HomePage() {
                           {/* Player Name and Gender */}
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-2">
-                              {player.sexe === 'H' ? <Circle className="h-4 w-4 text-blue-500" /> : <CircleDot className="h-4 w-4 text-pink-500" />}
                               <Link 
                                 href={`/dashboard/players/${player.licence}`}
                                 className="text-blue-600 hover:text-blue-800 hover:underline font-medium text-sm"
@@ -580,8 +586,8 @@ export default function HomePage() {
                           {/* Main Info Row - Ranking and Evolution */}
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-3">
-                              <Badge className={`${getRankingColor(player.classement || 0)} text-sm`}>
-                                P{player.classement || 'N/A'}
+                              <Badge className={`${getRankingColor(player.classement || 0, player.sexe || 'H')} text-sm`}>
+                                {player.classement || 'N/A'}
                               </Badge>
                               <div className="flex items-center">
                                 {getEvolutionIcon(player.evolution)}
@@ -618,20 +624,20 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Eye className="h-5 w-5" />
-                  <span>My Players</span>
+                  <span>Mes Joueurs</span>
                 </CardTitle>
                 <CardDescription>
-                  Start following players to track their performance
+                  Commencez à suivre des joueurs pour suivre leurs performances
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8 text-gray-500">
                   <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="mb-4">You haven't started following any players yet.</p>
+                  <p className="mb-4">Vous n'avez pas encore commencé à suivre de joueurs.</p>
                   <Button asChild>
                     <Link href="/dashboard/ten-up">
                       <Users className="h-4 w-4 mr-2" />
-                      Browse Players
+                      Parcourir les Joueurs
                     </Link>
                   </Button>
                 </div>
