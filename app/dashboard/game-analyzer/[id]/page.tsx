@@ -34,44 +34,7 @@ export default function GameTrackingPage() {
     loadAnalysis
   } = useAnalysis(gameId);
 
-  // État local pour les points et stats (pour éviter le rechargement)
-  const [localPoints, setLocalPoints] = useState<any[]>([]);
-  const [localStats, setLocalStats] = useState<any>(null);
 
-  // Synchroniser l'état local avec le hook
-  useEffect(() => {
-    if (points) {
-      setLocalPoints(points);
-    }
-  }, [points]);
-
-  useEffect(() => {
-    if (analysisStats) {
-      setLocalStats(analysisStats);
-    }
-  }, [analysisStats]);
-
-  // Fonction pour calculer les stats localement
-  const calculateStats = (pointsData: any[]) => {
-    const total_points = pointsData.length;
-    const points_gagnes = pointsData.filter(p => p.action?.category_1 === 'gagne').length;
-    const points_perdus = pointsData.filter(p => p.action?.category_1 === 'perdu').length;
-    const coups_gagnants = pointsData.filter(p => p.action?.category_2 === 'winner').length;
-    const fautes_totales = pointsData.filter(p => 
-      p.action?.category_2 === 'unforced_error' || 
-      p.action?.category_2 === 'forced_error' ||
-      p.action?.category_2 === 'faute_directe_adverse'
-    ).length;
-    
-    return {
-      total_points,
-      points_gagnes,
-      points_perdus,
-      coups_gagnants,
-      fautes_totales,
-      ratio_cf: coups_gagnants > 0 ? (fautes_totales / coups_gagnants) : null
-    };
-  };
 
   // Fonction pour gérer les actions de points depuis le composant PointActionButtons
   const handlePointAction = async (actionId: string, subTagId?: string, playerPosition?: 'right' | 'left') => {
@@ -93,12 +56,8 @@ export default function GameTrackingPage() {
       // Appeler directement le service avec l'ID de l'action
       const newPoint = await analysisService.addPoint(analysis.id, parseInt(actionId), position);
       
-      // Mettre à jour l'état local immédiatement
-      const updatedPoints = [...localPoints, newPoint];
-      const updatedStats = calculateStats(updatedPoints);
-      
-      setLocalPoints(updatedPoints);
-      setLocalStats(updatedStats);
+      // Recharger les données pour synchroniser avec la DB
+      await loadAnalysis(gameId);
       
       toast({
         title: "Point ajouté",
@@ -186,7 +145,7 @@ export default function GameTrackingPage() {
               </Button>
               <Button
                 onClick={async () => {
-                  if (localPoints.length > 0) {
+                  if (points.length > 0) {
                     await undoLastPoint();
                     // Recharger les données après suppression
                     await loadAnalysis(gameId);
@@ -194,7 +153,7 @@ export default function GameTrackingPage() {
                 }}
                 variant="outline"
                 size="sm"
-                disabled={!localPoints || localPoints.length === 0}
+                disabled={!points || points.length === 0}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <Undo2 className="h-4 w-4 mr-2" />
@@ -205,13 +164,51 @@ export default function GameTrackingPage() {
 
           {/* Interface de jeu */}
           <div className="flex-1 flex flex-col h-full">
-            {/* Boutons principaux - prennent tout l'espace */}
-            <div className="flex-1 flex flex-col p-4 h-full">
+            {/* Boutons principaux */}
+            <div className="p-4">
               <PointActionButtons 
                 onPointAction={handlePointAction}
                 playerLeft={analysis.player_left}
                 playerRight={analysis.player_right}
               />
+            </div>
+
+            {/* Historique des points */}
+            <div className="px-4 pb-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Historique des points</h3>
+                {points && points.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {points.slice().reverse().map((point, index) => {
+                      const action = point.point_actions;
+                      const isWon = action?.category_1 === 'gagne';
+                      const playerName = point.player_position === 'player2' ? analysis.player_left : analysis.player_right;
+                      
+                      return (
+                        <div key={point.id || index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${isWon ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-sm font-medium text-gray-900">
+                              {isWon ? 'Gagné' : 'Perdu'}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                              - {playerName}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {action?.category_3 || action?.category_2 || 'Action'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">Aucun point enregistré</p>
+                    <p className="text-xs mt-1">Commencez à jouer pour voir l'historique</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
