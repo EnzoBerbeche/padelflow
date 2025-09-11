@@ -113,40 +113,20 @@ export default function Home() {
         .select('idcrm, nom, prenom, nom_complet, classement, sexe, ligue')
         .order('classement', { ascending: true });
       
-      if (searchWords.length === 1) {
-        // Single word search - search ONLY in nom_complet (case insensitive)
-        const word = searchWords[0].toLowerCase();
-        searchQuery = searchQuery.ilike('nom_complet', `%${word}%`);
-      } else if (searchWords.length === 2) {
-        // Two words search - search both orders in nom_complet
-        const word1 = searchWords[0].toLowerCase();
-        const word2 = searchWords[1].toLowerCase();
-        
-        // Search for both word orders in nom_complet
-        searchQuery = searchQuery.or(
-          `nom_complet.ilike.%${word1} ${word2}%,nom_complet.ilike.%${word2} ${word1}%`
-        );
-      } else {
-        // More than 2 words - search exact combination as written
-        const exactQuery = searchWords.join(' ').toLowerCase();
-        searchQuery = searchQuery.ilike('nom_complet', `%${exactQuery}%`);
-      }
+      // Simplified search - just search for the entire query in nom_complet
+      const searchTerm = query.trim().toLowerCase();
+      searchQuery = searchQuery.ilike('nom_complet', `%${searchTerm}%`);
       
       const { data, error } = await searchQuery;
       
       console.log('📊 Search result:', { data: data?.length || 0, error });
       
       if (error) {
-        console.error('❌ Search error details:', {
-          message: error.message || 'Unknown error',
-          details: error.details || 'No details available',
-          hint: error.hint || 'No hint available',
-          code: error.code || 'No error code',
-          fullError: error
-        });
+        console.error('❌ Search error:', error);
         setSearchResults([]);
         setAllResults([]);
         setTotalResults(0);
+        return;
       } else {
         const transformedResults = (data || []).map(player => ({
           id: player.idcrm.toString(),
