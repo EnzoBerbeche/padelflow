@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Calendar, Clock, MapPin, Plus, Edit, Trash2, Eye, Copy, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -49,8 +50,9 @@ export default function TournamentsPage() {
   const duplicateTournament = async (tournament: AppTournament) => {
     try {
       const createdTournament = await tournamentsAPI.create({
-        name: `${tournament.name} (Copy)`,
+        name: `${tournament.name} (Copie)`,
         location: tournament.location,
+        club_id: tournament.club_id,
         date: tournament.date,
         organizer_id: currentUserId || '',
         teams_locked: false,
@@ -256,13 +258,13 @@ export default function TournamentsPage() {
                             {tournament.level}
                           </Badge>
                           <Badge className={getTypeColor(tournament.type)}>
-                            {tournament.type}
+                            {tournament.type === 'All' ? 'Tous' : tournament.type === 'Men' ? 'Hommes' : tournament.type === 'Women' ? 'Femmes' : 'Mixte'}
                           </Badge>
                         </div>
                         <CardDescription className="space-y-1">
                           <div className="flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {format(new Date(tournament.date), 'MMM dd, yyyy')}
+                            {format(new Date(tournament.date), 'dd MMM yyyy', { locale: fr })}
                           </div>
                           <div className="flex items-center">
                             <Clock className="h-4 w-4 mr-1" />

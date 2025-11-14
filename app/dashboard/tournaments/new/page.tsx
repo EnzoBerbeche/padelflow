@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, ArrowLeft, Clock, MapPin, Trophy, Users } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Clock, MapPin, Trophy, Users, Copy } from 'lucide-react';
 import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { tournamentsAPI, clubsAPI, type AppTournament, type AppClub } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -159,13 +160,53 @@ function TournamentForm() {
     }
   }, [searchParams, currentUserId, clubs]); // Added clubs to dependencies
 
+  const handleDuplicate = async () => {
+    if (!editingTournament) return;
+
+    setLoading(true);
+    try {
+      const tournament = await tournamentsAPI.create({
+        name: `${editingTournament.name} (Copie)`,
+        location: editingTournament.location,
+        club_id: editingTournament.club_id,
+        date: editingTournament.date,
+        organizer_id: currentUserId || '',
+        teams_locked: false,
+        level: editingTournament.level,
+        start_time: editingTournament.start_time,
+        number_of_courts: editingTournament.number_of_courts,
+        number_of_teams: editingTournament.number_of_teams,
+        conditions: editingTournament.conditions,
+        type: editingTournament.type,
+        // Ne pas copier format_id, bracket, format_json, random_assignments
+      });
+
+      if (tournament) {
+        toast({
+          title: "Succès",
+          description: "Tournoi dupliqué avec succès !",
+        });
+        router.push(`/dashboard/tournaments/${tournament.id}`);
+      }
+    } catch (error) {
+      console.error('Error duplicating tournament:', error);
+      toast({
+        title: "Erreur",
+        description: "Échec de la duplication du tournoi",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.club_id || !formData.location || !formData.date || !formData.level || 
         !formData.start_time || !formData.number_of_courts || !formData.number_of_teams || !formData.conditions || !formData.type) {
       toast({
-        title: "Error",
-        description: "Please fill in all fields",
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
         variant: "destructive",
       });
       return;
@@ -189,8 +230,8 @@ function TournamentForm() {
         });
 
         toast({
-          title: "Success",
-          description: "Tournament updated successfully!",
+          title: "Succès",
+          description: "Tournoi mis à jour avec succès !",
         });
 
         router.push(`/dashboard/tournaments/${editingTournament.id}`);
@@ -213,8 +254,8 @@ function TournamentForm() {
         });
 
         toast({
-          title: "Success",
-          description: "Tournament created successfully!",
+          title: "Succès",
+          description: "Tournoi créé avec succès !",
         });
 
         if (tournament) {
@@ -224,8 +265,8 @@ function TournamentForm() {
     } catch (error) {
       console.error('Error saving tournament:', error);
       toast({
-        title: "Error",
-        description: isEditing ? "Failed to update tournament" : "Failed to create tournament",
+        title: "Erreur",
+        description: isEditing ? "Échec de la mise à jour du tournoi" : "Échec de la création du tournoi",
         variant: "destructive",
       });
     } finally {
@@ -261,15 +302,15 @@ function TournamentForm() {
         <Link href="/dashboard">
           <Button variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Retour
           </Button>
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {isEditing ? 'Edit Tournament' : 'Create New Tournament'}
+            {isEditing ? 'Modifier le Tournoi' : 'Créer un Nouveau Tournoi'}
           </h1>
           <p className="text-gray-600 mt-1">
-            {isEditing ? 'Update your tournament details' : 'Set up your padel tournament with all the details'}
+            {isEditing ? 'Modifiez les détails de votre tournoi' : 'Configurez votre tournoi de padel avec tous les détails'}
           </p>
         </div>
       </div>
@@ -281,8 +322,8 @@ function TournamentForm() {
             <div className="flex items-center space-x-2 text-yellow-800">
               <Trophy className="h-5 w-5" />
               <div>
-                <p className="font-medium">Tournament teams are locked</p>
-                <p className="text-sm">You can only edit basic tournament information. To modify teams or format, unlock the teams first.</p>
+                <p className="font-medium">Les équipes du tournoi sont verrouillées</p>
+                <p className="text-sm">Vous ne pouvez modifier que les informations de base du tournoi. Pour modifier les équipes ou le format, déverrouillez d'abord les équipes.</p>
               </div>
             </div>
           </CardContent>
@@ -296,19 +337,19 @@ function TournamentForm() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Trophy className="h-5 w-5 mr-2 text-primary" />
-              Basic Information
+              Informations de Base
             </CardTitle>
             <CardDescription>
-              Essential tournament details
+              Détails essentiels du tournoi
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Tournament Name *</Label>
+                <Label htmlFor="name">Nom du Tournoi *</Label>
                                  <Input
                    id="name"
-                   placeholder="e.g., Spring Championship 2024"
+                   placeholder="ex: Championnat de Printemps 2024"
                    value={formData.name}
                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                    required
@@ -377,7 +418,7 @@ function TournamentForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>Tournament Date *</Label>
+                <Label>Date du Tournoi *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -388,7 +429,7 @@ function TournamentForm() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.date ? format(formData.date, 'PPP') : 'Pick a date'}
+                      {formData.date ? format(formData.date, 'PPP', { locale: fr }) : 'Sélectionner une date'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -404,7 +445,7 @@ function TournamentForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="start_time">Start Time *</Label>
+                <Label htmlFor="start_time">Heure de Début *</Label>
                 <Input
                   id="start_time"
                   type="time"
@@ -422,16 +463,16 @@ function TournamentForm() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Users className="h-5 w-5 mr-2 text-primary" />
-              Tournament Configuration
+              Configuration du Tournoi
             </CardTitle>
             <CardDescription>
-              Tournament level, type, and participation details
+              Niveau, type et détails de participation du tournoi
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Tournament Level *</Label>
+                <Label>Niveau du Tournoi *</Label>
                 <Select
                   value={formData.level}
                   onValueChange={(value: 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000') => 
@@ -439,7 +480,7 @@ function TournamentForm() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select tournament level" />
+                    <SelectValue placeholder="Sélectionner le niveau du tournoi" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="P25">P25</SelectItem>
@@ -454,7 +495,7 @@ function TournamentForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>Tournament Type *</Label>
+                <Label>Type de Tournoi *</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value: 'All' | 'Men' | 'Women' | 'Mixed') => 
@@ -462,25 +503,25 @@ function TournamentForm() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select tournament type" />
+                    <SelectValue placeholder="Sélectionner le type de tournoi" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All Categories</SelectItem>
-                    <SelectItem value="Men">Men Only</SelectItem>
-                    <SelectItem value="Women">Women Only</SelectItem>
-                    <SelectItem value="Mixed">Mixed Doubles</SelectItem>
+                    <SelectItem value="All">Toutes Catégories</SelectItem>
+                    <SelectItem value="Men">Hommes Seulement</SelectItem>
+                    <SelectItem value="Women">Femmes Seulement</SelectItem>
+                    <SelectItem value="Mixed">Double Mixte</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="number_of_teams">Number of Teams *</Label>
+                <Label htmlFor="number_of_teams">Nombre d'Équipes *</Label>
                 <Input
                   id="number_of_teams"
                   type="number"
                   min="1"
                   max="50"
-                  placeholder="e.g., 8"
+                  placeholder="ex: 8"
                   value={formData.number_of_teams}
                   onChange={(e) => setFormData({ ...formData, number_of_teams: e.target.value })}
                   required
@@ -495,22 +536,22 @@ function TournamentForm() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <MapPin className="h-5 w-5 mr-2 text-primary" />
-              Venue Information
+              Informations sur le Lieu
             </CardTitle>
             <CardDescription>
-              Court details and playing conditions
+              Détails des terrains et conditions de jeu
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="number_of_courts">Number of Courts *</Label>
+                <Label htmlFor="number_of_courts">Nombre de Terrains *</Label>
                 <Input
                   id="number_of_courts"
                   type="number"
                   min="1"
                   max="20"
-                  placeholder="e.g., 4"
+                  placeholder="ex: 4"
                   value={formData.number_of_courts}
                   onChange={(e) => setFormData({ ...formData, number_of_courts: e.target.value })}
                   required
@@ -518,7 +559,7 @@ function TournamentForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>Playing Conditions *</Label>
+                <Label>Conditions de Jeu *</Label>
                 <Select
                   value={formData.conditions}
                   onValueChange={(value: 'inside' | 'outside' | 'both') => 
@@ -526,12 +567,12 @@ function TournamentForm() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select playing conditions" />
+                    <SelectValue placeholder="Sélectionner les conditions de jeu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inside">Indoor Courts</SelectItem>
-                    <SelectItem value="outside">Outdoor Courts</SelectItem>
-                    <SelectItem value="both">Indoor & Outdoor</SelectItem>
+                    <SelectItem value="inside">Terrains Intérieurs</SelectItem>
+                    <SelectItem value="outside">Terrains Extérieurs</SelectItem>
+                    <SelectItem value="both">Intérieur & Extérieur</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -540,25 +581,39 @@ function TournamentForm() {
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-end space-x-4 pt-6">
-          <Link href="/dashboard">
-            <Button variant="outline" type="button">
-              Cancel
+        <div className="flex justify-between items-center pt-6">
+          {isEditing && editingTournament && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDuplicate}
+              disabled={loading}
+              className="flex items-center space-x-2"
+            >
+              <Copy className="h-4 w-4" />
+              <span>Dupliquer</span>
             </Button>
-          </Link>
-          <Button type="submit" disabled={loading} className="min-w-32">
-            {loading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {isEditing ? 'Updating...' : 'Creating...'}
-              </div>
-            ) : (
-              <>
-                <Trophy className="h-4 w-4 mr-2" />
-                {isEditing ? 'Update Tournament' : 'Create Tournament'}
-              </>
-            )}
-          </Button>
+          )}
+          <div className="flex space-x-4 ml-auto">
+            <Link href="/dashboard">
+              <Button variant="outline" type="button">
+                Annuler
+              </Button>
+            </Link>
+            <Button type="submit" disabled={loading} className="min-w-32">
+              {loading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {isEditing ? 'Mise à jour...' : 'Création...'}
+                </div>
+              ) : (
+                <>
+                  <Trophy className="h-4 w-4 mr-2" />
+                  {isEditing ? 'Modifier le Tournoi' : 'Créer le Tournoi'}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </form>
     </div>
