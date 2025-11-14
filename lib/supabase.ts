@@ -1606,6 +1606,12 @@ export interface SupabaseClubRow {
   owner_id: string;
   name: string;
   address: string;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  postal_code: string | null;
+  country: string | null;
+  country_code: string | null;
   website: string | null;
   instagram: string | null;
   facebook: string | null;
@@ -1631,6 +1637,12 @@ export type AppClub = {
   owner_id: string;
   name: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+  country_code?: string;
   website?: string;
   instagram?: string;
   facebook?: string;
@@ -1657,6 +1669,12 @@ function mapClubRow(row: SupabaseClubRow): AppClub {
     owner_id: row.owner_id,
     name: row.name,
     address: row.address,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
+    city: row.city ?? undefined,
+    postal_code: row.postal_code ?? undefined,
+    country: row.country ?? undefined,
+    country_code: row.country_code ?? undefined,
     website: row.website ?? undefined,
     instagram: row.instagram ?? undefined,
     facebook: row.facebook ?? undefined,
@@ -1730,6 +1748,12 @@ export const clubsAPI = {
         owner_id: userId,
         name: club.name,
         address: club.address,
+        latitude: club.latitude || null,
+        longitude: club.longitude || null,
+        city: club.city || null,
+        postal_code: club.postal_code || null,
+        country: club.country || null,
+        country_code: club.country_code || null,
         website: club.website || null,
         instagram: club.instagram || null,
         facebook: club.facebook || null,
@@ -1742,6 +1766,15 @@ export const clubsAPI = {
 
     if (error) {
       console.error('Error creating club:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.error('Table "clubs" does not exist. Please run the SQL schema script in Supabase.');
+      }
       return null;
     }
     return mapClubRow(data as unknown as SupabaseClubRow);
@@ -1754,6 +1787,12 @@ export const clubsAPI = {
       .update({
         name: updates.name,
         address: updates.address,
+        latitude: updates.latitude || null,
+        longitude: updates.longitude || null,
+        city: updates.city || null,
+        postal_code: updates.postal_code || null,
+        country: updates.country || null,
+        country_code: updates.country_code || null,
         website: updates.website || null,
         instagram: updates.instagram || null,
         facebook: updates.facebook || null,

@@ -172,7 +172,7 @@ export default function TournamentsPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['club', 'admin']}>
+    <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
       <DashboardLayout>
         <div className="space-y-6">
         {/* Header */}

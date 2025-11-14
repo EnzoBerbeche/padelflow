@@ -9,13 +9,15 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building2, MapPin, Mail, Phone, Globe, Instagram, Facebook, User, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Building2, MapPin, Mail, Phone, Globe, Instagram, Facebook, User, Plus, Edit, Trash2, X, Home, Sun, Umbrella } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
+import { getPlaceDetails, parseAddressComponents } from '@/lib/google-places';
 
 export default function ClubManagementPage() {
   const { toast } = useToast();
@@ -39,6 +41,12 @@ export default function ClubManagementPage() {
   const [formData, setFormData] = useState({
     name: '',
     address: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    city: undefined as string | undefined,
+    postal_code: undefined as string | undefined,
+    country: undefined as string | undefined,
+    country_code: undefined as string | undefined,
     website: '',
     instagram: '',
     facebook: '',
@@ -79,6 +87,12 @@ export default function ClubManagementPage() {
     setFormData({
       name: '',
       address: '',
+      latitude: undefined,
+      longitude: undefined,
+      city: undefined,
+      postal_code: undefined,
+      country: undefined,
+      country_code: undefined,
       website: '',
       instagram: '',
       facebook: '',
@@ -95,6 +109,12 @@ export default function ClubManagementPage() {
       setFormData({
         name: club.name,
         address: club.address,
+        latitude: club.latitude,
+        longitude: club.longitude,
+        city: club.city,
+        postal_code: club.postal_code,
+        country: club.country,
+        country_code: club.country_code,
         website: club.website || '',
         instagram: club.instagram || '',
         facebook: club.facebook || '',
@@ -108,6 +128,19 @@ export default function ClubManagementPage() {
     setIsDialogOpen(true);
   };
 
+  const handleAddressChange = (address: string, coordinates?: { lat: number; lng: number }, parsedAddress?: { city?: string; postal_code?: string; country?: string; country_code?: string }) => {
+    setFormData({
+      ...formData,
+      address,
+      latitude: coordinates?.lat,
+      longitude: coordinates?.lng,
+      city: parsedAddress?.city,
+      postal_code: parsedAddress?.postal_code,
+      country: parsedAddress?.country,
+      country_code: parsedAddress?.country_code,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.address || !formData.contact_email || !formData.contact_phone) {
@@ -119,9 +152,34 @@ export default function ClubManagementPage() {
       return;
     }
 
+    // Validate that address was selected from API (has coordinates)
+    if (!formData.latitude || !formData.longitude) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner une adresse depuis les suggestions",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (editingClub) {
-        const updated = await clubsAPI.update(editingClub.id, formData);
+        const updated = await clubsAPI.update(editingClub.id, {
+          name: formData.name,
+          address: formData.address,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          city: formData.city,
+          postal_code: formData.postal_code,
+          country: formData.country,
+          country_code: formData.country_code,
+          website: formData.website || undefined,
+          instagram: formData.instagram || undefined,
+          facebook: formData.facebook || undefined,
+          manager: formData.manager || undefined,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+        });
         if (updated) {
           toast({
             title: "Succès",
@@ -132,7 +190,22 @@ export default function ClubManagementPage() {
           resetForm();
         }
       } else {
-        const created = await clubsAPI.create(formData);
+        const created = await clubsAPI.create({
+          name: formData.name,
+          address: formData.address,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          city: formData.city,
+          postal_code: formData.postal_code,
+          country: formData.country,
+          country_code: formData.country_code,
+          website: formData.website || undefined,
+          instagram: formData.instagram || undefined,
+          facebook: formData.facebook || undefined,
+          manager: formData.manager || undefined,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+        });
         if (created) {
           toast({
             title: "Succès",
@@ -141,6 +214,12 @@ export default function ClubManagementPage() {
           fetchClubs();
           setIsDialogOpen(false);
           resetForm();
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Impossible de créer le club. La table 'clubs' n'existe peut-être pas encore dans Supabase. Veuillez exécuter le script SQL de création des tables.",
+            variant: "destructive",
+          });
         }
       }
     } catch (error) {
@@ -361,12 +440,18 @@ export default function ClubManagementPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Adresse *</Label>
-                      <Input
-                        id="address"
+                      <AddressAutocomplete
                         value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        onChange={handleAddressChange}
+                        placeholder="Rechercher une adresse..."
                         required
+                        forceApiSelection={true}
                       />
+                      {formData.latitude && formData.longitude && (
+                        <p className="text-xs text-gray-500">
+                          Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="contact_email">Email de contact *</Label>
@@ -402,7 +487,7 @@ export default function ClubManagementPage() {
                         type="url"
                         value={formData.website}
                         onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                        placeholder="https://..."
+                        placeholder="www..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -484,10 +569,8 @@ export default function ClubManagementPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setSelectedClubId(club.id);
-                              fetchCourts(club.id);
-                            }}
+                            onClick={() => handleOpenDialog(club)}
+                            title="Modifier le club"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -598,39 +681,95 @@ export default function ClubManagementPage() {
                     <p className="text-gray-500 text-center py-4">Aucun terrain pour ce club</p>
                   ) : (
                     <div className="space-y-2">
-                      {courts.map((court) => (
-                        <Card key={court.id}>
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <div className="font-medium">Terrain {court.court_number}</div>
-                                {court.court_name && (
-                                  <div className="text-sm text-gray-600">{court.court_name}</div>
-                                )}
-                                <Badge className="mt-1">
-                                  {court.court_type === 'inside' ? 'Intérieur' : court.court_type === 'outside' ? 'Extérieur' : 'Couvert'}
-                                </Badge>
+                      {courts.map((court) => {
+                        const getCourtTypeInfo = (type: string) => {
+                          switch (type) {
+                            case 'inside':
+                              return {
+                                label: 'Intérieur',
+                                icon: Home,
+                                bgColor: 'bg-blue-50',
+                                borderColor: 'border-blue-200',
+                                textColor: 'text-blue-700',
+                                iconColor: 'text-blue-600',
+                                badgeColor: 'bg-blue-100 text-blue-800 border-blue-300'
+                              };
+                            case 'outside':
+                              return {
+                                label: 'Extérieur',
+                                icon: Sun,
+                                bgColor: 'bg-green-50',
+                                borderColor: 'border-green-200',
+                                textColor: 'text-green-700',
+                                iconColor: 'text-green-600',
+                                badgeColor: 'bg-green-100 text-green-800 border-green-300'
+                              };
+                            case 'covered':
+                              return {
+                                label: 'Couvert',
+                                icon: Umbrella,
+                                bgColor: 'bg-purple-50',
+                                borderColor: 'border-purple-200',
+                                textColor: 'text-purple-700',
+                                iconColor: 'text-purple-600',
+                                badgeColor: 'bg-purple-100 text-purple-800 border-purple-300'
+                              };
+                            default:
+                              return {
+                                label: 'Intérieur',
+                                icon: Home,
+                                bgColor: 'bg-gray-50',
+                                borderColor: 'border-gray-200',
+                                textColor: 'text-gray-700',
+                                iconColor: 'text-gray-600',
+                                badgeColor: 'bg-gray-100 text-gray-800 border-gray-300'
+                              };
+                          }
+                        };
+
+                        const typeInfo = getCourtTypeInfo(court.court_type);
+                        const Icon = typeInfo.icon;
+
+                        return (
+                          <Card key={court.id} className={`${typeInfo.bgColor} ${typeInfo.borderColor} border-2`}>
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-lg ${typeInfo.bgColor} ${typeInfo.iconColor}`}>
+                                    <Icon className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">{court.court_name || `Terrain ${court.court_number}`}</div>
+                                    {court.court_name && (
+                                      <div className="text-xs text-gray-500">Terrain {court.court_number}</div>
+                                    )}
+                                    <Badge className={`mt-1 ${typeInfo.badgeColor} border`}>
+                                      <Icon className="h-3 w-3 mr-1" />
+                                      {typeInfo.label}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenCourtDialog(selectedClubId, court)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteCourt(court.id, selectedClubId)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenCourtDialog(selectedClubId, court)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteCourt(court.id, selectedClubId)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
