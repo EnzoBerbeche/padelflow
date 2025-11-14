@@ -701,6 +701,7 @@ export interface SupabaseTournamentRow {
   name: string;
   date: string; // ISO date (yyyy-mm-dd)
   location: string;
+  club_id: string | null;
   organizer_id: string | null;
   public_id: string;
   teams_locked: boolean;
@@ -725,6 +726,7 @@ export type AppTournament = {
   name: string;
   date: string;
   location: string;
+  club_id?: string;
   organizer_id: string;
   owner_id?: string;
   public_id: string;
@@ -750,6 +752,7 @@ function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
     name: row.name,
     date: row.date,
     location: row.location,
+    club_id: row.club_id ?? undefined,
     organizer_id: row.organizer_id || '',
     owner_id: row.owner_id,
     public_id: row.public_id,
@@ -826,6 +829,7 @@ export const tournamentsAPI = {
       name: input.name,
       date: input.date,
       location: input.location,
+      club_id: input.club_id || null,
       organizer_id: input.organizer_id || null,
       teams_locked: input.teams_locked,
       format_id: input.format_id ?? null,
@@ -861,6 +865,7 @@ export const tournamentsAPI = {
     assign('name', patch.name);
     assign('date', patch.date);
     assign('location', patch.location);
+    assign('club_id', patch.club_id ?? null);
     assign('organizer_id', patch.organizer_id);
     assign('teams_locked', patch.teams_locked);
     assign('format_id', patch.format_id as any);

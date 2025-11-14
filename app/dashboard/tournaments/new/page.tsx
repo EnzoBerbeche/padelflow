@@ -12,13 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, ArrowLeft, Clock, MapPin, Trophy, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { tournamentsAPI, type AppTournament } from '@/lib/supabase';
+import { tournamentsAPI, clubsAPI, type AppTournament, type AppClub } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { useUserRole } from '@/hooks/use-user-role';
+import { Building2, Plus } from 'lucide-react';
 
 // Supabase RLS enforces ownership
 
@@ -31,13 +32,36 @@ function TournamentForm() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTournament, setEditingTournament] = useState<AppTournament | null>(null);
+  const [clubs, setClubs] = useState<AppClub[]>([]);
+  const [loadingClubs, setLoadingClubs] = useState(true);
   
   // Debug current user only
   useEffect(() => {
     console.log('🔍 Current user ID changed:', currentUserId);
   }, [currentUserId]);
+
+  // Load user's clubs
+  useEffect(() => {
+    const fetchClubs = async () => {
+      if (!currentUserId) {
+        setLoadingClubs(false);
+        return;
+      }
+      try {
+        const userClubs = await clubsAPI.listMy();
+        setClubs(userClubs);
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+      } finally {
+        setLoadingClubs(false);
+      }
+    };
+    fetchClubs();
+  }, [currentUserId]);
+
   const [formData, setFormData] = useState({
     name: '',
+    club_id: '',
     location: '',
     date: undefined as Date | undefined,
     level: '' as 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000' | '',
@@ -55,10 +79,13 @@ function TournamentForm() {
 
   // Fallback effect to ensure form data is set when editing
   useEffect(() => {
-    if (isEditing && editingTournament && !formData.name) {
+    if (isEditing && editingTournament && !formData.name && clubs.length > 0) {
       console.log('🔍 Fallback: Setting form data from editing tournament');
+      // Find club by location (address) for editing
+      const matchingClub = clubs.find(c => c.address === editingTournament.location);
       setFormData({
         name: editingTournament.name,
+        club_id: matchingClub?.id || '',
         location: editingTournament.location,
         date: new Date(editingTournament.date),
         level: editingTournament.level,
@@ -69,7 +96,7 @@ function TournamentForm() {
         type: editingTournament.type,
       });
     }
-  }, [isEditing, editingTournament, formData.name]);
+  }, [isEditing, editingTournament, formData.name, clubs]);
 
   const processedEditId = useRef<string | null>(null);
 
@@ -108,8 +135,11 @@ function TournamentForm() {
             console.log('🔍 Setting form data...');
             setIsEditing(true);
             setEditingTournament(tournament);
+            // Find club by location (address) for editing
+            const matchingClub = clubs.find(c => c.address === tournament.location);
             setFormData({
               name: tournament.name,
+              club_id: matchingClub?.id || '',
               location: tournament.location,
               date: new Date(tournament.date),
               level: tournament.level,
@@ -127,11 +157,11 @@ function TournamentForm() {
     } else {
       console.log('🔍 Not processing edit - conditions not met');
     }
-  }, [searchParams, currentUserId]); // Removed isEditing from dependencies
+  }, [searchParams, currentUserId, clubs]); // Added clubs to dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.location || !formData.date || !formData.level || 
+    if (!formData.name || !formData.club_id || !formData.location || !formData.date || !formData.level || 
         !formData.start_time || !formData.number_of_courts || !formData.number_of_teams || !formData.conditions || !formData.type) {
       toast({
         title: "Error",
@@ -148,6 +178,7 @@ function TournamentForm() {
         await tournamentsAPI.update(editingTournament.id, {
           name: formData.name,
           location: formData.location,
+          club_id: formData.club_id || undefined,
           date: formData.date.toISOString().split('T')[0],
           level: formData.level,
           start_time: formData.start_time,
@@ -168,6 +199,7 @@ function TournamentForm() {
         const tournament = await tournamentsAPI.create({
           name: formData.name,
           location: formData.location,
+          club_id: formData.club_id || undefined,
           date: formData.date.toISOString().split('T')[0],
           organizer_id: currentUserId || '',
           teams_locked: false,
@@ -284,14 +316,64 @@ function TournamentForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
-                  placeholder="e.g., City Sports Center, Madrid"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  required
-                />
+                <Label htmlFor="club_id">Club *</Label>
+                {loadingClubs ? (
+                  <div className="flex items-center justify-center h-10 border rounded-md">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                ) : clubs.length === 0 ? (
+                  <div className="space-y-2">
+                    <div className="p-4 border border-dashed border-gray-300 rounded-md text-center">
+                      <Building2 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 mb-3">Vous n'avez pas encore de club</p>
+                      <Link href="/dashboard/club">
+                        <Button type="button" variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Créer un club
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.club_id}
+                    onValueChange={(value) => {
+                      if (value === 'create_new') {
+                        router.push('/dashboard/club');
+                        return;
+                      }
+                      const selectedClub = clubs.find(c => c.id === value);
+                      setFormData({
+                        ...formData,
+                        club_id: value,
+                        location: selectedClub?.address || '',
+                      });
+                    }}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un club" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clubs.map((club) => (
+                        <SelectItem key={club.id} value={club.id}>
+                          {club.name} - {club.address}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="create_new" className="text-primary font-medium border-t mt-1 pt-1">
+                        <div className="flex items-center">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Créer un nouveau club
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {formData.club_id && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Adresse: {formData.location}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
