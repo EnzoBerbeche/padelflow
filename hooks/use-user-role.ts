@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export type UserRole = 'player' | 'club' | 'admin';
+export type UserRole = 'player' | 'juge_arbitre' | 'admin';
 
 export function useUserRole() {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -86,5 +86,5 @@ export function useUserRole() {
 
   console.log('🔍 useUserRole hook state:', { role, loading, roleConfirmed, isAdmin: role === 'admin' });
 
-  return { role, loading, isAdmin: role === 'admin', isClub: role === 'club', isPlayer: role === 'player' };
+  return { role, loading, isAdmin: role === 'admin', isClub: role === 'juge_arbitre', isPlayer: role === 'player' };
 }

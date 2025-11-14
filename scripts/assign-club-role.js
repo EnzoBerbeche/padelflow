@@ -39,7 +39,7 @@ async function assignClubRole(userEmail) {
     const { data, error } = await supabase.auth.admin.updateUserById(user.id, {
       user_metadata: {
         ...user.user_metadata,
-        role: 'club'
+        role: 'juge_arbitre'
       }
     });
     
@@ -48,7 +48,7 @@ async function assignClubRole(userEmail) {
       return;
     }
     
-    console.log('✅ Successfully assigned club role!');
+    console.log('✅ Successfully assigned juge_arbitre role!');
     console.log(`📋 New role: ${data.user.user_metadata?.role}`);
     console.log(`📧 User email: ${data.user.email}`);
     console.log(`🆔 User ID: ${data.user.id}`);

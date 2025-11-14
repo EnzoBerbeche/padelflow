@@ -5,7 +5,7 @@ A professional padel tournament organization and management platform built with 
 ## Features
 
 - **User Authentication**: Secure sign-in/sign-up with Supabase Auth
-- **Role-Based Access Control**: Player, Club Manager, and Admin roles
+- **Role-Based Access Control**: Player, Juge Arbitre, and Admin roles
 - **Tournament Management**: Create, edit, and manage tournaments with persistent data
 - **Team Management**: Create teams from available players with automatic player snapshotting
 - **Match Generation**: Automatic bracket generation from tournament formats

@@ -41,13 +41,13 @@ Affiche la liste de tous les utilisateurs avec leurs informations :
 - Dernière connexion
 - Statut de confirmation email
 
-### 2. Attribuer le rôle "club"
+### 2. Attribuer le rôle "juge_arbitre"
 
 ```bash
 node scripts/assign-club-role.js user@example.com
 ```
 
-Attribue le rôle "club" à un utilisateur spécifique.
+Attribue le rôle "juge_arbitre" à un utilisateur spécifique.
 
 **Exemple :**
 ```bash
@@ -57,7 +57,7 @@ node scripts/assign-club-role.js enzoberbeche@gmail.com
 ## Rôles disponibles
 
 - `player` : Utilisateur standard (par défaut)
-- `club` : Gestionnaire de club (accès aux tournois)
+- `juge_arbitre` : Juge Arbitre (accès aux tournois)
 - `admin` : Administrateur système (accès complet)
 
 ## Permissions par rôle
@@ -69,26 +69,25 @@ node scripts/assign-club-role.js enzoberbeche@gmail.com
 - Accès aux paramètres
 - **PAS d'accès aux tournois**
 
-### Club (Club)
+### Juge Arbitre (juge_arbitre)
 - Toutes les permissions du joueur
 - **Accès à la gestion des tournois**
-- Page de gestion du club
 - Création et gestion des tournois
 
 ### Admin (Administrateur)
-- Toutes les permissions du club
+- Toutes les permissions du juge arbitre
 - Accès à l'administration système
 - Gestion des formats de tournois
 - Accès complet à toutes les fonctionnalités
 
 ## Utilisation
 
-1. **Pour créer un nouveau profil club :**
+1. **Pour créer un nouveau profil juge arbitre :**
    ```bash
    # 1. Lister les utilisateurs pour trouver l'email
    node scripts/list-users.js
    
-   # 2. Attribuer le rôle club
+   # 2. Attribuer le rôle juge_arbitre
    node scripts/assign-club-role.js email@example.com
    ```
 

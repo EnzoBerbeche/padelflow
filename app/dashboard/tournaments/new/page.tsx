@@ -209,7 +209,7 @@ function TournamentForm() {
           <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès restreint</h1>
           <p className="text-gray-600 mb-6">
-            Seuls les profils Club et Admin peuvent créer des tournois.
+            Seuls les profils Juge Arbitre et Admin peuvent créer des tournois.
           </p>
           <Link href="/dashboard">
             <Button variant="outline">
@@ -360,13 +360,13 @@ function TournamentForm() {
                     <SelectValue placeholder="Select tournament level" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="P25">P25 - Beginner</SelectItem>
-                    <SelectItem value="P100">P100 - Recreational</SelectItem>
-                    <SelectItem value="P250">P250 - Intermediate</SelectItem>
-                    <SelectItem value="P500">P500 - Advanced</SelectItem>
-                    <SelectItem value="P1000">P1000 - Expert</SelectItem>
-                    <SelectItem value="P1500">P1500 - Professional</SelectItem>
-                    <SelectItem value="P2000">P2000 - Elite</SelectItem>
+                    <SelectItem value="P25">P25</SelectItem>
+                    <SelectItem value="P100">P100</SelectItem>
+                    <SelectItem value="P250">P250</SelectItem>
+                    <SelectItem value="P500">P500</SelectItem>
+                    <SelectItem value="P1000">P1000</SelectItem>
+                    <SelectItem value="P1500">P1500</SelectItem>
+                    <SelectItem value="P2000">P2000</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -504,7 +504,7 @@ function LoadingFallback() {
 
 export default function NewTournament() {
   return (
-    <ProtectedRoute allowedRoles={['club', 'admin']}>
+      <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
       <DashboardLayout>
         <Suspense fallback={<LoadingFallback />}>
           <TournamentForm />

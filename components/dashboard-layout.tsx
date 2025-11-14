@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, User as UserIcon, Wrench, Shield, BarChart3 } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, User as UserIcon, Wrench, Shield, BarChart3, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ const playerNavigation = [
 // Admin-specific navigation
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
@@ -36,6 +37,7 @@ const adminNavigation = [
 // Club-specific navigation
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -63,7 +65,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     switch (role) {
       case 'admin':
         return adminNavigation;
-      case 'club':
+      case 'juge_arbitre':
         return clubNavigation;
       case 'player':
       default:

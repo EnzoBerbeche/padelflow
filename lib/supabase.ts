@@ -1599,3 +1599,261 @@ export const userProfileAPI = {
     return { ok: true };
   }
 };
+
+// Clubs API
+export interface SupabaseClubRow {
+  id: string;
+  owner_id: string;
+  name: string;
+  address: string;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  manager: string | null;
+  contact_email: string;
+  contact_phone: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupabaseClubCourtRow {
+  id: string;
+  club_id: string;
+  court_number: number;
+  court_name: string | null;
+  court_type: 'inside' | 'outside' | 'covered';
+  created_at: string;
+  updated_at: string;
+}
+
+export type AppClub = {
+  id: string;
+  owner_id: string;
+  name: string;
+  address: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  manager?: string;
+  contact_email: string;
+  contact_phone: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AppClubCourt = {
+  id: string;
+  club_id: string;
+  court_number: number;
+  court_name?: string;
+  court_type: 'inside' | 'outside' | 'covered';
+  created_at: string;
+  updated_at: string;
+};
+
+function mapClubRow(row: SupabaseClubRow): AppClub {
+  return {
+    id: row.id,
+    owner_id: row.owner_id,
+    name: row.name,
+    address: row.address,
+    website: row.website ?? undefined,
+    instagram: row.instagram ?? undefined,
+    facebook: row.facebook ?? undefined,
+    manager: row.manager ?? undefined,
+    contact_email: row.contact_email,
+    contact_phone: row.contact_phone,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function mapClubCourtRow(row: SupabaseClubCourtRow): AppClubCourt {
+  return {
+    id: row.id,
+    club_id: row.club_id,
+    court_number: row.court_number,
+    court_name: row.court_name ?? undefined,
+    court_type: row.court_type,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export const clubsAPI = {
+  // List current user's clubs
+  listMy: async (): Promise<AppClub[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('*')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching clubs:', error);
+      return [];
+    }
+    return ((data as unknown as SupabaseClubRow[]) || []).map(mapClubRow);
+  },
+
+  // Get by id (owner-only via RLS)
+  getById: async (id: string): Promise<AppClub | null> => {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching club by id:', error);
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Create new club
+  create: async (club: Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>): Promise<AppClub | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      console.error('User not authenticated');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('clubs')
+      .insert({
+        owner_id: userId,
+        name: club.name,
+        address: club.address,
+        website: club.website || null,
+        instagram: club.instagram || null,
+        facebook: club.facebook || null,
+        manager: club.manager || null,
+        contact_email: club.contact_email,
+        contact_phone: club.contact_phone,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating club:', error);
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Update club
+  update: async (id: string, updates: Partial<Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>): Promise<AppClub | null> => {
+    const { data, error } = await supabase
+      .from('clubs')
+      .update({
+        name: updates.name,
+        address: updates.address,
+        website: updates.website || null,
+        instagram: updates.instagram || null,
+        facebook: updates.facebook || null,
+        manager: updates.manager || null,
+        contact_email: updates.contact_email,
+        contact_phone: updates.contact_phone,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating club:', error);
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Delete club
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('clubs')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting club:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+};
+
+export const clubCourtsAPI = {
+  // List courts for a club
+  listByClub: async (clubId: string): Promise<AppClubCourt[]> => {
+    const { data, error } = await supabase
+      .from('club_courts')
+      .select('*')
+      .eq('club_id', clubId)
+      .order('court_number', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching club courts:', error);
+      return [];
+    }
+    return ((data as unknown as SupabaseClubCourtRow[]) || []).map(mapClubCourtRow);
+  },
+
+  // Create new court
+  create: async (court: Omit<AppClubCourt, 'id' | 'created_at' | 'updated_at'>): Promise<AppClubCourt | null> => {
+    const { data, error } = await supabase
+      .from('club_courts')
+      .insert({
+        club_id: court.club_id,
+        court_number: court.court_number,
+        court_name: court.court_name || null,
+        court_type: court.court_type,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating club court:', error);
+      return null;
+    }
+    return mapClubCourtRow(data as unknown as SupabaseClubCourtRow);
+  },
+
+  // Update court
+  update: async (id: string, updates: Partial<Omit<AppClubCourt, 'id' | 'club_id' | 'created_at' | 'updated_at'>>): Promise<AppClubCourt | null> => {
+    const { data, error } = await supabase
+      .from('club_courts')
+      .update({
+        court_number: updates.court_number,
+        court_name: updates.court_name || null,
+        court_type: updates.court_type,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating club court:', error);
+      return null;
+    }
+    return mapClubCourtRow(data as unknown as SupabaseClubCourtRow);
+  },
+
+  // Delete court
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('club_courts')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting club court:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+};

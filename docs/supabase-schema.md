@@ -27,7 +27,7 @@
 - RLS: enabled (managed by Supabase)
 - User Roles: stored in `raw_user_meta_data.role`
   - `player`: Regular user (default)
-  - `club`: Club manager with additional permissions
+  - `juge_arbitre`: Juge Arbitre with additional permissions
   - `admin`: System administrator with full access
 - Primary/unique constraints:
   - PRIMARY KEY (id)
@@ -477,13 +477,13 @@ The application uses a role-based access control (RBAC) system with three user r
   - Access to tournaments, players, and basic features
   - Can create and manage their own tournaments
   
-- **Club Manager** (`club`): Enhanced role for club administrators
+- **Juge Arbitre** (`juge_arbitre`): Enhanced role for tournament referees
   - All player permissions
-  - Additional club management features
-  - Access to club-specific analytics
+  - Tournament management features
+  - Access to tournament-specific analytics
   
 - **Admin** (`admin`): System administrator with full access
-  - All club manager permissions
+  - All juge arbitre permissions
   - Access to system administration tools
   - Tournament format management
   - User role management
@@ -502,12 +502,12 @@ SET raw_user_meta_data = jsonb_set(
 )
 WHERE id = 'user-uuid-here';
 
--- Make a user a club manager
+-- Make a user a juge arbitre
 UPDATE auth.users 
 SET raw_user_meta_data = jsonb_set(
   COALESCE(raw_user_meta_data, '{}'::jsonb), 
   '{role}', 
-  '"club"'
+  '"juge_arbitre"'
 )
 WHERE id = 'user-uuid-here';
 

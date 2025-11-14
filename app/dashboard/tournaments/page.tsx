@@ -72,14 +72,14 @@ export default function TournamentsPage() {
       }
 
       toast({
-        title: "Success",
-        description: "Tournament duplicated successfully!",
+        title: "Succès",
+        description: "Tournoi dupliqué avec succès !",
       });
     } catch (error) {
       console.error('Error duplicating tournament:', error);
       toast({
-        title: "Error",
-        description: "Failed to duplicate tournament",
+        title: "Erreur",
+        description: "Échec de la duplication du tournoi",
         variant: "destructive",
       });
     }
@@ -94,23 +94,23 @@ export default function TournamentsPage() {
       const res = await tournamentsAPI.delete(tournamentId);
       if (res.ok) {
         toast({
-          title: "Success",
-          description: "Tournament deleted successfully!",
+          title: "Succès",
+          description: "Tournoi supprimé avec succès !",
         });
         
         setTournaments(prev => prev.filter(t => t.id !== tournamentId));
       } else {
         toast({
-          title: "Error",
-          description: res.error || "Tournament not found or could not be deleted",
+          title: "Erreur",
+          description: res.error || "Tournoi introuvable ou impossible à supprimer",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Error deleting tournament:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete tournament",
+        title: "Erreur",
+        description: "Échec de la suppression du tournoi",
         variant: "destructive",
       });
     } finally {
@@ -144,13 +144,13 @@ export default function TournamentsPage() {
   // Check if user has permission to access tournaments
   if (!isClub && !isAdmin) {
     return (
-      <ProtectedRoute allowedRoles={['club', 'admin']}>
+      <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
         <DashboardLayout>
           <div className="text-center py-12">
             <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès aux tournois restreint</h1>
             <p className="text-gray-600 mb-6">
-              Seuls les profils Club et Admin peuvent accéder à la gestion des tournois.
+              Seuls les profils Juge Arbitre et Admin peuvent accéder à la gestion des tournois.
             </p>
             <p className="text-sm text-gray-500">
               Contactez un administrateur pour obtenir les permissions nécessaires.
@@ -178,13 +178,13 @@ export default function TournamentsPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tournaments</h1>
-            <p className="text-gray-600 mt-1">Manage your padel tournaments</p>
+            <h1 className="text-3xl font-bold text-gray-900">Tournois</h1>
+            <p className="text-gray-600 mt-1">Gérez vos tournois de padel</p>
           </div>
           <Link href="/dashboard/tournaments/new">
             <Button className="flex items-center space-x-2">
               <Plus className="h-4 w-4" />
-              <span>New Tournament</span>
+              <span>Nouveau Tournoi</span>
             </Button>
           </Link>
         </div>
@@ -193,7 +193,7 @@ export default function TournamentsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Tournaments</CardTitle>
+              <CardTitle className="text-sm font-medium">Total de Tournois</CardTitle>
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -202,7 +202,7 @@ export default function TournamentsPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Tournaments</CardTitle>
+              <CardTitle className="text-sm font-medium">Tournois Actifs</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -213,7 +213,7 @@ export default function TournamentsPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <CardTitle className="text-sm font-medium">Terminés</CardTitle>
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -226,19 +226,19 @@ export default function TournamentsPage() {
 
         {/* Tournaments List */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Your Tournaments</h2>
+          <h2 className="text-xl font-semibold mb-4">Vos Tournois</h2>
           {tournaments.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tournaments yet</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun tournoi pour le moment</h3>
                 <p className="text-gray-500 mb-6">
-                  Create your first tournament to get started with PadelFlow
+                  Créez votre premier tournoi pour commencer avec PadelFlow
                 </p>
                 <Link href="/dashboard/tournaments/new">
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Tournament
+                    Créer un Tournoi
                   </Button>
                 </Link>
               </CardContent>
@@ -276,7 +276,7 @@ export default function TournamentsPage() {
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {new Date(tournament.date) >= new Date() ? 'Active' : 'Completed'}
+                          {new Date(tournament.date) >= new Date() ? 'Actif' : 'Terminé'}
                         </div>
                         
                         {/* Tournament Actions Menu */}
@@ -289,13 +289,13 @@ export default function TournamentsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => duplicateTournament(tournament)}>
                               <Copy className="h-4 w-4 mr-2" />
-                              Duplicate
+                              Dupliquer
                             </DropdownMenuItem>
                             {!tournament.teams_locked && (
                               <DropdownMenuItem asChild>
                                 <Link href={`/dashboard/tournaments/new?edit=${tournament.id}`}>
                                   <Edit className="h-4 w-4 mr-2" />
-                                  Edit Details
+                                  Modifier les Détails
                                 </Link>
                               </DropdownMenuItem>
                             )}
@@ -307,24 +307,24 @@ export default function TournamentsPage() {
                                   disabled={deletingTournamentId === tournament.id}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  {deletingTournamentId === tournament.id ? 'Deleting...' : 'Delete'}
+                                  {deletingTournamentId === tournament.id ? 'Suppression...' : 'Supprimer'}
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Tournament</AlertDialogTitle>
+                                  <AlertDialogTitle>Supprimer le Tournoi</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to delete "{tournament.name}"? This action cannot be undone and will delete all teams, matches, and tournament data.
+                                    Êtes-vous sûr de vouloir supprimer "{tournament.name}" ? Cette action est irréversible et supprimera toutes les équipes, matchs et données du tournoi.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel disabled={deletingTournamentId === tournament.id}>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel disabled={deletingTournamentId === tournament.id}>Annuler</AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={() => deleteTournament(tournament.id)}
                                     className="bg-red-600 hover:bg-red-700"
                                     disabled={deletingTournamentId === tournament.id}
                                   >
-                                    {deletingTournamentId === tournament.id ? 'Deleting...' : 'Delete Tournament'}
+                                    {deletingTournamentId === tournament.id ? 'Suppression...' : 'Supprimer le Tournoi'}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -342,11 +342,11 @@ export default function TournamentsPage() {
                       </div>
                       <div className="flex items-center text-sm text-gray-600">
                         <Trophy className="h-4 w-4 mr-2" />
-                        {tournament.number_of_courts} courts • {tournament.conditions}
+                        {tournament.number_of_courts} courts • {tournament.conditions === 'inside' ? 'intérieur' : tournament.conditions === 'outside' ? 'extérieur' : 'les deux'}
                       </div>
                       <div className="flex items-center text-sm text-gray-600">
                         <Calendar className="h-4 w-4 mr-2" />
-                        Teams: {tournament.teams_locked ? 'Locked' : 'Open'}
+                        Équipes : {tournament.teams_locked ? 'Verrouillées' : 'Ouvertes'}
                       </div>
 
                     </div>
@@ -354,12 +354,12 @@ export default function TournamentsPage() {
                       <Link href={`/dashboard/tournaments/${tournament.id}`} className="flex-1">
                         <Button variant="outline" size="sm" className="w-full">
                           <Eye className="h-4 w-4 mr-1" />
-                          Manage
+                          Gérer
                         </Button>
                       </Link>
                       <Link href={`/public/${tournament.public_id}`} className="flex-1">
                         <Button variant="outline" size="sm" className="w-full">
-                          View Public
+                          Voir Public
                         </Button>
                       </Link>
                     </div>
