@@ -26,6 +26,7 @@ export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<AppTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTournaments();
@@ -91,6 +92,7 @@ export default function TournamentsPage() {
     if (deletingTournamentId) return; // Prevent multiple deletions
     
     setDeletingTournamentId(tournamentId);
+    setOpenDeleteDialog(null); // Close the dialog
     
     try {
       const res = await tournamentsAPI.delete(tournamentId);
@@ -301,11 +303,14 @@ export default function TournamentsPage() {
                                 </Link>
                               </DropdownMenuItem>
                             )}
-                            <AlertDialog>
+                            <AlertDialog open={openDeleteDialog === tournament.id} onOpenChange={(open) => setOpenDeleteDialog(open ? tournament.id : null)}>
                               <AlertDialogTrigger asChild>
                                 <DropdownMenuItem 
                                   className="text-red-600 focus:text-red-600"
-                                  onSelect={(e) => e.preventDefault()}
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    setOpenDeleteDialog(tournament.id);
+                                  }}
                                   disabled={deletingTournamentId === tournament.id}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
@@ -320,7 +325,12 @@ export default function TournamentsPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel disabled={deletingTournamentId === tournament.id}>Annuler</AlertDialogCancel>
+                                  <AlertDialogCancel 
+                                    disabled={deletingTournamentId === tournament.id}
+                                    onClick={() => setOpenDeleteDialog(null)}
+                                  >
+                                    Annuler
+                                  </AlertDialogCancel>
                                   <AlertDialogAction 
                                     onClick={() => deleteTournament(tournament.id)}
                                     className="bg-red-600 hover:bg-red-700"

@@ -117,9 +117,11 @@ export default function AdminDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" variant="outline">
-              Coming Soon
-            </Button>
+            <Link href="/dashboard/admin/users">
+              <Button className="w-full">
+                Manage Users
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 

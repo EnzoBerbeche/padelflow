@@ -271,10 +271,10 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         });
       }
       
-      // Redirect to dashboard or show success message
+      // Redirect to tournament page
       setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
+        router.push(`/dashboard/tournaments/${tournament.id}`);
+      }, 1500);
       
     } catch (error) {
       console.error('Error submitting registration:', error);

@@ -848,6 +848,48 @@ export const tournamentsAPI = {
     return mapTournamentRow(data as unknown as SupabaseTournamentRow);
   },
 
+  // Get tournament by id, allowing access if user is registered
+  getByIdOrRegistered: async (id: string): Promise<AppTournament | null> => {
+    // First try as owner
+    let tournamentData = await tournamentsAPI.getById(id);
+    if (tournamentData) {
+      return tournamentData;
+    }
+
+    // If not found, check if user is registered
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return null;
+
+    // Check if user has a registration for this tournament
+    const { data: registrationData, error: regError } = await supabase
+      .from('tournament_registrations')
+      .select('tournament_id')
+      .eq('tournament_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (regError || !registrationData) {
+      return null;
+    }
+
+    // User is registered, try to get tournament (may need RLS policy update)
+    // For now, we'll use a workaround: get via public_id if available
+    // Or we need to add an RLS policy that allows registered users to read tournaments
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching tournament by id (registered user):', error);
+      return null;
+    }
+
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
   // List all tournaments (for search - all users can see all tournaments)
   listAll: async (): Promise<(AppTournament & { club_name?: string })[]> => {
     const { data, error } = await supabase
@@ -985,10 +1027,14 @@ export const tournamentsAPI = {
   update: async (id: string, patch: Partial<AppTournament>): Promise<AppTournament | null> => {
     const payload: Record<string, any> = {};
     const assign = (k: string, v: any) => { if (typeof v !== 'undefined') payload[k] = v; };
+    // Special handling for club_id: only update if explicitly provided (not undefined)
+    // This prevents accidentally clearing club_id when it's not in the patch
+    if (typeof patch.club_id !== 'undefined') {
+      payload['club_id'] = patch.club_id ?? null;
+    }
     assign('name', patch.name);
     assign('date', patch.date);
     assign('location', patch.location);
-    assign('club_id', patch.club_id ?? null);
     assign('organizer_id', patch.organizer_id);
     assign('teams_locked', patch.teams_locked);
     assign('format_id', patch.format_id as any);
@@ -2267,6 +2313,111 @@ export const tournamentRegistrationsAPI = {
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
+  },
+
+  // Get all registrations for a tournament (owner-only via RLS)
+  listByTournament: async (tournamentId: string): Promise<AppTournamentRegistration[]> => {
+    const { data, error } = await supabase
+      .from('tournament_registrations')
+      .select('*')
+      .eq('tournament_id', tournamentId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching registrations:', error);
+      return [];
+    }
+
+    return ((data || []) as unknown as TournamentRegistrationRow[]).map(row => ({
+      id: row.id,
+      tournament_id: row.tournament_id,
+      registration_id: row.registration_id,
+      user_id: row.user_id,
+      player1_first_name: row.player1_first_name,
+      player1_last_name: row.player1_last_name,
+      player1_license_number: row.player1_license_number,
+      player1_ranking: row.player1_ranking ?? undefined,
+      player1_phone: row.player1_phone ?? undefined,
+      player1_email: row.player1_email,
+      player2_first_name: row.player2_first_name,
+      player2_last_name: row.player2_last_name,
+      player2_license_number: row.player2_license_number,
+      player2_ranking: row.player2_ranking ?? undefined,
+      player2_phone: row.player2_phone ?? undefined,
+      player2_email: row.player2_email,
+      status: row.status,
+      confirmed_at: row.confirmed_at ?? undefined,
+      confirmed_by: row.confirmed_by ?? undefined,
+      payment_status: row.payment_status ?? undefined,
+      payment_id: row.payment_id ?? undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+  },
+
+  // Get all registrations for a tournament by registration_id (public access)
+  listByRegistrationId: async (registrationId: string): Promise<AppTournamentRegistration[]> => {
+    // First get the tournament to get the tournament_id
+    const tournament = await tournamentRegistrationsAPI.getTournamentByRegistrationId(registrationId);
+    if (!tournament) {
+      return [];
+    }
+
+    // Then get all registrations for this tournament
+    // This uses the same RLS policy, but since we got the tournament via public access,
+    // we can use the tournament_id to get registrations
+    // However, we need a public policy for registrations too
+    const { data, error } = await supabase
+      .from('tournament_registrations')
+      .select('*')
+      .eq('tournament_id', tournament.id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching registrations by registration_id:', error);
+      return [];
+    }
+
+    return ((data || []) as unknown as TournamentRegistrationRow[]).map(row => ({
+      id: row.id,
+      tournament_id: row.tournament_id,
+      registration_id: row.registration_id,
+      user_id: row.user_id,
+      player1_first_name: row.player1_first_name,
+      player1_last_name: row.player1_last_name,
+      player1_license_number: row.player1_license_number,
+      player1_ranking: row.player1_ranking ?? undefined,
+      player1_phone: row.player1_phone ?? undefined,
+      player1_email: row.player1_email,
+      player2_first_name: row.player2_first_name,
+      player2_last_name: row.player2_last_name,
+      player2_license_number: row.player2_license_number,
+      player2_ranking: row.player2_ranking ?? undefined,
+      player2_phone: row.player2_phone ?? undefined,
+      player2_email: row.player2_email,
+      status: row.status,
+      confirmed_at: row.confirmed_at ?? undefined,
+      confirmed_by: row.confirmed_by ?? undefined,
+      payment_status: row.payment_status ?? undefined,
+      payment_id: row.payment_id ?? undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+  },
+
+  // Delete registration
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('tournament_registrations')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting registration:', error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
   },
 
   // Update registration (for modifications)

@@ -32,6 +32,7 @@ const adminNavigation = [
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
     { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
+    { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
   ]},
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];

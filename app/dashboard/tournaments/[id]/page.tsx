@@ -19,7 +19,9 @@ import { TournamentTeams } from '@/components/tournament-teams';
 import { TournamentFormats } from '@/components/tournament-formats';
 import { TournamentMatches } from '@/components/tournament-matches';
 import { TournamentRegistration } from '@/components/tournament-registration';
+import { TournamentRegistrationsList } from '@/components/tournament-registrations-list';
 import { ProtectedRoute } from '@/components/protected-route';
+import { tournamentRegistrationsAPI } from '@/lib/supabase';
 
 // Owner-only access via Supabase RLS
 
@@ -64,7 +66,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   const [teams, setTeams] = useState<TeamWithPlayers[]>([]);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('teams');
+  const [activeTab, setActiveTab] = useState('registrations');
 
 
   // Next.js 15: params is a Promise, need to unwrap it
@@ -78,12 +80,12 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
   const fetchTournament = async () => {
     try {
-      const tournamentData = await tournamentsAPI.getById(id);
+      // Try to get tournament as owner or registered user
+      const tournamentData = await tournamentsAPI.getByIdOrRegistered(id);
+      
       if (!tournamentData) {
         throw new Error('Tournament not found');
       }
-      
-      // RLS ensures only owner can read
       
       setTournament(tournamentData);
       
@@ -331,7 +333,8 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-1">
+            <TabsTrigger value="registrations" className="text-xs lg:text-sm">Inscrits</TabsTrigger>
             <TabsTrigger value="teams" className="text-xs lg:text-sm">Équipes</TabsTrigger>
             <TabsTrigger value="registration" className="text-xs lg:text-sm">Inscription</TabsTrigger>
             <TabsTrigger value="format" disabled={!tournament.teams_locked} className="text-xs lg:text-sm">
@@ -341,6 +344,13 @@ export default function TournamentPage({ params }: TournamentPageProps) {
               Matchs
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="registrations" className="space-y-6 mt-6">
+            <TournamentRegistrationsList 
+              tournament={tournament}
+              onUpdate={fetchTournament}
+            />
+          </TabsContent>
 
           <TabsContent value="teams" className="space-y-6 mt-6">
             <TournamentTeams 

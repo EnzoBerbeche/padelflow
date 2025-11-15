@@ -322,13 +322,15 @@ export default function TournoisPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            {tournament.registration_id && (
-                              <Link href={`/register/${tournament.registration_id}`}>
+                            {tournament.registration_id ? (
+                              <Link href={`/public/tournament/${tournament.registration_id}/registrations`}>
                                 <Button variant="outline" size="sm">
                                   <ExternalLink className="h-4 w-4 mr-2" />
                                   Voir
                                 </Button>
                               </Link>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
                             )}
                           </TableCell>
                         </TableRow>

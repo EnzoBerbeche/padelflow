@@ -136,11 +136,16 @@ function TournamentForm() {
             console.log('🔍 Setting form data...');
             setIsEditing(true);
             setEditingTournament(tournament);
-            // Find club by location (address) for editing
-            const matchingClub = clubs.find(c => c.address === tournament.location);
+            // Use club_id directly from tournament, or find by address as fallback
+            let clubId = tournament.club_id || '';
+            if (!clubId) {
+              // Fallback: try to find club by address
+              const matchingClub = clubs.find(c => c.address === tournament.location);
+              clubId = matchingClub?.id || '';
+            }
             setFormData({
               name: tournament.name,
-              club_id: matchingClub?.id || '',
+              club_id: clubId,
               location: tournament.location,
               date: new Date(tournament.date),
               level: tournament.level,
@@ -216,10 +221,9 @@ function TournamentForm() {
     try {
       if (isEditing && editingTournament) {
         // Update existing tournament in Supabase
-        await tournamentsAPI.update(editingTournament.id, {
+        const updateData: any = {
           name: formData.name,
           location: formData.location,
-          club_id: formData.club_id || undefined,
           date: formData.date.toISOString().split('T')[0],
           level: formData.level,
           start_time: formData.start_time,
@@ -227,7 +231,14 @@ function TournamentForm() {
           number_of_teams: parseInt(formData.number_of_teams),
           conditions: formData.conditions,
           type: formData.type,
-        });
+        };
+        
+        // Only include club_id if it's explicitly set (not empty string)
+        if (formData.club_id) {
+          updateData.club_id = formData.club_id;
+        }
+        
+        await tournamentsAPI.update(editingTournament.id, updateData);
 
         toast({
           title: "Succès",
