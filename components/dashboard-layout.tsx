@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 // Base navigation for player users (limited access)
 const playerNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
@@ -24,8 +25,9 @@ const playerNavigation = [
 // Admin-specific navigation
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
-  { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
@@ -37,8 +39,9 @@ const adminNavigation = [
 // Club-specific navigation
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
-  { name: 'Tournaments', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];

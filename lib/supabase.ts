@@ -848,6 +848,104 @@ export const tournamentsAPI = {
     return mapTournamentRow(data as unknown as SupabaseTournamentRow);
   },
 
+  // List all tournaments (for search - all users can see all tournaments)
+  listAll: async (): Promise<(AppTournament & { club_name?: string })[]> => {
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select(`
+        *,
+        club:clubs (
+          name
+        )
+      `)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching all tournaments:', error);
+      return [];
+    }
+    return ((data || []) as any[]).map((row: any) => ({
+      ...mapTournamentRow(row as unknown as SupabaseTournamentRow),
+      club_name: Array.isArray(row.club) && row.club.length > 0 ? row.club[0].name : (row.club?.name || null),
+    }));
+  },
+
+  // List tournaments where current user is registered
+  listMyRegistrations: async (): Promise<(AppTournament & { registration: AppTournamentRegistration; club_name?: string })[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    // Get all registrations for current user
+    const { data: registrations, error: regError } = await supabase
+      .from('tournament_registrations')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (regError) {
+      console.error('Error fetching registrations:', regError);
+      return [];
+    }
+
+    if (!registrations || registrations.length === 0) {
+      return [];
+    }
+
+    // Get tournament IDs
+    const tournamentIds = registrations.map(r => r.tournament_id);
+
+    // Fetch tournaments with club information
+    const { data: tournaments, error: tournamentError } = await supabase
+      .from('tournaments')
+      .select(`
+        *,
+        club:clubs (
+          name
+        )
+      `)
+      .in('id', tournamentIds)
+      .order('date', { ascending: true });
+
+    if (tournamentError) {
+      console.error('Error fetching tournaments:', tournamentError);
+      return [];
+    }
+
+    // Combine tournaments with their registrations
+    return (tournaments || []).map((tournament: any) => {
+      const registration = registrations.find(r => r.tournament_id === tournament.id);
+      return {
+        ...mapTournamentRow(tournament as unknown as SupabaseTournamentRow),
+        club_name: Array.isArray(tournament.club) && tournament.club.length > 0 ? tournament.club[0].name : (tournament.club?.name || null),
+        registration: {
+          id: registration!.id,
+          tournament_id: registration!.tournament_id,
+          registration_id: registration!.registration_id,
+          user_id: registration!.user_id,
+          player1_first_name: registration!.player1_first_name,
+          player1_last_name: registration!.player1_last_name,
+          player1_license_number: registration!.player1_license_number,
+          player1_ranking: registration!.player1_ranking ?? undefined,
+          player1_phone: registration!.player1_phone ?? undefined,
+          player1_email: registration!.player1_email,
+          player2_first_name: registration!.player2_first_name,
+          player2_last_name: registration!.player2_last_name,
+          player2_license_number: registration!.player2_license_number,
+          player2_ranking: registration!.player2_ranking ?? undefined,
+          player2_phone: registration!.player2_phone ?? undefined,
+          player2_email: registration!.player2_email,
+          status: registration!.status,
+          confirmed_at: registration!.confirmed_at ?? undefined,
+          confirmed_by: registration!.confirmed_by ?? undefined,
+          payment_status: registration!.payment_status ?? undefined,
+          payment_id: registration!.payment_id ?? undefined,
+          created_at: registration!.created_at,
+          updated_at: registration!.updated_at,
+        } as AppTournamentRegistration,
+      };
+    });
+  },
+
   // Create a tournament (owner enforced by RLS/default)
   create: async (input: Omit<AppTournament, 'id' | 'public_id' | 'created_at' | 'updated_at'>): Promise<AppTournament | null> => {
     const payload: Partial<SupabaseTournamentRow> = {
