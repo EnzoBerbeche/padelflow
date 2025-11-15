@@ -715,6 +715,15 @@ export interface SupabaseTournamentRow {
   bracket: any | null;
   format_json: any | null;
   random_assignments: Record<string, any> | null;
+  registration_enabled: boolean;
+  registration_id: string | null;
+  registration_selection_mode: 'order' | 'ranking' | null;
+  registration_waitlist_size: number | null;
+  registration_allow_partner_change: boolean;
+  registration_deadline: string | null; // ISO date
+  registration_modification_deadline: string | null; // ISO date
+  registration_payment_enabled: boolean;
+  registration_auto_confirm: boolean;
 
   created_at: string;
   updated_at: string;
@@ -743,7 +752,15 @@ export type AppTournament = {
   updated_at: string;
   format_json?: any;
   random_assignments?: Record<string, any>;
-
+  registration_enabled?: boolean;
+  registration_id?: string;
+  registration_selection_mode?: 'order' | 'ranking';
+  registration_waitlist_size?: number;
+  registration_allow_partner_change?: boolean;
+  registration_deadline?: string;
+  registration_modification_deadline?: string;
+  registration_payment_enabled?: boolean;
+  registration_auto_confirm?: boolean;
 };
 
 function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
@@ -769,7 +786,15 @@ function mapTournamentRow(row: SupabaseTournamentRow): AppTournament {
     updated_at: row.updated_at,
     format_json: row.format_json ?? undefined,
     random_assignments: row.random_assignments ?? undefined,
-
+    registration_enabled: row.registration_enabled ?? undefined,
+    registration_id: row.registration_id ?? undefined,
+    registration_selection_mode: row.registration_selection_mode ?? undefined,
+    registration_waitlist_size: row.registration_waitlist_size ?? undefined,
+    registration_allow_partner_change: row.registration_allow_partner_change ?? undefined,
+    registration_deadline: row.registration_deadline ?? undefined,
+    registration_modification_deadline: row.registration_modification_deadline ?? undefined,
+    registration_payment_enabled: row.registration_payment_enabled ?? undefined,
+    registration_auto_confirm: row.registration_auto_confirm ?? undefined,
   };
 }
 
@@ -878,7 +903,15 @@ export const tournamentsAPI = {
     assign('bracket', patch.bracket ?? null);
     assign('format_json', patch.format_json ?? null);
     assign('random_assignments', patch.random_assignments ?? null);
-
+    assign('registration_enabled', patch.registration_enabled ?? false);
+    assign('registration_id', patch.registration_id ?? null);
+    assign('registration_selection_mode', patch.registration_selection_mode ?? null);
+    assign('registration_waitlist_size', patch.registration_waitlist_size ?? null);
+    assign('registration_allow_partner_change', patch.registration_allow_partner_change ?? true);
+    assign('registration_deadline', patch.registration_deadline ?? null);
+    assign('registration_modification_deadline', patch.registration_modification_deadline ?? null);
+    assign('registration_payment_enabled', patch.registration_payment_enabled ?? false);
+    assign('registration_auto_confirm', patch.registration_auto_confirm ?? true);
 
     const { data, error } = await supabase
       .from('tournaments')
@@ -1896,6 +1929,464 @@ export const clubCourtsAPI = {
 
     if (error) {
       console.error('Error deleting club court:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+};
+
+// Tournament Registrations API
+export interface TournamentRegistrationRow {
+  id: string;
+  tournament_id: string;
+  registration_id: string;
+  user_id: string;
+  player1_first_name: string;
+  player1_last_name: string;
+  player1_license_number: string;
+  player1_ranking: number | null;
+  player1_phone: string | null;
+  player1_email: string;
+  player2_first_name: string;
+  player2_last_name: string;
+  player2_license_number: string;
+  player2_ranking: number | null;
+  player2_phone: string | null;
+  player2_email: string;
+  status: 'pending' | 'confirmed' | 'rejected' | 'waitlist' | 'cancelled';
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  payment_status: 'pending' | 'paid' | 'refunded' | null;
+  payment_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AppTournamentRegistration = {
+  id: string;
+  tournament_id: string;
+  registration_id: string;
+  user_id: string;
+  player1_first_name: string;
+  player1_last_name: string;
+  player1_license_number: string;
+  player1_ranking?: number;
+  player1_phone?: string;
+  player1_email: string;
+  player2_first_name: string;
+  player2_last_name: string;
+  player2_license_number: string;
+  player2_ranking?: number;
+  player2_phone?: string;
+  player2_email: string;
+  status: 'pending' | 'confirmed' | 'rejected' | 'waitlist' | 'cancelled';
+  confirmed_at?: string;
+  confirmed_by?: string;
+  payment_status?: 'pending' | 'paid' | 'refunded';
+  payment_id?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export const tournamentRegistrationsAPI = {
+  // Get tournament by registration_id (public access)
+  getTournamentByRegistrationId: async (registrationId: string): Promise<AppTournament | null> => {
+    console.log('Fetching tournament with registration_id:', registrationId);
+    
+    // Try using the SQL function first (bypasses RLS)
+    const { data: functionData, error: functionError } = await supabase
+      .rpc('get_tournament_by_registration_id', { reg_id: registrationId });
+
+    if (!functionError && functionData && functionData.length > 0) {
+      console.log('Tournament found via function:', functionData[0].name);
+      return mapTournamentRow(functionData[0] as unknown as SupabaseTournamentRow);
+    }
+
+    // Fallback to direct query (uses RLS policy)
+    console.log('Trying direct query as fallback...');
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('registration_id', registrationId)
+      .eq('registration_enabled', true)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching tournament by registration_id:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return null;
+    }
+
+    if (!data) {
+      console.log('No tournament found with registration_id:', registrationId);
+      // Try to find if tournament exists but registration is disabled
+      const { data: tournamentWithoutCheck } = await supabase
+        .from('tournaments')
+        .select('id, name, registration_id, registration_enabled')
+        .eq('registration_id', registrationId)
+        .maybeSingle();
+      
+      if (tournamentWithoutCheck) {
+        console.log('Tournament found but registration disabled:', tournamentWithoutCheck);
+      } else {
+        console.log('No tournament found with this registration_id at all');
+      }
+      return null;
+    }
+    
+    console.log('Tournament found:', data.name);
+    return mapTournamentRow(data as unknown as SupabaseTournamentRow);
+  },
+
+  // Get current user's registration for a tournament
+  getMyRegistration: async (tournamentId: string): Promise<AppTournamentRegistration | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return null;
+
+    const { data, error } = await supabase
+      .from('tournament_registrations')
+      .select('*')
+      .eq('tournament_id', tournamentId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching registration:', error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    const row = data as unknown as TournamentRegistrationRow;
+    return {
+      id: row.id,
+      tournament_id: row.tournament_id,
+      registration_id: row.registration_id,
+      user_id: row.user_id,
+      player1_first_name: row.player1_first_name,
+      player1_last_name: row.player1_last_name,
+      player1_license_number: row.player1_license_number,
+      player1_ranking: row.player1_ranking ?? undefined,
+      player1_phone: row.player1_phone ?? undefined,
+      player1_email: row.player1_email,
+      player2_first_name: row.player2_first_name,
+      player2_last_name: row.player2_last_name,
+      player2_license_number: row.player2_license_number,
+      player2_ranking: row.player2_ranking ?? undefined,
+      player2_phone: row.player2_phone ?? undefined,
+      player2_email: row.player2_email,
+      status: row.status,
+      confirmed_at: row.confirmed_at ?? undefined,
+      confirmed_by: row.confirmed_by ?? undefined,
+      payment_status: row.payment_status ?? undefined,
+      payment_id: row.payment_id ?? undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  },
+
+  // Create registration
+  create: async (input: {
+    tournament_id: string;
+    registration_id: string;
+    player1_first_name: string;
+    player1_last_name: string;
+    player1_license_number: string;
+    player1_ranking?: number;
+    player1_phone?: string;
+    player1_email: string;
+    player2_first_name: string;
+    player2_last_name: string;
+    player2_license_number: string;
+    player2_ranking?: number;
+    player2_phone?: string;
+    player2_email: string;
+  }): Promise<AppTournamentRegistration | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      console.error('User not authenticated');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('tournament_registrations')
+      .insert({
+        tournament_id: input.tournament_id,
+        registration_id: input.registration_id,
+        user_id: userId,
+        player1_first_name: input.player1_first_name,
+        player1_last_name: input.player1_last_name,
+        player1_license_number: input.player1_license_number,
+        player1_ranking: input.player1_ranking ?? null,
+        player1_phone: input.player1_phone ?? null,
+        player1_email: input.player1_email,
+        player2_first_name: input.player2_first_name,
+        player2_last_name: input.player2_last_name,
+        player2_license_number: input.player2_license_number,
+        player2_ranking: input.player2_ranking ?? null,
+        player2_phone: input.player2_phone ?? null,
+        player2_email: input.player2_email,
+        status: 'pending',
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating registration:', error);
+      return null;
+    }
+
+    const row = data as unknown as TournamentRegistrationRow;
+    return {
+      id: row.id,
+      tournament_id: row.tournament_id,
+      registration_id: row.registration_id,
+      user_id: row.user_id,
+      player1_first_name: row.player1_first_name,
+      player1_last_name: row.player1_last_name,
+      player1_license_number: row.player1_license_number,
+      player1_ranking: row.player1_ranking ?? undefined,
+      player1_phone: row.player1_phone ?? undefined,
+      player1_email: row.player1_email,
+      player2_first_name: row.player2_first_name,
+      player2_last_name: row.player2_last_name,
+      player2_license_number: row.player2_license_number,
+      player2_ranking: row.player2_ranking ?? undefined,
+      player2_phone: row.player2_phone ?? undefined,
+      player2_email: row.player2_email,
+      status: row.status,
+      confirmed_at: row.confirmed_at ?? undefined,
+      confirmed_by: row.confirmed_by ?? undefined,
+      payment_status: row.payment_status ?? undefined,
+      payment_id: row.payment_id ?? undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  },
+
+  // Update registration (for modifications)
+  update: async (id: string, updates: Partial<AppTournamentRegistration>): Promise<AppTournamentRegistration | null> => {
+    const { data, error } = await supabase
+      .from('tournament_registrations')
+      .update({
+        player1_first_name: updates.player1_first_name,
+        player1_last_name: updates.player1_last_name,
+        player1_license_number: updates.player1_license_number,
+        player1_ranking: updates.player1_ranking ?? null,
+        player1_phone: updates.player1_phone ?? null,
+        player1_email: updates.player1_email,
+        player2_first_name: updates.player2_first_name,
+        player2_last_name: updates.player2_last_name,
+        player2_license_number: updates.player2_license_number,
+        player2_ranking: updates.player2_ranking ?? null,
+        player2_phone: updates.player2_phone ?? null,
+        player2_email: updates.player2_email,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating registration:', error);
+      return null;
+    }
+
+    const row = data as unknown as TournamentRegistrationRow;
+    return {
+      id: row.id,
+      tournament_id: row.tournament_id,
+      registration_id: row.registration_id,
+      user_id: row.user_id,
+      player1_first_name: row.player1_first_name,
+      player1_last_name: row.player1_last_name,
+      player1_license_number: row.player1_license_number,
+      player1_ranking: row.player1_ranking ?? undefined,
+      player1_phone: row.player1_phone ?? undefined,
+      player1_email: row.player1_email,
+      player2_first_name: row.player2_first_name,
+      player2_last_name: row.player2_last_name,
+      player2_license_number: row.player2_license_number,
+      player2_ranking: row.player2_ranking ?? undefined,
+      player2_phone: row.player2_phone ?? undefined,
+      player2_email: row.player2_email,
+      status: row.status,
+      confirmed_at: row.confirmed_at ?? undefined,
+      confirmed_by: row.confirmed_by ?? undefined,
+      payment_status: row.payment_status ?? undefined,
+      payment_id: row.payment_id ?? undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  },
+};
+
+// Partners API
+export interface PartnerRow {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  license_number: string;
+  phone: string | null;
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AppPartner = {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  license_number: string;
+  phone?: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function mapPartnerRow(row: PartnerRow): AppPartner {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    license_number: row.license_number,
+    phone: row.phone ?? undefined,
+    email: row.email,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export const partnersAPI = {
+  // Get current user's partners
+  getMyPartners: async (): Promise<AppPartner[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    const { data, error } = await supabase
+      .from('partners')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching partners:', error);
+      return [];
+    }
+
+    return (data || []).map(mapPartnerRow);
+  },
+
+  // Create a new partner
+  create: async (partner: Omit<AppPartner, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<AppPartner | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      console.error('User not authenticated');
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('partners')
+      .insert({
+        user_id: userId,
+        first_name: partner.first_name,
+        last_name: partner.last_name,
+        license_number: partner.license_number,
+        phone: partner.phone || null,
+        email: partner.email,
+      })
+      .select('*')
+      .single();
+
+    // If we have data, the insert succeeded even if there's an error
+    if (data) {
+      return mapPartnerRow(data as unknown as PartnerRow);
+    }
+
+    if (error) {
+      // Extract error information directly
+      const errorCode = (error as any).code;
+      const errorMessage = (error as any).message;
+      const errorDetails = (error as any).details;
+      const errorHint = (error as any).hint;
+      
+      // Check if table doesn't exist
+      if (errorCode === '42P01' || errorMessage?.includes('does not exist') || errorMessage?.includes('n\'existe pas')) {
+        throw new Error('La table "partners" n\'existe pas. Veuillez exécuter le script SQL "scripts/create-partners-table.sql" dans Supabase.');
+      }
+      
+      // If duplicate, try to update instead
+      if (errorCode === '23505') { // Unique violation
+        const { data: existing } = await supabase
+          .from('partners')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('license_number', partner.license_number)
+          .single();
+        
+        if (existing) {
+          return await partnersAPI.update(existing.id, partner);
+        }
+      }
+      
+      // Build a more detailed error message
+      const finalErrorMessage = errorMessage || 
+                          errorDetails || 
+                          errorHint || 
+                          String(error) ||
+                          `Erreur lors de la création du partenaire (code: ${errorCode || 'unknown'})`;
+      throw new Error(finalErrorMessage);
+    }
+
+    // Should not reach here, but just in case
+    return null;
+  },
+
+  // Update a partner
+  update: async (id: string, updates: Partial<AppPartner>): Promise<AppPartner | null> => {
+    const { data, error } = await supabase
+      .from('partners')
+      .update({
+        first_name: updates.first_name,
+        last_name: updates.last_name,
+        license_number: updates.license_number,
+        phone: updates.phone ?? null,
+        email: updates.email,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating partner:', error);
+      return null;
+    }
+
+    return mapPartnerRow(data as unknown as PartnerRow);
+  },
+
+  // Delete a partner
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('partners')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting partner:', error);
       return { ok: false, error: error.message };
     }
     return { ok: true };

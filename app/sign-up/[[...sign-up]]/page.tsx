@@ -117,7 +117,9 @@ export default function SignUpPage() {
          } catch {
            // no-op: don't block sign-up on profile creation failure
          }
-         router.replace('/dashboard');
+         // Redirect to the specified URL or dashboard
+         const redirectUrl = searchParams.get('redirect') || '/dashboard';
+         router.replace(redirectUrl);
        }
     }
   };

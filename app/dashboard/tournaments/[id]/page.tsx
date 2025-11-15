@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TournamentTeams } from '@/components/tournament-teams';
 import { TournamentFormats } from '@/components/tournament-formats';
 import { TournamentMatches } from '@/components/tournament-matches';
+import { TournamentRegistration } from '@/components/tournament-registration';
 import { ProtectedRoute } from '@/components/protected-route';
 
 // Owner-only access via Supabase RLS
@@ -330,13 +331,14 @@ export default function TournamentPage({ params }: TournamentPageProps) {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-3 gap-1">
-            <TabsTrigger value="teams" className="text-xs lg:text-sm">Teams</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1">
+            <TabsTrigger value="teams" className="text-xs lg:text-sm">Équipes</TabsTrigger>
+            <TabsTrigger value="registration" className="text-xs lg:text-sm">Inscription</TabsTrigger>
             <TabsTrigger value="format" disabled={!tournament.teams_locked} className="text-xs lg:text-sm">
               Format
             </TabsTrigger>
             <TabsTrigger value="matches" disabled={!tournament.format_id} className="text-xs lg:text-sm">
-              Matches
+              Matchs
             </TabsTrigger>
           </TabsList>
 
@@ -348,7 +350,12 @@ export default function TournamentPage({ params }: TournamentPageProps) {
             />
           </TabsContent>
 
-
+          <TabsContent value="registration" className="space-y-6 mt-6">
+            <TournamentRegistration 
+              tournament={tournament}
+              onUpdate={fetchTournament}
+            />
+          </TabsContent>
 
           <TabsContent value="format" className="space-y-6 mt-6">
             <TournamentFormats 
