@@ -26,7 +26,6 @@ const playerNavigation = [
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [

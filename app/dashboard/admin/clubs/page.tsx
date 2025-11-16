@@ -12,9 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Loader2, Plus, X, Users } from 'lucide-react';
-import { clubsAPI, clubManagersAPI, type AppClub } from '@/lib/supabase';
+import { Building2, Loader2, Plus, X, Users, Home, Trash2, Edit } from 'lucide-react';
+import { clubsAPI, clubManagersAPI, clubCourtsAPI, clubJugeArbitresAPI, type AppClub, type AppClubCourt } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -35,12 +36,28 @@ export default function AdminClubsPage() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [courts, setCourts] = useState<AppClubCourt[]>([]);
+  const [isCourtDialogOpen, setIsCourtDialogOpen] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<AppClubCourt | null>(null);
+  const [courtFormData, setCourtFormData] = useState({
+    court_number: '',
+    court_name: '',
+    court_type: 'inside' as 'inside' | 'outside' | 'covered',
+  });
+  const [jugeArbitres, setJugeArbitres] = useState<Array<{ user_id: string | null; email: string; validated_at: string }>>([]);
+  const [loadingJugeArbitres, setLoadingJugeArbitres] = useState(false);
+  const [jugeArbitreEmail, setJugeArbitreEmail] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [isJugeArbitreDialogOpen, setIsJugeArbitreDialogOpen] = useState(false);
+  const [selectedClubForJugeArbitres, setSelectedClubForJugeArbitres] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     contact_email: '',
     contact_phone: '',
   });
+  const [editingClub, setEditingClub] = useState<AppClub | null>(null);
+  const [deletingClubId, setDeletingClubId] = useState<string | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -76,7 +93,7 @@ export default function AdminClubsPage() {
     }
   };
 
-  const handleCreateClub = async () => {
+  const handleSubmitClub = async () => {
     if (!formData.name || !formData.address || !formData.contact_email || !formData.contact_phone) {
       toast({
         title: "Erreur",
@@ -87,41 +104,102 @@ export default function AdminClubsPage() {
     }
 
     try {
-      const newClub = await clubsAPI.create({
-        name: formData.name,
-        address: formData.address,
-        contact_email: formData.contact_email,
-        contact_phone: formData.contact_phone,
-        latitude: undefined,
-        longitude: undefined,
-        city: undefined,
-        postal_code: undefined,
-        country: undefined,
-        country_code: undefined,
-        website: undefined,
-        instagram: undefined,
-        facebook: undefined,
-        manager: undefined,
-      });
-
-      if (newClub) {
-        toast({
-          title: "Succès",
-          description: "Club créé avec succès",
+      if (editingClub) {
+        const updated = await clubsAPI.update(editingClub.id, {
+          name: formData.name,
+          address: formData.address,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
         });
-        setIsCreateDialogOpen(false);
-        setFormData({ name: '', address: '', contact_email: '', contact_phone: '' });
-        loadData();
+
+        if (updated) {
+          toast({
+            title: "Succès",
+            description: "Club mis à jour avec succès",
+          });
+        } else {
+          throw new Error('Failed to update club');
+        }
       } else {
-        throw new Error('Failed to create club');
+        const newClub = await clubsAPI.create({
+          name: formData.name,
+          address: formData.address,
+          contact_email: formData.contact_email,
+          contact_phone: formData.contact_phone,
+          latitude: undefined,
+          longitude: undefined,
+          city: undefined,
+          postal_code: undefined,
+          country: undefined,
+          country_code: undefined,
+          website: undefined,
+          instagram: undefined,
+          facebook: undefined,
+          manager: undefined,
+        });
+
+        if (newClub) {
+          toast({
+            title: "Succès",
+            description: "Club créé avec succès",
+          });
+        } else {
+          throw new Error('Failed to create club');
+        }
       }
+
+      setIsCreateDialogOpen(false);
+      setEditingClub(null);
+      setFormData({ name: '', address: '', contact_email: '', contact_phone: '' });
+      await loadData();
     } catch (error: any) {
-      console.error('Error creating club:', error);
+      console.error('Error saving club:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de créer le club",
+        description: error.message || "Impossible d'enregistrer le club",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleOpenEditClub = (club: AppClub) => {
+    setEditingClub(club);
+    setFormData({
+      name: club.name,
+      address: club.address,
+      contact_email: club.contact_email,
+      contact_phone: club.contact_phone,
+    });
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleDeleteClub = async (clubId: string) => {
+    if (deletingClubId) return;
+    setDeletingClubId(clubId);
+    try {
+      const result = await clubsAPI.delete(clubId);
+      if (result.ok) {
+        toast({
+          title: 'Succès',
+          description: 'Club supprimé avec succès',
+        });
+        await loadData();
+      } else {
+        toast({
+          title: 'Erreur',
+          description: result.error || 'Impossible de supprimer le club',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error deleting club:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Échec de la suppression du club',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingClubId(null);
     }
   };
 
@@ -181,6 +259,216 @@ export default function AdminClubsPage() {
     }
   };
 
+  const fetchCourts = async (clubId: string) => {
+    try {
+      const data = await clubCourtsAPI.listByClub(clubId);
+      setCourts(data);
+    } catch (error) {
+      console.error('Error fetching courts:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de charger les terrains du club",
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleOpenCourtDialog = (clubId: string, court?: AppClubCourt) => {
+    setSelectedClubId(clubId);
+    if (court) {
+      setEditingCourt(court);
+      setCourtFormData({
+        court_number: court.court_number.toString(),
+        court_name: court.court_name || '',
+        court_type: court.court_type,
+      });
+    } else {
+      setEditingCourt(null);
+      setCourtFormData({
+        court_number: '',
+        court_name: '',
+        court_type: 'inside',
+      });
+    }
+    setIsCourtDialogOpen(true);
+  };
+
+  const handleCourtSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClubId) return;
+
+    const courtNumber = parseInt(courtFormData.court_number);
+    const courtType = courtFormData.court_type;
+
+    if (!courtNumber || !courtType) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez remplir tous les champs obligatoires',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      if (editingCourt) {
+        const updated = await clubCourtsAPI.update(editingCourt.id, {
+          court_number: courtNumber,
+          court_name: courtFormData.court_name || undefined,
+          court_type: courtType,
+        });
+        if (updated) {
+          toast({
+            title: 'Succès',
+            description: 'Terrain mis à jour avec succès !',
+          });
+          await fetchCourts(selectedClubId);
+          setIsCourtDialogOpen(false);
+          setEditingCourt(null);
+          setCourtFormData({
+            court_number: '',
+            court_name: '',
+            court_type: 'inside',
+          });
+        }
+      } else {
+        const created = await clubCourtsAPI.create({
+          club_id: selectedClubId,
+          court_number: courtNumber,
+          court_name: courtFormData.court_name || undefined,
+          court_type: courtType,
+        });
+        if (created) {
+          toast({
+            title: 'Succès',
+            description: 'Terrain créé avec succès !',
+          });
+          await fetchCourts(selectedClubId);
+          setIsCourtDialogOpen(false);
+          setCourtFormData({
+            court_number: '',
+            court_name: '',
+            court_type: 'inside',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving court:', error);
+      toast({
+        title: 'Erreur',
+        description: "Échec de l'enregistrement du terrain",
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteCourt = async (courtId: string, clubId: string) => {
+    try {
+      const result = await clubCourtsAPI.delete(courtId);
+      if (result.ok) {
+        toast({
+          title: 'Succès',
+          description: 'Terrain supprimé avec succès !',
+        });
+        await fetchCourts(clubId);
+      } else {
+        toast({
+          title: 'Erreur',
+          description: result.error || 'Impossible de supprimer le terrain',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting court:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Échec de la suppression du terrain',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const loadJugeArbitres = async (clubId: string) => {
+    setLoadingJugeArbitres(true);
+    try {
+      const data = await clubJugeArbitresAPI.listJugeArbitresForClub(clubId);
+      setJugeArbitres(data);
+    } catch (error) {
+      console.error('Error loading juge arbitres:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de charger les juges arbitres du club",
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingJugeArbitres(false);
+    }
+  };
+
+  const handleOpenJugeArbitreDialog = async (clubId: string) => {
+    setSelectedClubForJugeArbitres(clubId);
+    setJugeArbitreEmail('');
+    await loadJugeArbitres(clubId);
+    setIsJugeArbitreDialogOpen(true);
+  };
+
+  const handleValidateJugeArbitre = async () => {
+    if (!selectedClubForJugeArbitres || !jugeArbitreEmail.trim()) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez saisir un email',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setValidating(true);
+    try {
+      const result = await clubJugeArbitresAPI.validate(selectedClubForJugeArbitres, jugeArbitreEmail.trim());
+      if (result.ok) {
+        toast({
+          title: 'Succès',
+          description: 'Juge arbitre validé avec succès',
+        });
+        setJugeArbitreEmail('');
+        await loadJugeArbitres(selectedClubForJugeArbitres);
+      } else {
+        throw new Error(result.error || 'Failed to validate juge arbitre');
+      }
+    } catch (error: any) {
+      console.error('Error validating juge arbitre:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || "Impossible de valider le juge arbitre",
+        variant: 'destructive',
+      });
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleUnvalidateJugeArbitre = async (clubId: string, userId: string | null) => {
+    if (!userId) return;
+    try {
+      const result = await clubJugeArbitresAPI.unvalidate(clubId, userId);
+      if (result.ok) {
+        toast({
+          title: 'Succès',
+          description: 'Juge arbitre retiré avec succès',
+        });
+        await loadJugeArbitres(clubId);
+      } else {
+        throw new Error(result.error || 'Failed to unvalidate juge arbitre');
+      }
+    } catch (error: any) {
+      console.error('Error unvalidating juge arbitre:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || "Impossible de retirer le juge arbitre",
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getClubManagers = async (clubId: string) => {
     try {
       const managers = await clubManagersAPI.listUsersForClub(clubId);
@@ -221,7 +509,13 @@ export default function AdminClubsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+              setIsCreateDialogOpen(open);
+              if (!open) {
+                setEditingClub(null);
+                setFormData({ name: '', address: '', contact_email: '', contact_phone: '' });
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -230,7 +524,7 @@ export default function AdminClubsPage() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Créer un nouveau club</DialogTitle>
+                  <DialogTitle>{editingClub ? 'Modifier le club' : 'Créer un nouveau club'}</DialogTitle>
                   <DialogDescription>
                     Tous les admins partagent une base unique de clubs
                   </DialogDescription>
@@ -278,8 +572,8 @@ export default function AdminClubsPage() {
                   <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                     Annuler
                   </Button>
-                  <Button onClick={handleCreateClub}>
-                    Créer
+                  <Button onClick={handleSubmitClub}>
+                    {editingClub ? 'Modifier' : 'Créer'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -371,7 +665,6 @@ export default function AdminClubsPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Téléphone</TableHead>
                     <TableHead>Users "club" assignés</TableHead>
-                    <TableHead>Date de création</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -384,6 +677,17 @@ export default function AdminClubsPage() {
                       clubUsers={clubUsers}
                       onUnassign={handleUnassignClub}
                       onRefresh={loadData}
+                      onManageCourts={async () => {
+                        setSelectedClubId(club.id);
+                        await fetchCourts(club.id);
+                        setIsCourtDialogOpen(true);
+                      }}
+                      onManageJugeArbitres={(clubId: string) => {
+                        handleOpenJugeArbitreDialog(clubId);
+                      }}
+                      onEdit={() => handleOpenEditClub(club)}
+                      onDelete={() => handleDeleteClub(club.id)}
+                      deletingClubId={deletingClubId}
                     />
                   ))}
                 </TableBody>
@@ -391,6 +695,245 @@ export default function AdminClubsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Courts Management Dialog */}
+        {selectedClubId && (
+          <Dialog open={isCourtDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+              setIsCourtDialogOpen(false);
+              setSelectedClubId(null);
+              setCourts([]);
+              setEditingCourt(null);
+              setCourtFormData({
+                court_number: '',
+                court_name: '',
+                court_type: 'inside',
+              });
+            }
+          }}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Gestion des Terrains</DialogTitle>
+                <DialogDescription>
+                  Gérez les terrains du club {clubs.find(c => c.id === selectedClubId)?.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Terrains</h3>
+                  <Button onClick={() => handleOpenCourtDialog(selectedClubId)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter un Terrain
+                  </Button>
+                </div>
+                {courts.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">Aucun terrain pour ce club</p>
+                ) : (
+                  <div className="space-y-2">
+                    {courts.map((court) => (
+                      <Card key={court.id}>
+                        <CardContent className="p-4 flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{court.court_name || `Terrain ${court.court_number}`}</div>
+                            {court.court_name && (
+                              <div className="text-xs text-gray-500">Terrain {court.court_number}</div>
+                            )}
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Type : {court.court_type === 'inside' ? 'Intérieur' : court.court_type === 'outside' ? 'Extérieur' : 'Couvert'}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenCourtDialog(selectedClubId, court)}
+                            >
+                              <Home className="h-4 w-4 mr-1" />
+                              Modifier
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCourt(court.id, selectedClubId)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Supprimer
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-semibold mb-4">
+                  {editingCourt ? 'Modifier le Terrain' : 'Nouveau Terrain'}
+                </h3>
+                <form onSubmit={handleCourtSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="court_number">Numéro du Terrain *</Label>
+                    <Input
+                      id="court_number"
+                      type="number"
+                      min="1"
+                      value={courtFormData.court_number}
+                      onChange={(e) => setCourtFormData({ ...courtFormData, court_number: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="court_name">Nom du Terrain</Label>
+                    <Input
+                      id="court_name"
+                      value={courtFormData.court_name}
+                      onChange={(e) => setCourtFormData({ ...courtFormData, court_name: e.target.value })}
+                      placeholder="Ex: Terrain Central"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="court_type">Type *</Label>
+                    <Select
+                      value={courtFormData.court_type}
+                      onValueChange={(value: 'inside' | 'outside' | 'covered') =>
+                        setCourtFormData({ ...courtFormData, court_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inside">Intérieur</SelectItem>
+                        <SelectItem value="outside">Extérieur</SelectItem>
+                        <SelectItem value="covered">Couvert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsCourtDialogOpen(false);
+                        setEditingCourt(null);
+                        setCourtFormData({
+                          court_number: '',
+                          court_name: '',
+                          court_type: 'inside',
+                        });
+                      }}
+                    >
+                      Annuler
+                    </Button>
+                    <Button type="submit">{editingCourt ? 'Modifier' : 'Créer'}</Button>
+                  </DialogFooter>
+                </form>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Juge Arbitres Management Dialog */}
+        {selectedClubForJugeArbitres && (
+          <Dialog
+            open={isJugeArbitreDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setIsJugeArbitreDialogOpen(false);
+                setSelectedClubForJugeArbitres(null);
+                setJugeArbitres([]);
+                setJugeArbitreEmail('');
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Gestion des Juges Arbitres</DialogTitle>
+                <DialogDescription>
+                  Validez les juges arbitres pour le club{' '}
+                  {clubs.find((c) => c.id === selectedClubForJugeArbitres)?.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <h3 className="font-semibold">Valider un Juge Arbitre</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="juge_arbitre_email">Email NeyoPadel *</Label>
+                    <Input
+                      id="juge_arbitre_email"
+                      type="email"
+                      value={jugeArbitreEmail}
+                      onChange={(e) => setJugeArbitreEmail(e.target.value)}
+                      placeholder="email@neypadel.com"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Entrez l&apos;email du juge arbitre sur NeyoPadel. Si l&apos;email n&apos;existe
+                      pas encore, il sera lié quand le compte sera créé.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleValidateJugeArbitre}
+                    disabled={!jugeArbitreEmail.trim() || validating}
+                    className="w-full"
+                  >
+                    {validating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Validation en cours...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Valider le Juge Arbitre
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Juges Arbitres Validés</h3>
+                  {loadingJugeArbitres ? (
+                    <div className="text-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                    </div>
+                  ) : jugeArbitres.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Aucun juge arbitre validé pour ce club
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {jugeArbitres.map((ja) => (
+                        <Card key={ja.user_id || ja.email} className="p-4">
+                          <CardContent className="flex items-center justify-between p-0">
+                            <div>
+                              <div className="font-medium">{ja.email}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Validé le {format(new Date(ja.validated_at), 'PPP', { locale: fr })}
+                              </div>
+                            </div>
+                            {ja.user_id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleUnvalidateJugeArbitre(
+                                    selectedClubForJugeArbitres,
+                                    ja.user_id
+                                  )
+                                }
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </DashboardLayout>
   );
@@ -401,13 +944,23 @@ function ClubRow({
   users, 
   clubUsers,
   onUnassign,
-  onRefresh 
+  onRefresh,
+  onManageCourts,
+  onManageJugeArbitres,
+  onEdit,
+  onDelete,
+  deletingClubId,
 }: { 
   club: AppClub; 
   users: User[];
   clubUsers: User[];
   onUnassign: (clubId: string, userId: string) => void;
   onRefresh: () => void;
+  onManageCourts: () => void;
+  onManageJugeArbitres: (clubId: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  deletingClubId: string | null;
 }) {
   const [managers, setManagers] = useState<Array<{ user_id: string; email: string | null }>>([]);
   const [loadingManagers, setLoadingManagers] = useState(true);
@@ -497,15 +1050,68 @@ function ClubRow({
           </div>
         )}
       </TableCell>
-      <TableCell>
-        {format(new Date(club.created_at), 'PPP', { locale: fr })}
-      </TableCell>
       <TableCell className="text-right">
-        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            title="Modifier le club"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={deletingClubId === club.id}
+                title="Supprimer le club"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer le club</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Êtes-vous sûr de vouloir supprimer "{club.name}" ? Cette action est irréversible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingClubId === club.id}>
+                  Annuler
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={deletingClubId === club.id}
+                >
+                  {deletingClubId === club.id ? 'Suppression...' : 'Supprimer'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onManageJugeArbitres(club.id)}
+            title="Gérer les juges arbitres"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onManageCourts}
+            title="Gérer les terrains"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+          <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Users className="h-4 w-4 mr-1" />
-              Assigner
+              <Button variant="ghost" size="sm" className="text-blue-600">
+                <Users className="h-4 w-4" />
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -547,6 +1153,7 @@ function ClubRow({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </TableCell>
     </TableRow>
   );
