@@ -922,6 +922,51 @@ export const tournamentsAPI = {
     }));
   },
 
+  // List tournaments for clubs managed by the current user (club role)
+  listForManagedClubs: async (): Promise<(AppTournament & { club_name?: string })[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    // fetch club_ids the user manages
+    const { data: managerRows, error: managersError } = await supabase
+      .from('club_managers')
+      .select('club_id')
+      .eq('user_id', userId);
+
+    if (managersError) {
+      console.error('Error fetching club managers for user:', managersError);
+      return [];
+    }
+
+    if (!managerRows || managerRows.length === 0) {
+      return [];
+    }
+
+    const clubIds = managerRows.map((row: any) => row.club_id);
+
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select(`
+        *,
+        club:clubs (
+          name
+        )
+      `)
+      .in('club_id', clubIds)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching tournaments for managed clubs:', error);
+      return [];
+    }
+
+    return ((data || []) as any[]).map((row: any) => ({
+      ...mapTournamentRow(row as unknown as SupabaseTournamentRow),
+      club_name: Array.isArray(row.club) && row.club.length > 0 ? row.club[0].name : (row.club?.name || null),
+    }));
+  },
+
   // List tournaments where current user is registered
   listMyRegistrations: async (): Promise<(AppTournament & { registration: AppTournamentRegistration; club_name?: string })[]> => {
     const { data: userData } = await supabase.auth.getUser();
@@ -2067,27 +2112,53 @@ export interface ClubJugeArbitreRow {
 }
 
 export const clubJugeArbitresAPI = {
-  // Valider un juge arbitre pour un club (user "club" only)
-  // Utilise une route API pour chercher l'user par email
-  validate: async (clubId: string, email: string): Promise<{ ok: boolean; error?: string; user_id?: string }> => {
-    try {
-      const response = await fetch('/api/clubs/validate-juge-arbitre', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ club_id: clubId, email }),
+  // Valider un juge arbitre pour un club (user "club" or "admin" only)
+  // Accepte directement un user_id et un email (récupéré depuis la liste des juges arbitres)
+  validate: async (clubId: string, userId: string, email: string): Promise<{ ok: boolean; error?: string }> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUserId = userData.user?.id;
+    if (!currentUserId) {
+      return { ok: false, error: 'Not authenticated' };
+    }
+
+    // Vérifier que l'utilisateur actuel est admin ou gère ce club
+    const role = userData.user?.user_metadata?.role;
+    if (role !== 'admin') {
+      if (role !== 'club') {
+        return { ok: false, error: 'Unauthorized: Only club users and admins can validate juge arbitres' };
+      }
+      // Vérifier que le user "club" gère ce club
+      const { data: managerCheck } = await supabase
+        .from('club_managers')
+        .select('id')
+        .eq('club_id', clubId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (!managerCheck) {
+        return { ok: false, error: 'Unauthorized: You do not manage this club' };
+      }
+    }
+
+    // Insérer dans club_juge_arbitres
+    const { error } = await supabase
+      .from('club_juge_arbitres')
+      .insert({
+        club_id: clubId,
+        user_id: userId,
+        validated_by: currentUserId,
+        email: email.toLowerCase(),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        return { ok: false, error: error.error || 'Failed to validate juge arbitre' };
+    if (error) {
+      if (error.code === '23505') {
+        return { ok: false, error: 'Juge arbitre already validated for this club' };
       }
-
-      const data = await response.json();
-      return { ok: true, user_id: data.user_id };
-    } catch (error: any) {
       console.error('Error validating juge arbitre:', error);
-      return { ok: false, error: error.message || 'Unexpected error' };
+      return { ok: false, error: error.message };
     }
+
+    return { ok: true };
   },
 
   // Retirer un juge arbitre d'un club (user "club" only)

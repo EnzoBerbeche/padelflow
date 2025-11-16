@@ -14,37 +14,42 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-// Base navigation for player users (limited access)
+// Base navigation pour les joueurs
 const playerNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
+];
+
+// Navigation pour les Juges Arbitres
+const jugeArbitreNavigation = [
+  { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
+  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
+  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
 ];
 
 // Admin-specific navigation
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
+  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
+  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
     { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
     { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
     { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
   ]},
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 // Club-specific navigation
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
-  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
+  { name: 'Mes Tournois', href: '/dashboard/club/tournaments', icon: Trophy },
+  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 interface DashboardLayoutProps {
@@ -70,7 +75,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       case 'admin':
         return adminNavigation;
       case 'juge_arbitre':
-        return clubNavigation;
+        return jugeArbitreNavigation;
       case 'club':
         return clubNavigation;
       case 'player':
@@ -186,15 +191,40 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     <span className="hidden sm:inline">{(user?.user_metadata as any)?.display_name || user?.email || 'Account'}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel className="max-w-[240px] truncate">{user?.email || 'Not signed in'}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { setIsUserMenuOpen(false); setIsAccountOpen(true); }}>Account settings</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); window.location.href = '/'; }} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" /> Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="max-w-[240px] truncate">
+                  {user?.email || 'Not signed in'}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setIsAccountOpen(true);
+                  }}
+                >
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  Mon profil
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    window.location.href = '/dashboard/settings';
+                  }}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Paramètres
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = '/';
+                  }}
+                  className="text-red-600"
+                >
+                  <LogOut className="mr-2 h-4 w-4" /> Se déconnecter
+                </DropdownMenuItem>
+              </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
@@ -210,8 +240,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             ? "w-64 translate-x-0" 
             : "w-0 -translate-x-full lg:w-64 lg:translate-x-0"
         )}>
-          <div className="px-4 py-6">
-            <ul className="space-y-2">
+          <div className="px-4 py-6 flex flex-col h-full">
+            <ul className="space-y-2 flex-1">
               {navigation.map((item) => renderNavigationItem(item))}
             </ul>
           </div>

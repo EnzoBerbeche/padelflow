@@ -46,7 +46,9 @@ export default function AdminClubsPage() {
   });
   const [jugeArbitres, setJugeArbitres] = useState<Array<{ user_id: string | null; email: string; validated_at: string }>>([]);
   const [loadingJugeArbitres, setLoadingJugeArbitres] = useState(false);
-  const [jugeArbitreEmail, setJugeArbitreEmail] = useState('');
+  const [selectedJugeArbitreId, setSelectedJugeArbitreId] = useState<string>('');
+  const [availableJugeArbitres, setAvailableJugeArbitres] = useState<Array<{ id: string; email: string; display_name: string | null }>>([]);
+  const [loadingAvailableJugeArbitres, setLoadingAvailableJugeArbitres] = useState(false);
   const [validating, setValidating] = useState(false);
   const [isJugeArbitreDialogOpen, setIsJugeArbitreDialogOpen] = useState(false);
   const [selectedClubForJugeArbitres, setSelectedClubForJugeArbitres] = useState<string | null>(null);
@@ -406,16 +408,48 @@ export default function AdminClubsPage() {
 
   const handleOpenJugeArbitreDialog = async (clubId: string) => {
     setSelectedClubForJugeArbitres(clubId);
-    setJugeArbitreEmail('');
+    setSelectedJugeArbitreId('');
     await loadJugeArbitres(clubId);
+    await loadAvailableJugeArbitres();
     setIsJugeArbitreDialogOpen(true);
   };
 
+  const loadAvailableJugeArbitres = async () => {
+    setLoadingAvailableJugeArbitres(true);
+    try {
+      const response = await fetch('/api/admin/users/juge-arbitres');
+      if (!response.ok) {
+        throw new Error('Failed to load juge arbitres');
+      }
+      const data = await response.json();
+      setAvailableJugeArbitres(data.jugeArbitres || []);
+    } catch (error) {
+      console.error('Error loading available juge arbitres:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la liste des juges arbitres",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAvailableJugeArbitres(false);
+    }
+  };
+
   const handleValidateJugeArbitre = async () => {
-    if (!selectedClubForJugeArbitres || !jugeArbitreEmail.trim()) {
+    if (!selectedClubForJugeArbitres || !selectedJugeArbitreId) {
       toast({
         title: 'Erreur',
-        description: 'Veuillez saisir un email',
+        description: 'Veuillez sélectionner un juge arbitre',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const selectedJugeArbitre = availableJugeArbitres.find(ja => ja.id === selectedJugeArbitreId);
+    if (!selectedJugeArbitre) {
+      toast({
+        title: 'Erreur',
+        description: 'Juge arbitre introuvable',
         variant: 'destructive',
       });
       return;
@@ -423,13 +457,13 @@ export default function AdminClubsPage() {
 
     setValidating(true);
     try {
-      const result = await clubJugeArbitresAPI.validate(selectedClubForJugeArbitres, jugeArbitreEmail.trim());
+      const result = await clubJugeArbitresAPI.validate(selectedClubForJugeArbitres, selectedJugeArbitre.id, selectedJugeArbitre.email);
       if (result.ok) {
         toast({
           title: 'Succès',
           description: 'Juge arbitre validé avec succès',
         });
-        setJugeArbitreEmail('');
+        setSelectedJugeArbitreId('');
         await loadJugeArbitres(selectedClubForJugeArbitres);
       } else {
         throw new Error(result.error || 'Failed to validate juge arbitre');
@@ -842,7 +876,7 @@ export default function AdminClubsPage() {
                 setIsJugeArbitreDialogOpen(false);
                 setSelectedClubForJugeArbitres(null);
                 setJugeArbitres([]);
-                setJugeArbitreEmail('');
+                setSelectedJugeArbitreId('');
               }
             }}
           >
@@ -858,22 +892,39 @@ export default function AdminClubsPage() {
                 <div className="space-y-4 p-4 border rounded-lg">
                   <h3 className="font-semibold">Valider un Juge Arbitre</h3>
                   <div className="space-y-2">
-                    <Label htmlFor="juge_arbitre_email">Email NeyoPadel *</Label>
-                    <Input
-                      id="juge_arbitre_email"
-                      type="email"
-                      value={jugeArbitreEmail}
-                      onChange={(e) => setJugeArbitreEmail(e.target.value)}
-                      placeholder="email@neypadel.com"
-                    />
+                    <Label htmlFor="juge_arbitre_select">Sélectionner un Juge Arbitre *</Label>
+                    {loadingAvailableJugeArbitres ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <Select value={selectedJugeArbitreId} onValueChange={setSelectedJugeArbitreId}>
+                        <SelectTrigger id="juge_arbitre_select">
+                          <SelectValue placeholder="Choisir un juge arbitre..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableJugeArbitres
+                            .filter(ja => !jugeArbitres.some(validated => validated.user_id === ja.id))
+                            .map((ja) => (
+                              <SelectItem key={ja.id} value={ja.id}>
+                                {ja.display_name ? `${ja.display_name} (${ja.email})` : ja.email}
+                              </SelectItem>
+                            ))}
+                          {availableJugeArbitres.filter(ja => !jugeArbitres.some(validated => validated.user_id === ja.id)).length === 0 && (
+                            <SelectItem value="__no_available__" disabled>
+                              Tous les juges arbitres sont déjà validés
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <p className="text-xs text-muted-foreground">
-                      Entrez l&apos;email du juge arbitre sur NeyoPadel. Si l&apos;email n&apos;existe
-                      pas encore, il sera lié quand le compte sera créé.
+                      Sélectionnez un juge arbitre depuis la liste pour l&apos;ajouter à ce club.
                     </p>
                   </div>
                   <Button
                     onClick={handleValidateJugeArbitre}
-                    disabled={!jugeArbitreEmail.trim() || validating}
+                    disabled={!selectedJugeArbitreId || validating || loadingAvailableJugeArbitres}
                     className="w-full"
                   >
                     {validating ? (
