@@ -7,7 +7,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('player' | 'juge_arbitre' | 'admin')[];
+  allowedRoles?: ('player' | 'juge_arbitre' | 'admin' | 'club')[];
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {

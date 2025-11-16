@@ -1,5 +1,7 @@
 # Schéma de la table Clubs - Détail des colonnes
 
+> **Note**: La documentation principale du schéma de la base de données, incluant la table `clubs` complète, se trouve dans [`supabase-schema.md`](./supabase-schema.md). Ce fichier contient des détails spécifiques sur l'intégration avec Google Places API.
+
 ## Données disponibles depuis Google Places API
 
 L'API Google Places retourne les informations suivantes via `address_components` :

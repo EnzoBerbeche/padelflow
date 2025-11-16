@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Wrench, Settings, Database, Users } from 'lucide-react';
+import { Shield, Wrench, Settings, Database, Users, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useUserRole } from '@/hooks/use-user-role';
 import { useRouter } from 'next/navigation';
@@ -120,6 +120,26 @@ export default function AdminDashboardPage() {
             <Link href="/dashboard/admin/users">
               <Button className="w-full">
                 Manage Users
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Club Management */}
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-cyan-600" />
+              Club Management
+            </CardTitle>
+            <CardDescription>
+              Create and manage clubs, assign to club users
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/dashboard/admin/clubs">
+              <Button className="w-full">
+                Manage Clubs
               </Button>
             </Link>
           </CardContent>

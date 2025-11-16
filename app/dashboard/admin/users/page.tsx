@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Loader2 } from 'lucide-react';
+import { Users, Loader2, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -18,7 +18,7 @@ interface User {
   id: string;
   email: string;
   phone: string | null;
-  role: 'player' | 'juge_arbitre' | 'admin';
+  role: 'player' | 'juge_arbitre' | 'admin' | 'club';
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
@@ -31,6 +31,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<'all' | 'player' | 'juge_arbitre' | 'admin' | 'club'>('all');
 
   // Redirect non-admin users
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'player' | 'juge_arbitre' | 'admin') => {
+  const updateUserRole = async (userId: string, newRole: 'player' | 'juge_arbitre' | 'admin' | 'club') => {
     setUpdatingUserId(userId);
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
@@ -111,6 +112,8 @@ export default function AdminUsersPage() {
         return 'default';
       case 'juge_arbitre':
         return 'secondary';
+      case 'club':
+        return 'secondary';
       default:
         return 'outline';
     }
@@ -122,6 +125,8 @@ export default function AdminUsersPage() {
         return 'Admin';
       case 'juge_arbitre':
         return 'Juge Arbitre';
+      case 'club':
+        return 'Club';
       default:
         return 'Joueur';
     }
@@ -158,77 +163,103 @@ export default function AdminUsersPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Liste des Utilisateurs ({users.length})</CardTitle>
-            <CardDescription>
-              Modifiez le rôle de chaque utilisateur en utilisant le menu déroulant
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Liste des Utilisateurs ({users.length})</CardTitle>
+                <CardDescription>
+                  Modifiez le rôle de chaque utilisateur en utilisant le menu déroulant
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as typeof roleFilter)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les rôles</SelectItem>
+                    <SelectItem value="player">Joueurs</SelectItem>
+                    <SelectItem value="juge_arbitre">Juges Arbitres</SelectItem>
+                    <SelectItem value="club">Clubs</SelectItem>
+                    <SelectItem value="admin">Admins</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            {users.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-muted-foreground">Aucun utilisateur trouvé</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    <TableHead>Rôle actuel</TableHead>
-                    <TableHead>Date de création</TableHead>
-                    <TableHead>Dernière connexion</TableHead>
-                    <TableHead className="text-right">Modifier le rôle</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.email || '-'}</TableCell>
-                      <TableCell>{user.phone || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                          {getRoleLabel(user.role)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {user.created_at
-                          ? format(new Date(user.created_at), 'PPP', { locale: fr })
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {user.last_sign_in_at
-                          ? format(new Date(user.last_sign_in_at), 'PPP', { locale: fr })
-                          : 'Jamais'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => updateUserRole(user.id, value as 'player' | 'juge_arbitre' | 'admin')}
-                          disabled={updatingUserId === user.id}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            {updatingUserId === user.id ? (
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Mise à jour...</span>
-                              </div>
-                            ) : (
-                              <SelectValue />
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="player">Joueur</SelectItem>
-                            <SelectItem value="juge_arbitre">Juge Arbitre</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
+            {(() => {
+              const filteredUsers = roleFilter === 'all' ? users : users.filter(u => u.role === roleFilter);
+              if (filteredUsers.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-muted-foreground">Aucun utilisateur trouvé</p>
+                  </div>
+                );
+              }
+              return (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Téléphone</TableHead>
+                      <TableHead>Rôle actuel</TableHead>
+                      <TableHead>Date de création</TableHead>
+                      <TableHead>Dernière connexion</TableHead>
+                      <TableHead className="text-right">Modifier le rôle</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.email || '-'}</TableCell>
+                        <TableCell>{user.phone || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            {getRoleLabel(user.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.created_at
+                            ? format(new Date(user.created_at), 'PPP', { locale: fr })
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {user.last_sign_in_at
+                            ? format(new Date(user.last_sign_in_at), 'PPP', { locale: fr })
+                            : 'Jamais'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) => updateUserRole(user.id, value as 'player' | 'juge_arbitre' | 'admin' | 'club')}
+                            disabled={updatingUserId === user.id}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              {updatingUserId === user.id ? (
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>Mise à jour...</span>
+                                </div>
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="player">Joueur</SelectItem>
+                              <SelectItem value="juge_arbitre">Juge Arbitre</SelectItem>
+                              <SelectItem value="club">Club</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>

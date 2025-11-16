@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { clubsAPI, clubCourtsAPI, type AppClub, type AppClubCourt } from '@/lib/supabase';
+import { clubsAPI, clubCourtsAPI, clubJugeArbitresAPI, type AppClub, type AppClubCourt } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { useUserRole } from '@/hooks/use-user-role';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building2, MapPin, Mail, Phone, Globe, Instagram, Facebook, User, Plus, Edit, Trash2, X, Home, Sun, Umbrella } from 'lucide-react';
+import { Building2, MapPin, Mail, Phone, Globe, Instagram, Facebook, User, Plus, Edit, Trash2, X, Home, Sun, Umbrella, Users, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,11 +19,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { getPlaceDetails, parseAddressComponents } from '@/lib/google-places';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function ClubManagementPage() {
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
-  const { isClub, isAdmin } = useUserRole();
+  const { isClub, isAdmin, isJugeArbitre, role } = useUserRole();
   const [clubs, setClubs] = useState<AppClub[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingClubId, setDeletingClubId] = useState<string | null>(null);
@@ -37,6 +40,11 @@ export default function ClubManagementPage() {
     court_name: '',
     court_type: 'inside' as 'inside' | 'outside' | 'covered',
   });
+  const [selectedClubForValidation, setSelectedClubForValidation] = useState<string | null>(null);
+  const [jugeArbitreEmail, setJugeArbitreEmail] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [jugeArbitres, setJugeArbitres] = useState<Array<{ user_id: string; email: string; validated_at: string }>>([]);
+  const [loadingJugeArbitres, setLoadingJugeArbitres] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -57,7 +65,7 @@ export default function ClubManagementPage() {
 
   useEffect(() => {
     fetchClubs();
-  }, [currentUserId]);
+  }, [currentUserId, isAdmin, isJugeArbitre, isClub]);
 
   const fetchClubs = async () => {
     try {
@@ -65,10 +73,39 @@ export default function ClubManagementPage() {
         setLoading(false);
         return;
       }
-      const data = await clubsAPI.listMy();
+      // Admins voient tous les clubs, juges arbitres voient leurs clubs créés
+      // Users "club" voient les clubs qu'ils gèrent
+      let data: AppClub[] = [];
+      if (isAdmin) {
+        try {
+          data = await clubsAPI.listAll();
+        } catch (err: any) {
+          console.error('Error in clubsAPI.listAll():', err);
+          console.error('Error details:', JSON.stringify(err, null, 2));
+          data = [];
+        }
+      } else if (isJugeArbitre) {
+        try {
+          data = await clubsAPI.listMy();
+        } catch (err: any) {
+          console.error('Error in clubsAPI.listMy():', err);
+          console.error('Error details:', JSON.stringify(err, null, 2));
+          data = [];
+        }
+      } else if (isClub) {
+        try {
+          data = await clubsAPI.listManagedByMe();
+        } catch (err: any) {
+          console.error('Error in clubsAPI.listManagedByMe():', err);
+          console.error('Error details:', JSON.stringify(err, null, 2));
+          data = [];
+        }
+      }
       setClubs(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching clubs:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      setClubs([]);
     } finally {
       setLoading(false);
     }
@@ -143,7 +180,16 @@ export default function ClubManagementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.address || !formData.contact_email || !formData.contact_phone) {
+    
+    // Validation des champs obligatoires
+    // Pour les users "club" en mode édition, name et address ne sont pas obligatoires car ils ne peuvent pas les modifier
+    const isClubUserEditing = isClub && !isAdmin && !isJugeArbitre && editingClub !== null;
+    const requiredFields = isClubUserEditing 
+      ? ['contact_email', 'contact_phone']
+      : ['name', 'address', 'contact_email', 'contact_phone'];
+    
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    if (missingFields.length > 0) {
       toast({
         title: "Erreur",
         description: "Veuillez remplir tous les champs obligatoires",
@@ -153,7 +199,8 @@ export default function ClubManagementPage() {
     }
 
     // Validate that address was selected from API (has coordinates)
-    if (!formData.latitude || !formData.longitude) {
+    // Pas nécessaire pour les users "club" en mode édition
+    if (!isClubUserEditing && (!formData.latitude || !formData.longitude)) {
       toast({
         title: "Erreur",
         description: "Veuillez sélectionner une adresse depuis les suggestions",
@@ -164,9 +211,8 @@ export default function ClubManagementPage() {
 
     try {
       if (editingClub) {
-        const updated = await clubsAPI.update(editingClub.id, {
-          name: formData.name,
-          address: formData.address,
+        // Users "club" ne peuvent pas modifier le nom et l'adresse
+        const updateData: any = {
           latitude: formData.latitude,
           longitude: formData.longitude,
           city: formData.city,
@@ -179,7 +225,15 @@ export default function ClubManagementPage() {
           manager: formData.manager || undefined,
           contact_email: formData.contact_email,
           contact_phone: formData.contact_phone,
-        });
+        };
+        
+        // Seuls les admins et juges arbitres peuvent modifier le nom et l'adresse
+        if (isAdmin || isJugeArbitre) {
+          updateData.name = formData.name;
+          updateData.address = formData.address;
+        }
+        
+        const updated = await clubsAPI.update(editingClub.id, updateData);
         if (updated) {
           toast({
             title: "Succès",
@@ -377,15 +431,15 @@ export default function ClubManagementPage() {
   };
 
   // Check if user has permission
-  if (!isClub && !isAdmin) {
+  if (!isClub && !isAdmin && !isJugeArbitre) {
     return (
-      <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
+      <ProtectedRoute allowedRoles={['juge_arbitre', 'admin', 'club']}>
         <DashboardLayout>
           <div className="text-center py-12">
             <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès restreint</h1>
             <p className="text-gray-600 mb-6">
-              Seuls les profils Juge Arbitre et Admin peuvent accéder à la gestion des clubs.
+              Seuls les profils Club, Juge Arbitre et Admin peuvent accéder à la gestion des clubs.
             </p>
           </div>
         </DashboardLayout>
@@ -403,23 +457,98 @@ export default function ClubManagementPage() {
     );
   }
 
+  const handleValidateJugeArbitre = async () => {
+    if (!selectedClubForValidation || !jugeArbitreEmail.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner un club et saisir un email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setValidating(true);
+    try {
+      const result = await clubJugeArbitresAPI.validate(selectedClubForValidation, jugeArbitreEmail.trim());
+      if (result.ok) {
+        toast({
+          title: "Succès",
+          description: "Juge arbitre validé avec succès",
+        });
+        setJugeArbitreEmail('');
+        loadJugeArbitres(selectedClubForValidation);
+      } else {
+        throw new Error(result.error || 'Failed to validate juge arbitre');
+      }
+    } catch (error: any) {
+      console.error('Error validating juge arbitre:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de valider le juge arbitre",
+        variant: "destructive",
+      });
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleUnvalidateJugeArbitre = async (clubId: string, userId: string) => {
+    try {
+      const result = await clubJugeArbitresAPI.unvalidate(clubId, userId);
+      if (result.ok) {
+        toast({
+          title: "Succès",
+          description: "Juge arbitre retiré avec succès",
+        });
+        loadJugeArbitres(clubId);
+      } else {
+        throw new Error(result.error || 'Failed to unvalidate juge arbitre');
+      }
+    } catch (error: any) {
+      console.error('Error unvalidating juge arbitre:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de retirer le juge arbitre",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadJugeArbitres = async (clubId: string) => {
+    setLoadingJugeArbitres(true);
+    try {
+      const data = await clubJugeArbitresAPI.listJugeArbitresForClub(clubId);
+      setJugeArbitres(data);
+    } catch (error) {
+      console.error('Error loading juge arbitres:', error);
+    } finally {
+      setLoadingJugeArbitres(false);
+    }
+  };
+
+  const handleOpenJugeArbitreDialog = (clubId: string) => {
+    setSelectedClubForValidation(clubId);
+    loadJugeArbitres(clubId);
+  };
+
   return (
-    <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
+    <ProtectedRoute allowedRoles={['juge_arbitre', 'admin', 'club']}>
       <DashboardLayout>
         <div className="space-y-6">
           {/* Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Mes Clubs</h1>
-              <p className="text-gray-600 mt-1">Gérez vos clubs et leurs terrains</p>
+              <h1 className="text-3xl font-bold text-gray-900">Liste des clubs</h1>
+              <p className="text-gray-600 mt-1">Gérez les clubs et leurs terrains</p>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()} className="flex items-center space-x-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Nouveau Club</span>
-                </Button>
-              </DialogTrigger>
+            {(isAdmin || isJugeArbitre) && (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => handleOpenDialog()} className="flex items-center space-x-2">
+                    <Plus className="h-4 w-4" />
+                    <span>Nouveau Club</span>
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingClub ? 'Modifier le Club' : 'Nouveau Club'}</DialogTitle>
@@ -435,21 +564,38 @@ export default function ClubManagementPage() {
                         id="name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
+                        required={isAdmin || isJugeArbitre || !editingClub}
+                        disabled={isClub && !isAdmin && !isJugeArbitre && editingClub !== null}
+                        title={isClub && !isAdmin && !isJugeArbitre && editingClub !== null ? "Le nom du club ne peut être modifié que par un admin" : undefined}
                       />
+                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Le nom du club ne peut être modifié que par un admin
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Adresse *</Label>
-                      <AddressAutocomplete
-                        value={formData.address}
-                        onChange={handleAddressChange}
-                        placeholder="Rechercher une adresse..."
-                        required
-                        forceApiSelection={true}
-                      />
+                      <div className={isClub && !isAdmin && !isJugeArbitre && editingClub !== null ? "pointer-events-none opacity-50" : ""}>
+                        <AddressAutocomplete
+                          value={formData.address}
+                          onChange={handleAddressChange}
+                          placeholder="Rechercher une adresse..."
+                          required={isAdmin || isJugeArbitre || !editingClub}
+                          forceApiSelection={true}
+                        />
+                      </div>
+                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null && (
+                        <p className="text-sm text-muted-foreground mt-1">L'adresse du club ne peut être modifiée que par un admin</p>
+                      )}
                       {formData.latitude && formData.longitude && (
                         <p className="text-xs text-gray-500">
                           Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                        </p>
+                      )}
+                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          L'adresse du club ne peut être modifiée que par un admin
                         </p>
                       )}
                     </div>
@@ -510,7 +656,7 @@ export default function ClubManagementPage() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Annuler
                     </Button>
                     <Button type="submit">{editingClub ? 'Modifier' : 'Créer'}</Button>
@@ -518,6 +664,7 @@ export default function ClubManagementPage() {
                 </form>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           {/* Clubs List */}
@@ -537,120 +684,132 @@ export default function ClubManagementPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {clubs.map((club) => (
-                  <Card key={club.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg mb-2">{club.name}</CardTitle>
-                          <CardDescription className="space-y-1">
-                            <div className="flex items-center">
-                              <MapPin className="h-4 w-4 mr-1" />
-                              {club.address}
-                            </div>
-                            <div className="flex items-center">
-                              <Mail className="h-4 w-4 mr-1" />
-                              {club.contact_email}
-                            </div>
-                            <div className="flex items-center">
-                              <Phone className="h-4 w-4 mr-1" />
-                              {club.contact_phone}
-                            </div>
-                            {club.manager && (
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nom</TableHead>
+                        <TableHead>Adresse</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Téléphone</TableHead>
+                        <TableHead>Responsable</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clubs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            Aucun club trouvé
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        clubs.map((club) => (
+                          <TableRow key={club.id}>
+                            <TableCell className="font-medium">{club.name}</TableCell>
+                            <TableCell>
                               <div className="flex items-center">
-                                <User className="h-4 w-4 mr-1" />
-                                {club.manager}
+                                <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
+                                <span className="max-w-xs truncate">{club.address}</span>
                               </div>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDialog(club)}
-                            title="Modifier le club"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={deletingClubId === club.id}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Supprimer le Club</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Êtes-vous sûr de vouloir supprimer "{club.name}" ? Cette action est irréversible et supprimera tous les terrains associés.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel disabled={deletingClubId === club.id}>Annuler</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteClub(club.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                  disabled={deletingClubId === club.id}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <Mail className="h-4 w-4 mr-1 text-muted-foreground" />
+                                {club.contact_email}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <Phone className="h-4 w-4 mr-1 text-muted-foreground" />
+                                {club.contact_phone}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {club.manager ? (
+                                <div className="flex items-center">
+                                  <User className="h-4 w-4 mr-1 text-muted-foreground" />
+                                  {club.manager}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    setSelectedClubId(club.id);
+                                    await fetchCourts(club.id);
+                                  }}
+                                  title="Gérer les terrains"
                                 >
-                                  {deletingClubId === club.id ? 'Suppression...' : 'Supprimer'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {club.website && (
-                          <a href={club.website} target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-blue-600 hover:underline">
-                            <Globe className="h-4 w-4 mr-1" />
-                            Site web
-                          </a>
-                        )}
-                        {club.instagram && (
-                          <a href={`https://instagram.com/${club.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-pink-600 hover:underline">
-                            <Instagram className="h-4 w-4 mr-1" />
-                            Instagram
-                          </a>
-                        )}
-                        {club.facebook && (
-                          <a href={club.facebook} target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-blue-700 hover:underline">
-                            <Facebook className="h-4 w-4 mr-1" />
-                            Facebook
-                          </a>
-                        )}
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={async () => {
-                            setSelectedClubId(club.id);
-                            await fetchCourts(club.id);
-                          }}
-                        >
-                          Gérer les Terrains
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenDialog(club)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                                  <Home className="h-4 w-4" />
+                                </Button>
+                                {(isClub || isAdmin) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenJugeArbitreDialog(club.id)}
+                                    title="Gérer les juges arbitres"
+                                  >
+                                    <Users className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {(isAdmin || isJugeArbitre) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenDialog(club)}
+                                    title="Modifier"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {(isAdmin || isJugeArbitre) && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={deletingClubId === club.id}
+                                        title="Supprimer"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Supprimer le Club</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Êtes-vous sûr de vouloir supprimer "{club.name}" ? Cette action est irréversible et supprimera tous les terrains associés.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel disabled={deletingClubId === club.id}>Annuler</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => deleteClub(club.id)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                          disabled={deletingClubId === club.id}
+                                        >
+                                          {deletingClubId === club.id ? 'Suppression...' : 'Supprimer'}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             )}
           </div>
 
@@ -829,6 +988,98 @@ export default function ClubManagementPage() {
               </form>
             </DialogContent>
           </Dialog>
+
+          {/* Juge Arbitres Validation Dialog */}
+          {selectedClubForValidation && (
+            <Dialog open={selectedClubForValidation !== null} onOpenChange={(open) => {
+              if (!open) {
+                setSelectedClubForValidation(null);
+                setJugeArbitres([]);
+                setJugeArbitreEmail('');
+              }
+            }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Gestion des Juges Arbitres</DialogTitle>
+                  <DialogDescription>
+                    Validez les juges arbitres pour le club {clubs.find(c => c.id === selectedClubForValidation)?.name}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Formulaire de validation */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h3 className="font-semibold">Valider un Juge Arbitre</h3>
+                    <div className="space-y-2">
+                      <Label htmlFor="juge_arbitre_email">Email NeyoPadel *</Label>
+                      <Input
+                        id="juge_arbitre_email"
+                        type="email"
+                        value={jugeArbitreEmail}
+                        onChange={(e) => setJugeArbitreEmail(e.target.value)}
+                        placeholder="email@neypadel.com"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Entrez l'email du juge arbitre sur NeyoPadel. Si l'email n'existe pas encore, il sera lié quand le compte sera créé.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handleValidateJugeArbitre} 
+                      disabled={!jugeArbitreEmail.trim() || validating}
+                      className="w-full"
+                    >
+                      {validating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Validation en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Valider le Juge Arbitre
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Liste des juges arbitres validés */}
+                  <div className="space-y-2">
+                    <h3 className="font-semibold">Juges Arbitres Validés</h3>
+                    {loadingJugeArbitres ? (
+                      <div className="text-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                      </div>
+                    ) : jugeArbitres.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun juge arbitre validé pour ce club
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {jugeArbitres.map((ja) => (
+                          <Card key={ja.user_id} className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium">{ja.email}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Validé le {format(new Date(ja.validated_at), 'PPP', { locale: fr })}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnvalidateJugeArbitre(selectedClubForValidation, ja.user_id)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </DashboardLayout>
     </ProtectedRoute>

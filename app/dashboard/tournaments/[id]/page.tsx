@@ -66,7 +66,7 @@ export default function TournamentPage({ params }: TournamentPageProps) {
   const [teams, setTeams] = useState<TeamWithPlayers[]>([]);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('registrations');
+  const [activeTab, setActiveTab] = useState('registration');
 
 
   // Next.js 15: params is a Promise, need to unwrap it
@@ -334,9 +334,9 @@ export default function TournamentPage({ params }: TournamentPageProps) {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-1">
+            <TabsTrigger value="registration" className="text-xs lg:text-sm">Inscription</TabsTrigger>
             <TabsTrigger value="registrations" className="text-xs lg:text-sm">Inscrits</TabsTrigger>
             <TabsTrigger value="teams" className="text-xs lg:text-sm">Équipes</TabsTrigger>
-            <TabsTrigger value="registration" className="text-xs lg:text-sm">Inscription</TabsTrigger>
             <TabsTrigger value="format" disabled={!tournament.teams_locked} className="text-xs lg:text-sm">
               Format
             </TabsTrigger>
@@ -344,6 +344,13 @@ export default function TournamentPage({ params }: TournamentPageProps) {
               Matchs
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="registration" className="space-y-6 mt-6">
+            <TournamentRegistration 
+              tournament={tournament}
+              onUpdate={fetchTournament}
+            />
+          </TabsContent>
 
           <TabsContent value="registrations" className="space-y-6 mt-6">
             <TournamentRegistrationsList 
@@ -357,13 +364,6 @@ export default function TournamentPage({ params }: TournamentPageProps) {
               tournament={tournament}
               teams={teams}
               onTeamsUpdate={fetchTournament}
-            />
-          </TabsContent>
-
-          <TabsContent value="registration" className="space-y-6 mt-6">
-            <TournamentRegistration 
-              tournament={tournament}
-              onUpdate={fetchTournament}
             />
           </TabsContent>
 

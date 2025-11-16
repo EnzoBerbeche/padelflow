@@ -9,7 +9,7 @@ export async function PATCH(
     const { userId } = await params;
     const { role } = await req.json();
 
-    if (!role || !['player', 'juge_arbitre', 'admin'].includes(role)) {
+    if (!role || !['player', 'juge_arbitre', 'admin', 'club'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 

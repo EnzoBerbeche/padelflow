@@ -26,13 +26,14 @@ const playerNavigation = [
 const adminNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
+  { name: 'Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
     { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
     { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
     { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
+    { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
   ]},
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
@@ -41,7 +42,7 @@ const adminNavigation = [
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
+  { name: 'Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -70,6 +71,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       case 'admin':
         return adminNavigation;
       case 'juge_arbitre':
+        return clubNavigation;
+      case 'club':
         return clubNavigation;
       case 'player':
       default:

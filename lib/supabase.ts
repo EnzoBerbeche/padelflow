@@ -1890,133 +1890,7 @@ function mapClubCourtRow(row: SupabaseClubCourtRow): AppClubCourt {
   };
 }
 
-export const clubsAPI = {
-  // List current user's clubs
-  listMy: async (): Promise<AppClub[]> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) return [];
-
-    const { data, error } = await supabase
-      .from('clubs')
-      .select('*')
-      .eq('owner_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching clubs:', error);
-      return [];
-    }
-    return ((data as unknown as SupabaseClubRow[]) || []).map(mapClubRow);
-  },
-
-  // Get by id (owner-only via RLS)
-  getById: async (id: string): Promise<AppClub | null> => {
-    const { data, error } = await supabase
-      .from('clubs')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching club by id:', error);
-      return null;
-    }
-    return mapClubRow(data as unknown as SupabaseClubRow);
-  },
-
-  // Create new club
-  create: async (club: Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>): Promise<AppClub | null> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      console.error('User not authenticated');
-      return null;
-    }
-
-    const { data, error } = await supabase
-      .from('clubs')
-      .insert({
-        owner_id: userId,
-        name: club.name,
-        address: club.address,
-        latitude: club.latitude || null,
-        longitude: club.longitude || null,
-        city: club.city || null,
-        postal_code: club.postal_code || null,
-        country: club.country || null,
-        country_code: club.country_code || null,
-        website: club.website || null,
-        instagram: club.instagram || null,
-        facebook: club.facebook || null,
-        manager: club.manager || null,
-        contact_email: club.contact_email,
-        contact_phone: club.contact_phone,
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error creating club:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-      });
-      if (error.code === '42P01' || error.message?.includes('does not exist')) {
-        console.error('Table "clubs" does not exist. Please run the SQL schema script in Supabase.');
-      }
-      return null;
-    }
-    return mapClubRow(data as unknown as SupabaseClubRow);
-  },
-
-  // Update club
-  update: async (id: string, updates: Partial<Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>): Promise<AppClub | null> => {
-    const { data, error } = await supabase
-      .from('clubs')
-      .update({
-        name: updates.name,
-        address: updates.address,
-        latitude: updates.latitude || null,
-        longitude: updates.longitude || null,
-        city: updates.city || null,
-        postal_code: updates.postal_code || null,
-        country: updates.country || null,
-        country_code: updates.country_code || null,
-        website: updates.website || null,
-        instagram: updates.instagram || null,
-        facebook: updates.facebook || null,
-        manager: updates.manager || null,
-        contact_email: updates.contact_email,
-        contact_phone: updates.contact_phone,
-      })
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error updating club:', error);
-      return null;
-    }
-    return mapClubRow(data as unknown as SupabaseClubRow);
-  },
-
-  // Delete club
-  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    const { error } = await supabase
-      .from('clubs')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting club:', error);
-      return { ok: false, error: error.message };
-    }
-    return { ok: true };
-  },
-};
+// clubsAPI est défini plus bas après clubManagersAPI et clubJugeArbitresAPI
 
 export const clubCourtsAPI = {
   // List courts for a club
@@ -2083,6 +1957,370 @@ export const clubCourtsAPI = {
 
     if (error) {
       console.error('Error deleting club court:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+};
+
+// Club Management APIs
+
+// Club Managers API - Association entre users "club" et les clubs qu'ils gèrent
+export interface ClubManagerRow {
+  id: string;
+  club_id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const clubManagersAPI = {
+  // Assigner un club à un user "club" (admin only)
+  assign: async (clubId: string, userId: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('club_managers')
+      .insert({
+        club_id: clubId,
+        user_id: userId,
+      });
+
+    if (error) {
+      console.error('Error assigning club to user:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+
+  // Retirer un club d'un user "club" (admin only)
+  unassign: async (clubId: string, userId: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('club_managers')
+      .delete()
+      .eq('club_id', clubId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error unassigning club from user:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+
+  // Lister les clubs gérés par un user "club"
+  listClubsForUser: async (userId: string): Promise<AppClub[]> => {
+    const { data, error } = await supabase
+      .from('club_managers')
+      .select(`
+        club_id,
+        clubs (*)
+      `)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching clubs for user:', error);
+      return [];
+    }
+
+    return ((data || []) as Array<{ club_id: string; clubs: SupabaseClubRow | SupabaseClubRow[] }>)
+      .map(item => {
+        const club = Array.isArray(item.clubs) ? item.clubs[0] : item.clubs;
+        return club ? mapClubRow(club) : null;
+      })
+      .filter(Boolean) as AppClub[];
+  },
+
+  // Lister les users "club" qui gèrent un club (admin only)
+  listUsersForClub: async (clubId: string): Promise<Array<{ user_id: string; email: string | null }>> => {
+    const { data, error } = await supabase
+      .from('club_managers')
+      .select('user_id')
+      .eq('club_id', clubId);
+
+    if (error) {
+      console.error('Error fetching users for club:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error hint:', error.hint);
+      return [];
+    }
+
+    // Récupérer les emails via une requête séparée si nécessaire
+    // Pour l'instant, on retourne juste les user_id, l'email sera récupéré côté client
+    return (data || []).map(item => ({
+      user_id: item.user_id,
+      email: null, // L'email sera récupéré depuis la liste des users côté client
+    }));
+  },
+};
+
+// Club Juge Arbitres API - Association entre juges arbitres et les clubs
+export interface ClubJugeArbitreRow {
+  id: string;
+  club_id: string;
+  user_id: string;
+  validated_by: string;
+  validated_at: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const clubJugeArbitresAPI = {
+  // Valider un juge arbitre pour un club (user "club" only)
+  // Utilise une route API pour chercher l'user par email
+  validate: async (clubId: string, email: string): Promise<{ ok: boolean; error?: string; user_id?: string }> => {
+    try {
+      const response = await fetch('/api/clubs/validate-juge-arbitre', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ club_id: clubId, email }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { ok: false, error: error.error || 'Failed to validate juge arbitre' };
+      }
+
+      const data = await response.json();
+      return { ok: true, user_id: data.user_id };
+    } catch (error: any) {
+      console.error('Error validating juge arbitre:', error);
+      return { ok: false, error: error.message || 'Unexpected error' };
+    }
+  },
+
+  // Retirer un juge arbitre d'un club (user "club" only)
+  unvalidate: async (clubId: string, userId: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('club_juge_arbitres')
+      .delete()
+      .eq('club_id', clubId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error unvalidating juge arbitre:', error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  },
+
+  // Lister les clubs associés à un juge arbitre
+  listClubsForJugeArbitre: async (userId: string): Promise<AppClub[]> => {
+    const { data, error } = await supabase
+      .from('club_juge_arbitres')
+      .select(`
+        club_id,
+        clubs (*)
+      `)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching clubs for juge arbitre:', error);
+      return [];
+    }
+
+    return ((data || []) as Array<{ club_id: string; clubs: SupabaseClubRow | SupabaseClubRow[] }>)
+      .map(item => {
+        const club = Array.isArray(item.clubs) ? item.clubs[0] : item.clubs;
+        return club ? mapClubRow(club) : null;
+      })
+      .filter(Boolean) as AppClub[];
+  },
+
+  // Lister les juges arbitres validés pour un club (user "club" only)
+  listJugeArbitresForClub: async (clubId: string): Promise<Array<{ user_id: string; email: string; validated_at: string }>> => {
+    const { data, error } = await supabase
+      .from('club_juge_arbitres')
+      .select('user_id, email, validated_at')
+      .eq('club_id', clubId)
+      .order('validated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching juge arbitres for club:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error hint:', error.hint);
+      return [];
+    }
+
+    return (data || []) as Array<{ user_id: string; email: string; validated_at: string }>;
+  },
+};
+
+// Mise à jour de clubsAPI pour ajouter les nouvelles fonctions
+export const clubsAPI = {
+  // List current user's clubs
+  listMy: async (): Promise<AppClub[]> => {
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError || !userData.user?.id) {
+      console.error('Error getting user:', authError);
+      return [];
+    }
+    const userId = userData.user.id;
+
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('*')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching clubs:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return [];
+    }
+    return ((data as unknown as SupabaseClubRow[]) || []).map(mapClubRow);
+  },
+
+  // List all clubs (admin only)
+  listAll: async (): Promise<AppClub[]> => {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching all clubs:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error hint:', error.hint);
+      return [];
+    }
+    return ((data as unknown as SupabaseClubRow[]) || []).map(mapClubRow);
+  },
+
+  // List clubs managed by current user (for users with role "club")
+  listManagedByMe: async (): Promise<AppClub[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    return clubManagersAPI.listClubsForUser(userId);
+  },
+
+  // List clubs associated with current juge arbitre
+  listAssociatedWithMe: async (): Promise<AppClub[]> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return [];
+
+    return clubJugeArbitresAPI.listClubsForJugeArbitre(userId);
+  },
+
+  // Get by id (owner-only via RLS)
+  getById: async (id: string): Promise<AppClub | null> => {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching club by id:', error);
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Create new club (admin only)
+  create: async (club: Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>): Promise<AppClub | null> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      console.error('User not authenticated');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('clubs')
+      .insert({
+        owner_id: userId,
+        name: club.name,
+        address: club.address,
+        latitude: club.latitude || null,
+        longitude: club.longitude || null,
+        city: club.city || null,
+        postal_code: club.postal_code || null,
+        country: club.country || null,
+        country_code: club.country_code || null,
+        website: club.website || null,
+        instagram: club.instagram || null,
+        facebook: club.facebook || null,
+        manager: club.manager || null,
+        contact_email: club.contact_email,
+        contact_phone: club.contact_phone,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating club:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.error('Table "clubs" does not exist. Please run the SQL schema script in Supabase.');
+      }
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Update club (admin can update all, club users can update except name and address)
+  update: async (id: string, updates: Partial<Omit<AppClub, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>): Promise<AppClub | null> => {
+    // Only include club_id if it's explicitly provided (not undefined/null)
+    const updatePayload: any = { ...updates };
+    if (updatePayload.club_id === undefined || updatePayload.club_id === null) {
+      delete updatePayload.club_id;
+    }
+    const { data, error } = await supabase
+      .from('clubs')
+      .update({
+        name: updates.name,
+        address: updates.address,
+        latitude: updates.latitude || null,
+        longitude: updates.longitude || null,
+        city: updates.city || null,
+        postal_code: updates.postal_code || null,
+        country: updates.country || null,
+        country_code: updates.country_code || null,
+        website: updates.website || null,
+        instagram: updates.instagram || null,
+        facebook: updates.facebook || null,
+        manager: updates.manager || null,
+        contact_email: updates.contact_email,
+        contact_phone: updates.contact_phone,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating club:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error hint:', error.hint);
+      return null;
+    }
+    return mapClubRow(data as unknown as SupabaseClubRow);
+  },
+
+  // Delete club (admin only)
+  delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('clubs')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting club:', error);
       return { ok: false, error: error.message };
     }
     return { ok: true };

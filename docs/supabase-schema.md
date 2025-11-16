@@ -8,8 +8,13 @@
 - User-scoped list and read models:
   - `public.players` (user-owned licences; RLS enabled)
   - `public.user_player_links` (user-to-player associations; RLS enabled)
+  - `public.partners` (saved partners for tournament registrations; RLS enabled)
+- Club management:
+  - `public.clubs` (club information; RLS enabled)
+  - `public.club_courts` (court information per club; RLS enabled)
 - Tournament system:
   - `public.tournaments` (tournament metadata; RLS enabled)
+  - `public.tournament_registrations` (team registrations via public links; RLS enabled)
   - `public.tournament_players` (player snapshots per tournament; RLS enabled)
   - `public.tournament_teams` (teams per tournament; RLS enabled)
   - `public.team_players` (team composition; RLS enabled)
@@ -200,36 +205,48 @@ delete from public.players where user_id = auth.uid() and licence = '1234567';
 ---
 
 ### public.tournaments
-- Purpose: owner-scoped tournaments. Only the creating user can read/update/delete.
-- RLS: enabled (owner-only policies via `owner_id = auth.uid()`).
+- Purpose: owner-scoped tournaments with registration system and club association.
+- RLS: enabled (owner-only policies via `owner_id = auth.uid()`, plus public read access for authenticated users).
 - Primary/unique constraints:
   - PRIMARY KEY (id)
   - UNIQUE (public_id)
+  - Foreign key: `club_id` → `public.clubs(id)`
+  - Foreign key: `owner_id` → `auth.users(id)` ON DELETE CASCADE
 - Columns (name, type, nullability, default):
-  - id uuid not null default gen_random_uuid()
-  - owner_id uuid not null default auth.uid() references `auth.users(id)` on delete cascade
-  - name text not null
-  - date date not null
-  - location text not null
-  - organizer_id text null
-  - public_id text not null unique
-  - teams_locked boolean not null default false
-  - format_id text null
-  - level enum('P25','P100','P250','P500','P1000','P1500','P2000') not null
-  - start_time time not null
-  - number_of_courts integer not null check (number_of_courts >= 1)
-  - number_of_teams integer not null check (number_of_teams >= 1)
-  - conditions enum('inside','outside','both') not null
-  - type enum('All','Men','Women','Mixed') not null
-  - bracket jsonb null
-  - format_json jsonb null
-  - random_assignments jsonb null
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - owner_id uuid NOT NULL DEFAULT auth.uid() REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - name text NOT NULL
+  - date date NOT NULL
+  - location text NOT NULL
+  - organizer_id text NULL
+  - public_id text NOT NULL UNIQUE DEFAULT left(encode(gen_random_bytes(8), 'hex'), 8)
+  - teams_locked boolean NOT NULL DEFAULT false
+  - format_id text NULL
+  - level enum('P25','P100','P250','P500','P1000','P1500','P2000') NOT NULL
+  - start_time time NOT NULL
+  - number_of_courts integer NOT NULL CHECK (number_of_courts >= 1)
+  - number_of_teams integer NOT NULL CHECK (number_of_teams >= 1)
+  - conditions enum('inside','outside','both') NOT NULL
+  - type enum('All','Men','Women','Mixed') NOT NULL
+  - bracket jsonb NULL
+  - format_json jsonb NULL
+  - random_assignments jsonb NULL
+  - club_id uuid NULL REFERENCES `public.clubs(id)` -- Reference to the club where the tournament takes place
+  - registration_enabled boolean NOT NULL DEFAULT false -- Whether the registration link is currently active
+  - registration_id text NULL UNIQUE -- Unique permanent ID for the registration link (generated once, never changes)
+  - registration_selection_mode text NULL CHECK (registration_selection_mode = ANY (ARRAY['order'::text, 'ranking'::text])) -- How to select participants: order (first come first served) or ranking (best ranked teams)
+  - registration_waitlist_size integer NULL -- Maximum number of teams on the waitlist (default: half of number_of_teams)
+  - registration_allow_partner_change boolean NOT NULL DEFAULT true -- Whether registered teams can change their partner
+  - registration_deadline date NULL -- Deadline for new registrations
+  - registration_modification_deadline date NULL -- Deadline for modifying existing registrations
+  - registration_payment_enabled boolean NOT NULL DEFAULT false -- Whether payment is required for registration
+  - registration_auto_confirm boolean NOT NULL DEFAULT true -- Whether registrations are automatically confirmed (true) or require manual approval (false)
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
 
-  - created_at timestamptz not null default now()
-  - updated_at timestamptz not null default now()
-
-- RLS policies (all restricted to `auth.uid()`):
-  - Select/Insert/Update/Delete restricted to rows where `owner_id = auth.uid()`
+- RLS policies:
+  - Owner-only: Select/Insert/Update/Delete restricted to rows where `owner_id = auth.uid()`
+  - Public read: Authenticated users can read all tournaments (for tournament listing and registration)
 
 ---
 
@@ -461,10 +478,128 @@ delete from public.players where user_id = auth.uid() and licence = '1234567';
 
 ---
 
+### public.clubs
+- Purpose: stores club information with geolocation data for tournament organization.
+- RLS: enabled (owner-only policies, with potential for club manager roles).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `owner_id` → `auth.users(id)` ON DELETE CASCADE
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - owner_id uuid NOT NULL DEFAULT auth.uid() REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - name text NOT NULL
+  - address text NOT NULL
+  - latitude numeric NULL
+  - longitude numeric NULL
+  - city text NULL
+  - postal_code text NULL
+  - country text NULL
+  - country_code text NULL
+  - website text NULL
+  - instagram text NULL
+  - facebook text NULL
+  - manager text NULL
+  - contact_email text NOT NULL
+  - contact_phone text NOT NULL
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
+- RLS policies:
+  - Owner-only: Select/Insert/Update/Delete restricted to rows where `owner_id = auth.uid()`
+  - Public read: Authenticated users can read all clubs (for tournament club selection)
+
+---
+
+### public.club_courts
+- Purpose: stores court information for each club.
+- RLS: enabled (owner-only via club ownership).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `club_id` → `public.clubs(id)` ON DELETE CASCADE
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - club_id uuid NOT NULL REFERENCES `public.clubs(id)` ON DELETE CASCADE
+  - court_number integer NOT NULL
+  - court_name text NULL
+  - court_type text NOT NULL CHECK (court_type = ANY (ARRAY['inside'::text, 'outside'::text, 'covered'::text]))
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
+- RLS policies:
+  - Owner-only: Access allowed if the associated club has `owner_id = auth.uid()`
+
+---
+
+### public.tournament_registrations
+- Purpose: team registrations for tournaments via public registration links.
+- RLS: enabled (user-specific policies for their own registrations).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `tournament_id` → `public.tournaments(id)` ON DELETE CASCADE
+  - Foreign key: `user_id` → `auth.users(id)` ON DELETE CASCADE
+  - Foreign key: `confirmed_by` → `auth.users(id)`
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - tournament_id uuid NOT NULL REFERENCES `public.tournaments(id)` ON DELETE CASCADE
+  - registration_id text NOT NULL -- Links to tournament.registration_id
+  - user_id uuid NOT NULL REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - player1_first_name text NOT NULL
+  - player1_last_name text NOT NULL
+  - player1_license_number text NOT NULL
+  - player1_ranking integer NULL -- Optional if selection mode is order, required if ranking
+  - player1_phone text NULL
+  - player1_email text NOT NULL
+  - player2_first_name text NOT NULL
+  - player2_last_name text NOT NULL
+  - player2_license_number text NOT NULL
+  - player2_ranking integer NULL -- Optional if selection mode is order, required if ranking
+  - player2_phone text NULL
+  - player2_email text NOT NULL
+  - status text NOT NULL DEFAULT 'pending' CHECK (status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'rejected'::text, 'waitlist'::text, 'cancelled'::text])) -- Registration status: pending (awaiting confirmation), confirmed, rejected, waitlist, cancelled
+  - confirmed_at timestamptz NULL
+  - confirmed_by uuid NULL REFERENCES `auth.users(id)`
+  - payment_status text NULL CHECK (payment_status = ANY (ARRAY['pending'::text, 'paid'::text, 'refunded'::text]))
+  - payment_id text NULL
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
+- RLS policies:
+  - Users can view their own registrations: SELECT where `auth.uid() = user_id`
+  - Users can create their own registrations: INSERT with `user_id = auth.uid()`
+  - Users can update their own registrations: UPDATE where `auth.uid() = user_id`
+  - Users can delete their own registrations: DELETE where `auth.uid() = user_id`
+  - Tournament owners can view all registrations for their tournaments
+  - Public read: Authenticated users can read registrations for tournaments with active registration (via registration_id)
+
+---
+
+### public.partners
+- Purpose: saved partners for users to reuse in tournament registrations.
+- RLS: enabled (owner-only policies).
+- Primary/unique constraints:
+  - PRIMARY KEY (id)
+  - Foreign key: `user_id` → `auth.users(id)` ON DELETE CASCADE
+- Columns (name, type, nullability, default):
+  - id uuid NOT NULL DEFAULT gen_random_uuid()
+  - user_id uuid NOT NULL REFERENCES `auth.users(id)` ON DELETE CASCADE
+  - first_name text NOT NULL
+  - last_name text NOT NULL
+  - license_number text NOT NULL -- Partner license number (unique per user)
+  - phone text NULL
+  - email text NOT NULL
+  - created_at timestamptz NOT NULL DEFAULT now()
+  - updated_at timestamptz NOT NULL DEFAULT now()
+- RLS policies (all restricted to `auth.uid()`):
+  - Select: user can read only their rows
+  - Insert: user can insert rows for themselves
+  - Update: user can update only their rows
+  - Delete: user can delete only their rows
+
+---
+
 ### Notes
 - `auth.users` is system-managed. Use Supabase Auth APIs for mutations; do not write tokens/confirmation columns directly.
 - Tables `rankings` and `rankings_latest` have been replaced by `tenup` and `tenup_latest` for TenUp integration.
 - Game analysis system provides detailed match tracking with point-by-point analysis capabilities.
+- Tournament registration system allows public registration via shareable links with waitlist management.
+- Club management system enables tournament organization with geolocation support.
 
 ---
 

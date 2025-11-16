@@ -29,7 +29,7 @@ function TournamentForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
-  const { isClub, isAdmin } = useUserRole();
+  const { isClub, isAdmin, isJugeArbitre } = useUserRole();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTournament, setEditingTournament] = useState<AppTournament | null>(null);
@@ -42,6 +42,8 @@ function TournamentForm() {
   }, [currentUserId]);
 
   // Load user's clubs
+  // Admins et juges arbitres voient leurs clubs créés
+  // Juges arbitres voient les clubs auxquels ils sont associés
   useEffect(() => {
     const fetchClubs = async () => {
       if (!currentUserId) {
@@ -49,7 +51,17 @@ function TournamentForm() {
         return;
       }
       try {
-        const userClubs = await clubsAPI.listMy();
+        let userClubs: AppClub[] = [];
+        if (isAdmin) {
+          // Admins voient tous leurs clubs créés
+          userClubs = await clubsAPI.listMy();
+        } else if (isJugeArbitre) {
+          // Juges arbitres voient uniquement les clubs auxquels ils sont associés
+          userClubs = await clubsAPI.listAssociatedWithMe();
+        } else {
+          // Autres rôles ne peuvent pas créer de tournoi
+          userClubs = [];
+        }
         setClubs(userClubs);
       } catch (error) {
         console.error('Error fetching clubs:', error);
@@ -58,7 +70,7 @@ function TournamentForm() {
       }
     };
     fetchClubs();
-  }, [currentUserId]);
+  }, [currentUserId, isAdmin, isJugeArbitre]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -286,7 +298,7 @@ function TournamentForm() {
   };
 
   // Check if user has permission to create tournaments
-  if (!isClub && !isAdmin) {
+  if (!isJugeArbitre && !isAdmin) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center py-12">
@@ -294,6 +306,27 @@ function TournamentForm() {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès restreint</h1>
           <p className="text-gray-600 mb-6">
             Seuls les profils Juge Arbitre et Admin peuvent créer des tournois.
+          </p>
+          <Link href="/dashboard">
+            <Button variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour au tableau de bord
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if juge arbitre has associated clubs
+  if (isJugeArbitre && !isAdmin && !loadingClubs && clubs.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center py-12">
+          <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Aucun club associé</h1>
+          <p className="text-gray-600 mb-6">
+            Vous devez être validé par un club pour créer des tournois. Contactez un responsable de club pour qu'il vous valide.
           </p>
           <Link href="/dashboard">
             <Button variant="outline">
@@ -377,13 +410,19 @@ function TournamentForm() {
                   <div className="space-y-2">
                     <div className="p-4 border border-dashed border-gray-300 rounded-md text-center">
                       <Building2 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 mb-3">Vous n'avez pas encore de club</p>
-                      <Link href="/dashboard/club">
-                        <Button type="button" variant="outline" size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Créer un club
-                        </Button>
-                      </Link>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {isAdmin 
+                          ? "Vous n'avez pas encore de club. Créez-en un pour continuer."
+                          : "Vous n'avez pas encore de club associé. Un responsable de club doit vous valider pour que vous puissiez créer des tournois."}
+                      </p>
+                      {isAdmin && (
+                        <Link href="/dashboard/club">
+                          <Button type="button" variant="outline" size="sm">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Créer un club
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ) : (
