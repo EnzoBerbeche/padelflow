@@ -41,7 +41,7 @@ const adminNavigation = [
 const clubNavigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
   { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Clubs', href: '/dashboard/club', icon: Building2 },
+  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
   { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
   { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },

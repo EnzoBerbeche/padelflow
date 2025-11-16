@@ -538,17 +538,21 @@ export default function ClubManagementPage() {
           {/* Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Liste des clubs</h1>
-              <p className="text-gray-600 mt-1">Gérez les clubs et leurs terrains</p>
+              <h1 className="text-3xl font-bold text-gray-900">Mes Clubs</h1>
+              <p className="text-gray-600 mt-1">
+                Retrouvez ici les clubs qui vous ont été assignés et gérez leurs informations.
+              </p>
             </div>
-            {(isAdmin || isJugeArbitre) && (
+            {(isAdmin || isJugeArbitre || isClub) && (
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => handleOpenDialog()} className="flex items-center space-x-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Nouveau Club</span>
-                  </Button>
-                </DialogTrigger>
+                {(isAdmin || isJugeArbitre) && (
+                  <DialogTrigger asChild>
+                    <Button onClick={() => handleOpenDialog()} className="flex items-center space-x-2">
+                      <Plus className="h-4 w-4" />
+                      <span>Nouveau Club</span>
+                    </Button>
+                  </DialogTrigger>
+                )}
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingClub ? 'Modifier le Club' : 'Nouveau Club'}</DialogTitle>
@@ -576,27 +580,40 @@ export default function ClubManagementPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Adresse *</Label>
-                      <div className={isClub && !isAdmin && !isJugeArbitre && editingClub !== null ? "pointer-events-none opacity-50" : ""}>
-                        <AddressAutocomplete
-                          value={formData.address}
-                          onChange={handleAddressChange}
-                          placeholder="Rechercher une adresse..."
-                          required={isAdmin || isJugeArbitre || !editingClub}
-                          forceApiSelection={true}
-                        />
-                      </div>
-                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null && (
-                        <p className="text-sm text-muted-foreground mt-1">L'adresse du club ne peut être modifiée que par un admin</p>
-                      )}
-                      {formData.latitude && formData.longitude && (
-                        <p className="text-xs text-gray-500">
-                          Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                        </p>
-                      )}
-                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null && (
-                        <p className="text-xs text-muted-foreground">
-                          L'adresse du club ne peut être modifiée que par un admin
-                        </p>
+                      {isClub && !isAdmin && !isJugeArbitre && editingClub !== null ? (
+                        <>
+                          {/* Pour un user "club" en édition, on affiche juste l'adresse en lecture seule */}
+                          <Input
+                            id="address"
+                            value={formData.address}
+                            readOnly
+                            disabled
+                            className="bg-muted cursor-not-allowed"
+                          />
+                          {formData.latitude && formData.longitude && (
+                            <p className="text-xs text-gray-500">
+                              Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            L'adresse du club ne peut être modifiée que par un admin
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <AddressAutocomplete
+                            value={formData.address}
+                            onChange={handleAddressChange}
+                            placeholder="Rechercher une adresse..."
+                            required
+                            forceApiSelection={true}
+                          />
+                          {formData.latitude && formData.longitude && (
+                            <p className="text-xs text-gray-500">
+                              Coordonnées: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -759,7 +776,7 @@ export default function ClubManagementPage() {
                                     <Users className="h-4 w-4" />
                                   </Button>
                                 )}
-                                {(isAdmin || isJugeArbitre) && (
+                                {(isAdmin || isJugeArbitre || isClub) && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
