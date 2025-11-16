@@ -904,6 +904,16 @@ export const tournamentsAPI = {
 
     if (error) {
       console.error('Error fetching all tournaments:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      // If RLS policy error, suggest running the SQL script
+      if (error.code === '42501' || error.message?.includes('policy') || error.message?.includes('permission')) {
+        console.error('This might be an RLS policy issue. Make sure you have run scripts/add-public-read-tournaments-policy.sql in Supabase.');
+      }
       return [];
     }
     return ((data || []) as any[]).map((row: any) => ({
@@ -2407,6 +2417,34 @@ export const tournamentRegistrationsAPI = {
 
   // Delete registration
   delete: async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    
+    if (!userId) {
+      return { ok: false, error: 'Utilisateur non authentifié' };
+    }
+    
+    console.log('Deleting registration:', id, 'for user:', userId);
+    
+    // First verify the registration exists and belongs to the user
+    const { data: registrationData, error: checkError } = await supabase
+      .from('tournament_registrations')
+      .select('id, user_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking registration:', checkError);
+      return { ok: false, error: 'Erreur lors de la vérification de l\'inscription' };
+    }
+
+    if (!registrationData) {
+      console.warn('Registration not found or user not authorized');
+      return { ok: false, error: 'Inscription introuvable ou vous n\'êtes pas autorisé à la supprimer' };
+    }
+    
+    // Delete the registration (RLS policy will enforce user_id check)
     const { error } = await supabase
       .from('tournament_registrations')
       .delete()
@@ -2414,9 +2452,22 @@ export const tournamentRegistrationsAPI = {
 
     if (error) {
       console.error('Error deleting registration:', error);
-      return { ok: false, error: error.message };
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      // Check if it's an RLS policy error
+      if (error.code === '42501' || error.message?.includes('policy') || error.message?.includes('permission')) {
+        return { ok: false, error: 'Vous n\'êtes pas autorisé à supprimer cette inscription. Vérifiez que la politique RLS "Users can delete their own registrations" est créée dans Supabase.' };
+      }
+      
+      return { ok: false, error: error.message || 'Erreur lors de la suppression' };
     }
 
+    console.log('Registration deleted successfully');
     return { ok: true };
   },
 

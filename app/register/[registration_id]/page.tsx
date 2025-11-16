@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, tournamentRegistrationsAPI, userProfileAPI, userPlayerLinkAPI, partnersAPI, type AppTournament, type AppTournamentRegistration, type AppPartner } from '@/lib/supabase';
+import { useCurrentUserId } from '@/hooks/use-current-user';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ interface RegisterPageProps {
 export default function RegisterPage({ params }: RegisterPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const currentUserId = useCurrentUserId();
   const { registration_id } = use(params);
   
   const [loading, setLoading] = useState(true);
@@ -271,9 +273,18 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         });
       }
       
-      // Redirect to tournament page
+      // Redirect based on user role
       setTimeout(() => {
-        router.push(`/dashboard/tournaments/${tournament.id}`);
+        // If user is the tournament owner, redirect to admin tournament page
+        if (currentUserId && tournament.owner_id === currentUserId) {
+          router.push(`/dashboard/tournaments/${tournament.id}`);
+        } else if (tournament.registration_id) {
+          // Otherwise, redirect to public registrations page
+          router.push(`/public/tournament/${tournament.registration_id}/registrations`);
+        } else {
+          // Fallback: redirect to player's tournament list
+          router.push(`/dashboard/tournois`);
+        }
       }, 1500);
       
     } catch (error) {

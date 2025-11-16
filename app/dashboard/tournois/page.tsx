@@ -1,18 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { tournamentsAPI, type AppTournament, type AppTournamentRegistration } from '@/lib/supabase';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Trophy, Calendar, MapPin, Search, ExternalLink, Clock, Users, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Search, ExternalLink, Clock, Users, ArrowUpDown, ArrowUp, ArrowDown, UserCog, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { tournamentRegistrationsAPI } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 type TournamentWithRegistration = AppTournament & { registration: AppTournamentRegistration; club_name?: string };
 
@@ -20,6 +24,8 @@ type SortField = 'name' | 'date' | 'location' | 'status' | 'level';
 type SortDirection = 'asc' | 'desc' | null;
 
 export default function TournoisPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [myRegistrations, setMyRegistrations] = useState<TournamentWithRegistration[]>([]);
   const [allTournaments, setAllTournaments] = useState<(AppTournament & { club_name?: string })[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,10 +33,41 @@ export default function TournoisPage() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [deletingRegistrationId, setDeletingRegistrationId] = useState<string | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState<string | null>(null);
 
   useEffect(() => {
     loadMyRegistrations();
     loadAllTournaments();
+  }, []);
+
+  // Reload data when navigating back to this page
+  useEffect(() => {
+    // Reload data when component mounts or when router pathname changes
+    const handleFocus = () => {
+      loadMyRegistrations();
+      loadAllTournaments();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // Also reload when the page is visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadMyRegistrations();
+        loadAllTournaments();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadMyRegistrations = async () => {
@@ -208,6 +245,47 @@ export default function TournoisPage() {
     return colors[level as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleDeleteRegistration = async (registrationId: string) => {
+    if (deletingRegistrationId) return; // Prevent multiple deletions
+    
+    setDeletingRegistrationId(registrationId);
+    setOpenDeleteDialog(null); // Close the dialog
+    
+    try {
+      const result = await tournamentRegistrationsAPI.delete(registrationId);
+      if (result.ok) {
+        toast({
+          title: "Succès",
+          description: "Votre inscription a été supprimée",
+        });
+        // Reload registrations and tournaments
+        await loadMyRegistrations();
+        await loadAllTournaments();
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.error || "Impossible de supprimer l'inscription",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting registration:', error);
+      toast({
+        title: "Erreur",
+        description: "Échec de la suppression",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingRegistrationId(null);
+    }
+  };
+
+  const canModify = (tournament: TournamentWithRegistration) => {
+    return tournament.registration_allow_partner_change && 
+           tournament.registration_modification_deadline && 
+           new Date() <= new Date(tournament.registration_modification_deadline);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -322,16 +400,90 @@ export default function TournoisPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            {tournament.registration_id ? (
-                              <Link href={`/public/tournament/${tournament.registration_id}/registrations`}>
-                                <Button variant="outline" size="sm">
-                                  <ExternalLink className="h-4 w-4 mr-2" />
-                                  Voir
-                                </Button>
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {(() => {
+                                // Use tournament's registration_id (the public registration ID for the tournament)
+                                const regId = tournament.registration_id;
+                                const canMod = canModify(tournament);
+                                
+                                return (
+                                  <>
+                                    {regId ? (
+                                      <Link href={`/public/tournament/${regId}/registrations`}>
+                                        <Button variant="outline" size="sm">
+                                          <ExternalLink className="h-4 w-4 mr-2" />
+                                          Voir
+                                        </Button>
+                                      </Link>
+                                    ) : tournament.registration_enabled ? (
+                                      // If registration is enabled but no registration_id, still show view button with tournament id
+                                      <Link href={`/public/tournament/${tournament.id}/registrations`}>
+                                        <Button variant="outline" size="sm">
+                                          <ExternalLink className="h-4 w-4 mr-2" />
+                                          Voir
+                                        </Button>
+                                      </Link>
+                                    ) : null}
+                                    {/* Always show "Changer" button if we have a registration_id */}
+                                    {regId && (
+                                      canMod ? (
+                                        <Link href={`/register/${regId}`}>
+                                          <Button variant="outline" size="sm">
+                                            <UserCog className="h-4 w-4 mr-2" />
+                                            Changer
+                                          </Button>
+                                        </Link>
+                                      ) : (
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          disabled
+                                          title={
+                                            tournament.registration_allow_partner_change === false
+                                              ? "Le changement de partenaire n'est pas autorisé pour ce tournoi"
+                                              : tournament.registration_modification_deadline && new Date() > new Date(tournament.registration_modification_deadline)
+                                              ? `Date limite de modification dépassée (${format(new Date(tournament.registration_modification_deadline), 'dd MMM yyyy', { locale: fr })})`
+                                              : "Le changement de partenaire n'est pas disponible"
+                                          }
+                                        >
+                                          <UserCog className="h-4 w-4 mr-2" />
+                                          Changer
+                                        </Button>
+                                      )
+                                    )}
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="text-red-600 hover:text-red-700"
+                                      onClick={() => setOpenDeleteDialog(tournament.registration.id)}
+                                      disabled={deletingRegistrationId === tournament.registration.id}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                    </Button>
+                                    <AlertDialog open={openDeleteDialog === tournament.registration.id} onOpenChange={(open) => setOpenDeleteDialog(open ? tournament.registration.id : null)}>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Se désinscrire</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Êtes-vous sûr de vouloir vous désinscrire de ce tournoi ? Cette action est irréversible.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel disabled={deletingRegistrationId === tournament.registration.id}>Annuler</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteRegistration(tournament.registration.id)}
+                                            className="bg-red-600 hover:bg-red-700"
+                                            disabled={deletingRegistrationId === tournament.registration.id}
+                                          >
+                                            {deletingRegistrationId === tournament.registration.id ? 'Suppression...' : 'Se désinscrire'}
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </>
+                                );
+                              })()}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

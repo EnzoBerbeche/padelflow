@@ -7,13 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Users, Loader2, UserCog, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { use } from 'react';
 import { useCurrentUserId } from '@/hooks/use-current-user';
 import { useToast } from '@/hooks/use-toast';
+import { DashboardLayout } from '@/components/dashboard-layout';
 import Link from 'next/link';
 
 interface PublicRegistrationsPageProps {
@@ -116,37 +117,46 @@ export default function PublicRegistrationsPage({ params }: PublicRegistrationsP
   const { mainList, waitlist } = getMainListAndWaitlist();
 
   const handleDelete = async () => {
-    if (!myRegistration) return;
+    console.log('handleDelete called, myRegistration:', myRegistration);
+    if (!myRegistration) {
+      console.error('No registration to delete');
+      return;
+    }
     
     setDeleting(true);
     setOpenDeleteDialog(false);
 
     try {
+      console.log('Attempting to delete registration:', myRegistration.id);
       const result = await tournamentRegistrationsAPI.delete(myRegistration.id);
+      console.log('Delete result:', result);
+      
       if (result.ok) {
         toast({
           title: "Succès",
           description: "Votre inscription a été supprimée",
         });
-        // Reload data
-        const regs = await tournamentRegistrationsAPI.listByRegistrationId(registration_id);
-        setRegistrations(regs);
-        setMyRegistration(null);
+        // Redirect to player's tournament list after a short delay and refresh
+        setTimeout(() => {
+          router.push('/dashboard/tournois');
+          router.refresh(); // Force refresh to reload data
+        }, 1000);
       } else {
+        console.error('Delete failed:', result.error);
         toast({
           title: "Erreur",
           description: result.error || "Impossible de supprimer l'inscription",
           variant: "destructive",
         });
+        setDeleting(false);
       }
     } catch (error) {
       console.error('Error deleting registration:', error);
       toast({
         title: "Erreur",
-        description: "Échec de la suppression",
+        description: `Échec de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
         variant: "destructive",
       });
-    } finally {
       setDeleting(false);
     }
   };
@@ -157,30 +167,34 @@ export default function PublicRegistrationsPage({ params }: PublicRegistrationsP
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Chargement des inscriptions...</p>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-64">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Chargement des inscriptions...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   if (!tournament) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Tournoi introuvable</h1>
-          <p className="text-muted-foreground">Le lien d'inscription est invalide ou le tournoi n'existe plus.</p>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-64">
+          <div className="text-center">
+            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Tournoi introuvable</h1>
+            <p className="text-muted-foreground">Le lien d'inscription est invalide ou le tournoi n'existe plus.</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-start justify-between mb-4">
@@ -215,13 +229,20 @@ export default function PublicRegistrationsPage({ params }: PublicRegistrationsP
                     </Button>
                   </Link>
                 )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    console.log('Delete button clicked, myRegistration:', myRegistration);
+                    setOpenDeleteDialog(true);
+                  }}
+                  disabled={deleting || !myRegistration}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Se désinscrire
+                </Button>
                 <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Se désinscrire
-                    </Button>
-                  </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Se désinscrire</AlertDialogTitle>
@@ -345,7 +366,7 @@ export default function PublicRegistrationsPage({ params }: PublicRegistrationsP
           </Card>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 
