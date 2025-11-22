@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Loader2, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
@@ -49,7 +50,12 @@ export default function AdminUsersPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/users');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to load users');
       }
@@ -70,10 +76,12 @@ export default function AdminUsersPage() {
   const updateUserRole = async (userId: string, newRole: 'player' | 'juge_arbitre' | 'admin' | 'club') => {
     setUpdatingUserId(userId);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ role: newRole }),
       });

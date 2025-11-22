@@ -14,13 +14,36 @@ export async function PATCH(
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-    
-    if (!supabaseUrl || !serviceRoleKey) {
+
+    if (!supabaseUrl || !serviceRoleKey || !supabaseAnonKey) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
     }
 
-    // Create admin client
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
+
+    // Create a client with the user's token to verify their identity
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      },
+    });
+
+    // Verify the caller is authenticated and is an admin
+    const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
+
+    if (authError || !caller) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const callerRole = caller.user_metadata?.role;
+    if (callerRole !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    // Create admin client for the actual operation
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
