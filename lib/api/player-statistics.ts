@@ -69,18 +69,19 @@ export const playerStatisticsAPI = {
     let leaguePositionPromise: Promise<number | null> = Promise.resolve(null);
     const latestData = latestResult.data;
     if (latestData?.ligue && latestData?.classement) {
-      leaguePositionPromise = supabase
-        .from('tenup_latest')
-        .select('*', { count: 'exact', head: true })
-        .eq('ligue', latestData.ligue)
-        .lt('classement', latestData.classement)
-        .then(({ count, error: countError }) => {
-          if (!countError && count !== null) {
-            return count + 1;
-          }
-          return null;
-        })
-        .catch(() => null);
+      leaguePositionPromise = Promise.resolve(
+        supabase
+          .from('tenup_latest')
+          .select('*', { count: 'exact', head: true })
+          .eq('ligue', latestData.ligue)
+          .lt('classement', latestData.classement)
+          .then(({ count, error: countError }) => {
+            if (!countError && count !== null) {
+              return count + 1;
+            }
+            return null;
+          })
+      );
     }
 
     // Build ranking history
