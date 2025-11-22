@@ -6,12 +6,11 @@ import { ProtectedRoute } from '@/components/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Settings, User, Trash2, Bell, Info, LogOut, Link, Unlink, Search, UserCheck } from 'lucide-react';
+import { Settings, User, Trash2, Info, LogOut, Link, Unlink, Search, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { supabase, userPlayerLinkAPI, userProfileAPI, UserPlayerLinkWithRanking } from '@/lib/supabase';
@@ -21,9 +20,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useSupabaseUser();
   const router = useRouter();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
-  const [language, setLanguage] = useState('en');
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Player linking state
@@ -120,8 +116,8 @@ export default function SettingsPage() {
         const result = await userProfileAPI.updateLicenceNumber(editFormData.licence_number);
         if (!result.ok) {
           toast({
-            title: "Error",
-            description: result.error || "Failed to update licence number",
+            title: "Erreur",
+            description: result.error || "Impossible de mettre à jour le numéro de licence",
             variant: "destructive",
           });
           return;
@@ -141,16 +137,16 @@ export default function SettingsPage() {
 
       if (error) {
         toast({
-          title: "Error",
-          description: "Failed to update profile",
+          title: "Erreur",
+          description: "Impossible de mettre à jour le profil",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Success",
-        description: "Profile updated successfully",
+        title: "Succès",
+        description: "Profil mis à jour avec succès",
       });
 
       setIsEditingProfile(false);
@@ -158,8 +154,8 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
         variant: "destructive",
       });
     } finally {
@@ -170,8 +166,8 @@ export default function SettingsPage() {
   const handleLinkToPlayer = async () => {
     if (!searchInput.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter a licence number",
+        title: "Erreur",
+        description: "Veuillez entrer un numéro de licence",
         variant: "destructive",
       });
       return;
@@ -183,23 +179,23 @@ export default function SettingsPage() {
       
       if (result.ok) {
         toast({
-          title: "Success",
-          description: "Successfully linked to player",
+          title: "Succès",
+          description: "Profil lié avec succès",
         });
         setSearchInput('');
         await loadPlayerLink(); // Reload the link
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to link to player",
+          title: "Erreur",
+          description: result.error || "Impossible de lier le profil",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Error linking to player:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
         variant: "destructive",
       });
     } finally {
@@ -213,22 +209,22 @@ export default function SettingsPage() {
       
       if (result.ok) {
         toast({
-          title: "Success",
-          description: "Successfully unlinked from player",
+          title: "Succès",
+          description: "Profil délié avec succès",
         });
         setPlayerLink(null);
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to unlink from player",
+          title: "Erreur",
+          description: result.error || "Impossible de délier le profil",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Error unlinking from player:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
         variant: "destructive",
       });
     }
@@ -281,23 +277,23 @@ export default function SettingsPage() {
       
       if (result.ok) {
         toast({
-          title: "Success",
-          description: `Successfully linked to ${player.nom_complet || `Player ${player.idcrm}`}`,
+          title: "Succès",
+          description: `Profil lié avec succès à ${player.nom_complet || 'Joueur'}`,
         });
         setSearchInput('');
         await loadPlayerLink(); // Reload the link
       } else {
         toast({
-          title: "Error",
-          description: result.error || "Failed to link to player",
+          title: "Erreur",
+          description: result.error || "Impossible de lier le profil",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Error linking to player:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Erreur",
+        description: "Une erreur inattendue s'est produite",
         variant: "destructive",
       });
     } finally {
@@ -327,8 +323,8 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error deleting account:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete account. Please try again.",
+        title: "Erreur",
+        description: "Impossible de supprimer le compte. Veuillez réessayer.",
         variant: "destructive",
       });
     } finally {
@@ -351,8 +347,8 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600 mt-1">Manage your account and application preferences</p>
+            <h1 className="text-3xl font-bold text-gray-900">Paramètres</h1>
+            <p className="text-gray-600 mt-1">Gérez votre compte et vos préférences</p>
           </div>
 
           {/* Player Profile Section - Priority */}
@@ -384,25 +380,9 @@ export default function SettingsPage() {
                         {playerLink.sexe === 'H' ? 'Homme' : 'Femme'}
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div className="bg-white rounded p-3">
-                        <div className="font-medium text-gray-700">Nom complet</div>
-                        <div className="text-green-800 font-semibold">{playerLink.nom_complet || `Joueur ${playerLink.licence}`}</div>
-                      </div>
-                      <div className="bg-white rounded p-3">
-                        <div className="font-medium text-gray-700">Numéro de licence</div>
-                        <div className="text-green-800 font-semibold">{playerLink.licence}</div>
-                      </div>
-                      <div className="bg-white rounded p-3">
-                        <div className="font-medium text-gray-700">Classement actuel</div>
-                        <div className="text-green-800 font-semibold">P{playerLink.classement || 'N/A'}</div>
-                      </div>
-                      <div className="bg-white rounded p-3">
-                        <div className="font-medium text-gray-700">Évolution</div>
-                        <div className={`font-semibold ${playerLink.evolution && playerLink.evolution > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {playerLink.evolution ? (playerLink.evolution > 0 ? `+${playerLink.evolution}` : playerLink.evolution) : 'N/A'}
-                        </div>
-                      </div>
+                    <div className="bg-white rounded p-3">
+                      <div className="font-medium text-gray-700">Nom complet</div>
+                      <div className="text-green-800 font-semibold">{playerLink.nom_complet || 'Joueur'}</div>
                     </div>
                   </div>
                   
@@ -484,7 +464,7 @@ export default function SettingsPage() {
                               onClick={() => handlePlayerSelect(player)}
                             >
                               <div className="flex-1">
-                                <div className="font-medium text-gray-900">{player.nom_complet || `Joueur ${player.idcrm}`}</div>
+                                <div className="font-medium text-gray-900">{player.nom_complet || 'Joueur'}</div>
                                 <div className="text-sm text-gray-500">
                                   <div className="flex flex-wrap gap-3">
                                     <span>Âge: {player.age_sportif || 'N/A'} ans</span>
@@ -521,25 +501,25 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <User className="h-5 w-5" />
-                  <span>Account</span>
+                  <span>Compte</span>
                 </CardTitle>
                 <CardDescription>
-                  Manage your account information and preferences
+                  Gérez les informations de votre compte
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                                  <div className="flex items-center justify-between">
                    <div>
                      <p className="font-medium">Email</p>
-                     <p className="text-sm text-gray-600">{user?.email || 'Not available'}</p>
+                     <p className="text-sm text-gray-600">{user?.email || 'Non disponible'}</p>
                    </div>
-                   <Badge variant="outline">Verified</Badge>
+                   <Badge variant="outline">Vérifié</Badge>
                  </div>
                  
                  {isEditingProfile ? (
                    <div className="space-y-3">
                      <div>
-                       <Label htmlFor="edit-first-name" className="text-sm font-medium">First Name</Label>
+                       <Label htmlFor="edit-first-name" className="text-sm font-medium">Prénom</Label>
                        <Input
                          id="edit-first-name"
                          value={editFormData.first_name}
@@ -548,7 +528,7 @@ export default function SettingsPage() {
                        />
                      </div>
                      <div>
-                       <Label htmlFor="edit-last-name" className="text-sm font-medium">Last Name</Label>
+                       <Label htmlFor="edit-last-name" className="text-sm font-medium">Nom</Label>
                        <Input
                          id="edit-last-name"
                          value={editFormData.last_name}
@@ -557,7 +537,7 @@ export default function SettingsPage() {
                        />
                      </div>
                      <div>
-                       <Label htmlFor="edit-phone" className="text-sm font-medium">Phone</Label>
+                       <Label htmlFor="edit-phone" className="text-sm font-medium">Téléphone</Label>
                        <Input
                          id="edit-phone"
                          value={editFormData.phone}
@@ -566,21 +546,21 @@ export default function SettingsPage() {
                        />
                      </div>
                      <div>
-                       <Label htmlFor="edit-licence" className="text-sm font-medium">Licence Number</Label>
+                       <Label htmlFor="edit-licence" className="text-sm font-medium">Numéro de licence</Label>
                        <Input
                          id="edit-licence"
                          value={editFormData.licence_number}
                          onChange={(e) => setEditFormData(prev => ({ ...prev, licence_number: e.target.value }))}
                          className="mt-1"
-                         placeholder="Your FFT licence number"
+                         placeholder="Votre numéro de licence FFT"
                        />
                      </div>
                      <div className="flex space-x-2 pt-2">
                        <Button onClick={handleSaveProfile} disabled={isLoadingProfile} className="flex-1">
-                         {isLoadingProfile ? 'Saving...' : 'Save Changes'}
+                         {isLoadingProfile ? 'Enregistrement...' : 'Enregistrer'}
                        </Button>
                        <Button onClick={handleCancelEdit} variant="outline" className="flex-1">
-                         Cancel
+                         Annuler
                        </Button>
                      </div>
                    </div>
@@ -588,11 +568,11 @@ export default function SettingsPage() {
                    <>
                      <div className="flex items-center justify-between">
                        <div>
-                         <p className="font-medium">Name</p>
+                         <p className="font-medium">Nom</p>
                          <p className="text-sm text-gray-600">
                            {userProfile?.first_name && userProfile?.last_name 
                              ? `${userProfile.first_name} ${userProfile.last_name}`
-                             : 'Not set'
+                             : 'Non renseigné'
                            }
                          </p>
                        </div>
@@ -600,9 +580,9 @@ export default function SettingsPage() {
                      
                      <div className="flex items-center justify-between">
                        <div>
-                         <p className="font-medium">Phone</p>
+                         <p className="font-medium">Téléphone</p>
                          <p className="text-sm text-gray-600">
-                           {userProfile?.phone || 'Not set'}
+                           {userProfile?.phone || 'Non renseigné'}
                          </p>
                        </div>
                      </div>
@@ -611,16 +591,16 @@ export default function SettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">User ID</p>
-                    <p className="text-sm text-gray-600 font-mono">{user?.id || 'Not available'}</p>
+                    <p className="font-medium">ID Utilisateur</p>
+                    <p className="text-sm text-gray-600 font-mono">{user?.id || 'Non disponible'}</p>
                   </div>
                 </div>
 
                                  <div className="flex items-center justify-between">
                    <div>
-                     <p className="font-medium">Member Since</p>
+                     <p className="font-medium">Membre depuis</p>
                      <p className="text-sm text-gray-600">
-                       {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Not available'}
+                       {user?.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR') : 'Non disponible'}
                      </p>
                    </div>
                  </div>
@@ -628,9 +608,9 @@ export default function SettingsPage() {
                  {!isEditingProfile && (
                    <div className="flex items-center justify-between">
                      <div>
-                       <p className="font-medium">Licence Number</p>
+                       <p className="font-medium">Numéro de licence</p>
                        <p className="text-sm text-gray-600">
-                         {userProfile?.licence_number || 'Not set'}
+                         {userProfile?.licence_number || 'Non renseigné'}
                        </p>
                      </div>
                    </div>
@@ -645,78 +625,25 @@ export default function SettingsPage() {
                    disabled={isEditingProfile}
                  >
                    <User className="h-4 w-4 mr-2" />
-                   Edit Profile
+                   Modifier le profil
                  </Button>
                  
                  <Button onClick={handleSignOut} variant="outline" className="w-full">
                    <LogOut className="h-4 w-4 mr-2" />
-                   Sign Out
+                   Se déconnecter
                  </Button>
               </CardContent>
             </Card>
 
-
-            {/* Notifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="h-5 w-5" />
-                  <span>Notifications</span>
-                </CardTitle>
-                <CardDescription>
-                  Configure your notification preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Email Notifications</p>
-                    <p className="text-sm text-gray-600">Receive updates about your tournaments</p>
-                  </div>
-                  <Switch
-                    checked={notificationsEnabled}
-                    onCheckedChange={setNotificationsEnabled}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Dark Mode</p>
-                    <p className="text-sm text-gray-600">Switch to dark theme</p>
-                  </div>
-                  <Switch
-                    checked={darkModeEnabled}
-                    onCheckedChange={setDarkModeEnabled}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Language</p>
-                    <p className="text-sm text-gray-600">Choose your preferred language</p>
-                  </div>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="en">English</option>
-                    <option value="fr">Français</option>
-                    <option value="es">Español</option>
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Delete Account */}
-            <Card className="lg:col-span-2">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2 text-red-600">
                   <Trash2 className="h-5 w-5" />
-                  <span>Delete Account</span>
+                  <span>Supprimer le compte</span>
                 </CardTitle>
                 <CardDescription>
-                  Permanently delete your account and all associated data
+                  Supprimer définitivement votre compte et toutes les données associées
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -727,20 +654,20 @@ export default function SettingsPage() {
                     </div>
                     <div className="ml-3">
                       <h3 className="text-sm font-medium text-red-800">
-                        Warning: This action cannot be undone
+                        Avertissement : Cette action est irréversible
                       </h3>
                       <div className="mt-2 text-sm text-red-700">
                         <p>
-                          Deleting your account will permanently remove:
+                          La suppression de votre compte supprimera définitivement :
                         </p>
                         <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li>All your tournaments and tournament data</li>
-                          <li>All your players and teams</li>
-                          <li>All your matches and results</li>
-                          <li>Your account settings and preferences</li>
+                          <li>Tous vos tournois et données de tournois</li>
+                          <li>Tous vos joueurs et équipes</li>
+                          <li>Tous vos matchs et résultats</li>
+                          <li>Vos paramètres de compte et préférences</li>
                         </ul>
                         <p className="mt-2 font-medium">
-                          This data will be permanently lost and cannot be recovered.
+                          Ces données seront définitivement perdues et ne pourront pas être récupérées.
                         </p>
                       </div>
                     </div>
@@ -755,73 +682,29 @@ export default function SettingsPage() {
                       disabled={isDeleting}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {isDeleting ? 'Deleting Account...' : 'Delete My Account'}
+                      {isDeleting ? 'Suppression...' : 'Supprimer mon compte'}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Account</AlertDialogTitle>
+                      <AlertDialogTitle>Supprimer le compte</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you absolutely sure you want to delete your account? 
-                        This action cannot be undone and will permanently remove all your data.
+                        Êtes-vous absolument sûr de vouloir supprimer votre compte ? 
+                        Cette action est irréversible et supprimera définitivement toutes vos données.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
                       <AlertDialogAction 
                         onClick={handleDeleteAccount}
                         className="bg-red-600 hover:bg-red-700"
                         disabled={isDeleting}
                       >
-                        {isDeleting ? 'Deleting...' : 'Yes, Delete My Account'}
+                        {isDeleting ? 'Suppression...' : 'Oui, supprimer mon compte'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </CardContent>
-            </Card>
-
-            {/* About */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Info className="h-5 w-5" />
-                  <span>About PadelFlow</span>
-                </CardTitle>
-                <CardDescription>
-                  Information about the application
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Version</span>
-                    <span className="text-sm font-medium">1.0.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Framework</span>
-                    <span className="text-sm font-medium">Next.js 15</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Authentication</span>
-                    <span className="text-sm font-medium">Supabase</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Storage</span>
-                    <span className="text-sm font-medium">Supabase</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="text-sm text-gray-600">
-                  <p className="mb-2">
-                    PadelFlow is a professional tournament management platform for the padel community.
-                  </p>
-                  <p>
-                    Built with modern web technologies to provide a seamless tournament organization experience.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>

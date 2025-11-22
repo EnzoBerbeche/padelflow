@@ -1159,14 +1159,13 @@ export default function PlayerStatisticsPage() {
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="font-medium text-sm">
-                                    {player.nom_complet || `Player ${player.idcrm}`}
+                                    {player.nom_complet || 'Player'}
                                   </span>
                                   <Badge variant="outline" className="text-xs">
                                     {player.sexe === 'H' ? 'Men' : 'Women'}
                                   </Badge>
                                 </div>
                                 <div className="text-xs text-gray-600 space-y-1">
-                                  <div>License: {player.idcrm}</div>
                                   <div>League: {player.ligue || 'N/A'}</div>
                                   <div>Ranking: {player.classement || 'N/A'}</div>
                                 </div>
@@ -1194,7 +1193,6 @@ export default function PlayerStatisticsPage() {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Name</TableHead>
-                              <TableHead>License</TableHead>
                               <TableHead>League</TableHead>
                               <TableHead className="text-center">Ranking</TableHead>
                               <TableHead className="text-center">Gender</TableHead>
@@ -1207,10 +1205,7 @@ export default function PlayerStatisticsPage() {
                               .map((player) => (
                                 <TableRow key={player.idcrm} className="hover:bg-gray-50">
                                   <TableCell className="font-medium">
-                                    {player.nom_complet || `Player ${player.idcrm}`}
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm">
-                                    {player.idcrm}
+                                    {player.nom_complet || 'Player'}
                                   </TableCell>
                                   <TableCell>
                                     {player.ligue || 'N/A'}

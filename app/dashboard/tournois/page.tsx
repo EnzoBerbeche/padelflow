@@ -402,22 +402,14 @@ export default function TournoisPage() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               {(() => {
-                                // Use tournament's registration_id (the public registration ID for the tournament)
+                                // Use tournament's public_id to link to public page
                                 const regId = tournament.registration_id;
                                 const canMod = canModify(tournament);
                                 
                                 return (
                                   <>
-                                    {regId ? (
-                                      <Link href={`/public/tournament/${regId}/registrations`}>
-                                        <Button variant="outline" size="sm">
-                                          <ExternalLink className="h-4 w-4 mr-2" />
-                                          Voir
-                                        </Button>
-                                      </Link>
-                                    ) : tournament.registration_enabled ? (
-                                      // If registration is enabled but no registration_id, still show view button with tournament id
-                                      <Link href={`/public/tournament/${tournament.id}/registrations`}>
+                                    {tournament.public_id ? (
+                                      <Link href={`/public/${tournament.public_id}`} target="_blank" rel="noopener noreferrer">
                                         <Button variant="outline" size="sm">
                                           <ExternalLink className="h-4 w-4 mr-2" />
                                           Voir

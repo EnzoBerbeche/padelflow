@@ -9,7 +9,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Calendar, Clock, MapPin, Plus, Edit, Trash2, Eye, Copy, Link as LinkIcon } from 'lucide-react';
+import { Trophy, Calendar, Clock, MapPin, Plus, Edit, Trash2, Eye, Copy, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
@@ -22,7 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export default function TournamentsPage() {
   const { toast } = useToast();
   const currentUserId = useCurrentUserId();
-  const { role, isClub, isAdmin } = useUserRole();
+  const { role, isClub, isAdmin, isJugeArbitre } = useUserRole();
   const [tournaments, setTournaments] = useState<AppTournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export default function TournamentsPage() {
   };
 
   // Check if user has permission to access tournaments
-  if (!isClub && !isAdmin) {
+  if (!isClub && !isAdmin && !isJugeArbitre) {
     return (
       <ProtectedRoute allowedRoles={['juge_arbitre', 'admin']}>
         <DashboardLayout>
@@ -369,8 +369,9 @@ export default function TournamentsPage() {
                           Gérer
                         </Button>
                       </Link>
-                      <Link href={`/public/${tournament.public_id}`} className="flex-1">
+                      <Link href={`/public/${tournament.public_id}`} target="_blank" rel="noopener noreferrer" className="flex-1">
                         <Button variant="outline" size="sm" className="w-full">
+                          <ExternalLink className="h-4 w-4 mr-1" />
                           Voir Public
                         </Button>
                       </Link>
