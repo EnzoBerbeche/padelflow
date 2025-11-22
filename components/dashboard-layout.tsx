@@ -1,18 +1,15 @@
 'use client';
 
-import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, User as UserIcon, Wrench, Shield, BarChart3, Building2 } from 'lucide-react';
+import { Trophy, Home, Users, Calendar, Settings, LogOut, Menu, X, User as UserIcon, Wrench, BarChart3, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSupabaseUser } from '@/hooks/use-current-user';
 import { useUserRole } from '@/hooks/use-user-role';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 
 // Navigation sections structure
 interface NavigationSection {
@@ -57,17 +54,10 @@ const jugeArbitreSection: NavigationSection = {
 const adminSection: NavigationSection = {
   title: 'Admin',
   items: [
-    { 
-      name: 'Admin', 
-      href: '/dashboard/admin', 
-      icon: Shield, 
-      children: [
-        { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
-        { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
-        { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
-        { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
-      ]
-    },
+    { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
+    { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
+    { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
+    { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
   ],
 };
 
@@ -80,10 +70,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Start closed on mobile
   const { user } = useSupabaseUser();
   const { role, loading: roleLoading } = useUserRole();
-  const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [saving, setSaving] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   // Get navigation sections based on user role
@@ -114,21 +100,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigationSections = getNavigationSections();
 
-  useEffect(() => {
-    const md: any = user?.user_metadata || {};
-    const dn = (md.display_name || '').toString();
-    const ph = (md.phone || '').toString();
-    setDisplayName(dn);
-    setPhone(ph);
-  }, [user]);
-
-  const updateAccount = async () => {
-    setSaving(true);
-    const { error } = await supabase.auth.updateUser({ data: { display_name: displayName, phone } });
-    setSaving(false);
-    if (!error) setIsAccountOpen(false);
-    // Optionally add toast here in future
-  };
 
   const renderNavigationItem = (item: any) => {
     // More precise active detection to avoid conflicts between /dashboard and /dashboard/ten-up
@@ -242,15 +213,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuItem
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    setIsAccountOpen(true);
-                  }}
-                >
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  Mon profil
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
                     window.location.href = '/dashboard/settings';
                   }}
                 >
@@ -303,37 +265,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
-      <Dialog open={isAccountOpen} onOpenChange={(open) => {
-        setIsAccountOpen(open);
-        if (!open) setIsUserMenuOpen(false);
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Account settings</DialogTitle>
-            <DialogDescription>Update your display name and phone number.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Email</Label>
-              <Input value={user?.email || ''} disabled />
-            </div>
-            <div className="space-y-1">
-              <Label>Display name</Label>
-              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" onClick={() => setIsAccountOpen(false)}>Cancel</Button>
-            </DialogClose>
-            <Button onClick={updateAccount} disabled={saving || !user}>{saving ? 'Saving…' : 'Save changes'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
