@@ -28,6 +28,12 @@ function sanitizeForLike(input: string): string {
   return input.replace(/[%_\\]/g, '\\$&');
 }
 
+// Validate email format
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 // National Players table interface
 export interface SupabaseNationalPlayer {
   id: string;
@@ -2129,6 +2135,11 @@ export const clubJugeArbitresAPI = {
   // Valider un juge arbitre pour un club (user "club" or "admin" only)
   // Accepte directement un user_id et un email (récupéré depuis la liste des juges arbitres)
   validate: async (clubId: string, userId: string, email: string): Promise<{ ok: boolean; error?: string }> => {
+    // Validate email format
+    if (!email || !isValidEmail(email)) {
+      return { ok: false, error: 'Invalid email format' };
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const currentUserId = userData.user?.id;
     if (!currentUserId) {
