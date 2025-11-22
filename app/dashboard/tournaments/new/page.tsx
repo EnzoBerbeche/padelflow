@@ -36,11 +36,6 @@ function TournamentForm() {
   const [clubs, setClubs] = useState<AppClub[]>([]);
   const [loadingClubs, setLoadingClubs] = useState(true);
   
-  // Debug current user only
-  useEffect(() => {
-    console.log('🔍 Current user ID changed:', currentUserId);
-  }, [currentUserId]);
-
   // Load user's clubs
   // Admins et juges arbitres voient leurs clubs créés
   // Juges arbitres voient les clubs auxquels ils sont associés
@@ -85,15 +80,9 @@ function TournamentForm() {
     type: '' as 'All' | 'Men' | 'Women' | 'Mixed' | '',
   });
 
-  // Debug form data changes
-  useEffect(() => {
-    console.log('🔍 Form data changed:', formData);
-  }, [formData]);
-
   // Fallback effect to ensure form data is set when editing
   useEffect(() => {
     if (isEditing && editingTournament && !formData.name && clubs.length > 0) {
-      console.log('🔍 Fallback: Setting form data from editing tournament');
       // Find club by location (address) for editing
       const matchingClub = clubs.find(c => c.address === editingTournament.location);
       setFormData({
@@ -117,35 +106,25 @@ function TournamentForm() {
 
   useEffect(() => {
     const editId = searchParams.get('edit');
-    console.log('🔍 useEffect triggered');
-    console.log('🔍 editId:', editId);
-    console.log('🔍 processedEditId.current:', processedEditId.current);
-    console.log('🔍 currentUserId:', currentUserId);
-    
+
     // Reset processedEditId if we're not editing
     if (!editId) {
       processedEditId.current = null;
-      console.log('🔍 Reset processedEditId to null');
       return;
     }
-    
+
     // Wait for user to be loaded before processing edit
     if (currentUserId === null && editId) {
-      console.log('🔍 Waiting for user to be loaded...');
       return;
     }
-    
+
     if (editId && editId !== processedEditId.current) {
-      console.log('🔍 Processing edit request...');
       processedEditId.current = editId;
       (async () => {
         const tournament = await tournamentsAPI.getById(editId);
-        console.log('🔍 Found tournament:', tournament);
         if (tournament) {
           const canEdit = tournament.owner_id === currentUserId;
-          console.log('🔍 Can edit:', canEdit);
           if (canEdit) {
-            console.log('🔍 Setting form data...');
             setIsEditing(true);
             setEditingTournament(tournament);
             // Use club_id directly from tournament, or find by address as fallback
@@ -168,14 +147,10 @@ function TournamentForm() {
               type: tournament.type,
             });
           }
-        } else {
-          console.log('🔍 Tournament not found');
         }
       })();
-    } else {
-      console.log('🔍 Not processing edit - conditions not met');
     }
-  }, [searchParams, currentUserId, clubs]); // Added clubs to dependencies
+  }, [searchParams, currentUserId, clubs]);
 
   const handleDuplicate = async () => {
     if (!editingTournament) return;
