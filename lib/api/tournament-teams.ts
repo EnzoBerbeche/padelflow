@@ -51,51 +51,37 @@ export function mapTournamentTeamRow(row: SupabaseTournamentTeamRow): UITeam {
 
 export const tournamentTeamsAPI = {
   listWithPlayers: async (tournamentId: string): Promise<UITeamWithPlayers[]> => {
-    // Fetch teams
+    // Fetch teams with nested team_players and tournament_players in a single query
     const { data: teamRows, error: teamErr } = await supabase
       .from('tournament_teams')
-      .select('*')
+      .select(`
+        *,
+        team_players (
+          id,
+          team_id,
+          player_id,
+          tournament_players (*)
+        )
+      `)
       .eq('tournament_id', tournamentId)
       .order('weight', { ascending: true });
+
     if (teamErr) {
-      console.error('Error fetching teams:', teamErr);
+      console.error('Error fetching teams with players:', teamErr);
       return [];
     }
-    const teams = ((teamRows as unknown as SupabaseTournamentTeamRow[]) || []).map(mapTournamentTeamRow);
 
-    // Fetch join rows
-    const { data: joinRows, error: joinErr } = await supabase
-      .from('team_players')
-      .select('id, team_id, player_id')
-      .in('team_id', teams.map(t => t.id));
-    if (joinErr) {
-      console.error('Error fetching team_players:', joinErr);
-      return teams.map(t => ({ ...t, players: [] }));
-    }
+    // Map the nested data to our UI types
+    return ((teamRows as any[]) || []).map(row => {
+      const team = mapTournamentTeamRow(row as SupabaseTournamentTeamRow);
+      const players: UITournamentPlayer[] = ((row.team_players as any[]) || [])
+        .map((tp: any) => tp.tournament_players)
+        .filter(Boolean)
+        .map((p: SupabaseTournamentPlayerRow) => mapTournamentPlayerRow(p))
+        .slice(0, 2);
 
-    const playerIds = Array.from(new Set(((joinRows as unknown as SupabaseTeamPlayerRow[]) || []).map(j => j.player_id)));
-    const { data: playerRows, error: plErr } = await supabase
-      .from('tournament_players')
-      .select('*')
-      .in('id', playerIds);
-    if (plErr) {
-      console.error('Error fetching tournament_players:', plErr);
-      return teams.map(t => ({ ...t, players: [] }));
-    }
-    const playerById = new Map(
-      ((playerRows as unknown as SupabaseTournamentPlayerRow[]) || []).map(r => [r.id, mapTournamentPlayerRow(r)])
-    );
-
-    const joins = (joinRows as unknown as SupabaseTeamPlayerRow[]) || [];
-    const teamIdToPlayers = new Map<string, UITournamentPlayer[]>();
-    for (const j of joins) {
-      const arr = teamIdToPlayers.get(j.team_id) ?? [];
-      const pl = playerById.get(j.player_id);
-      if (pl) arr.push(pl);
-      teamIdToPlayers.set(j.team_id, arr);
-    }
-
-    return teams.map(t => ({ ...t, players: (teamIdToPlayers.get(t.id) ?? []).slice(0, 2) }));
+      return { ...team, players };
+    });
   },
 
   createWithTwoPlayersFromLocal: async (
