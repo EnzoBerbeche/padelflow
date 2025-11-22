@@ -14,43 +14,62 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-// Base navigation pour les joueurs
-const playerNavigation = [
-  { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
-];
+// Navigation sections structure
+interface NavigationSection {
+  title: string;
+  items: Array<{
+    name: string;
+    href: string;
+    icon: any;
+    children?: Array<{ name: string; href: string; icon: any }>;
+  }>;
+}
 
-// Navigation pour les Juges Arbitres
-const jugeArbitreNavigation = [
-  { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
-];
+// Section Joueur (visible pour tous)
+const playerSection: NavigationSection = {
+  title: 'Joueur',
+  items: [
+    { name: 'Home', href: '/dashboard', icon: Home },
+    { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
+    { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
+  ],
+};
 
-// Admin-specific navigation
-const adminNavigation = [
-  { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-  { name: 'Mes Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Gestion Tournois', href: '/dashboard/tournaments', icon: Calendar },
-  { name: 'Admin', href: '/dashboard/admin', icon: Shield, children: [
-    { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
-    { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
-    { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
-    { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
-  ]},
-];
+// Section Club (uniquement pour clubs et admins)
+const clubSection: NavigationSection = {
+  title: 'Club',
+  items: [
+    { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
+    { name: 'Mes Tournois', href: '/dashboard/club/tournaments', icon: Trophy },
+    { name: 'Mes JA', href: '/dashboard/club/juge-arbitres', icon: Users },
+  ],
+};
 
-// Club-specific navigation
-const clubNavigation = [
-  { name: 'Home', href: '/dashboard', icon: Home },
-  { name: 'Mes Clubs', href: '/dashboard/club', icon: Building2 },
-  { name: 'Mes Tournois', href: '/dashboard/club/tournaments', icon: Trophy },
-  { name: 'Tournois', href: '/dashboard/tournois', icon: Trophy },
-  { name: 'Game Analyzer', href: '/dashboard/game-analyzer', icon: BarChart3 },
-];
+// Section JA (uniquement pour JA et admins)
+const jugeArbitreSection: NavigationSection = {
+  title: 'JA',
+  items: [
+    { name: 'Gestion des Tournois', href: '/dashboard/tournaments', icon: Calendar },
+  ],
+};
+
+// Section Admin (uniquement pour admins)
+const adminSection: NavigationSection = {
+  title: 'Admin',
+  items: [
+    { 
+      name: 'Admin', 
+      href: '/dashboard/admin', 
+      icon: Shield, 
+      children: [
+        { name: 'Migrate Formats', href: '/dashboard/migrate-formats', icon: Wrench },
+        { name: 'System Settings', href: '/dashboard/admin/settings', icon: Settings },
+        { name: 'User Management', href: '/dashboard/admin/users', icon: Users },
+        { name: 'Club Management', href: '/dashboard/admin/clubs', icon: Building2 },
+      ]
+    },
+  ],
+};
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -67,24 +86,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [saving, setSaving] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  // Get navigation based on user role
-  const getNavigation = () => {
-    if (roleLoading) return playerNavigation;
+  // Get navigation sections based on user role
+  const getNavigationSections = (): NavigationSection[] => {
+    if (roleLoading) return [playerSection];
+    
+    const sections: NavigationSection[] = [playerSection];
     
     switch (role) {
       case 'admin':
-        return adminNavigation;
-      case 'juge_arbitre':
-        return jugeArbitreNavigation;
+        // Admins voient toutes les sections
+        sections.push(clubSection, jugeArbitreSection, adminSection);
+        break;
       case 'club':
-        return clubNavigation;
+        sections.push(clubSection);
+        break;
+      case 'juge_arbitre':
+        sections.push(jugeArbitreSection);
+        break;
       case 'player':
       default:
-        return playerNavigation;
+        // Players voient seulement la section Joueur
+        break;
     }
+    
+    return sections;
   };
 
-  const navigation = getNavigation();
+  const navigationSections = getNavigationSections();
 
   useEffect(() => {
     const md: any = user?.user_metadata || {};
@@ -158,6 +186,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {item.name}
         </Link>
       </li>
+    );
+  };
+
+  const renderNavigationSection = (section: NavigationSection) => {
+    return (
+      <div key={section.title} className="mb-6">
+        <div className="px-3 mb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            {section.title}
+          </h3>
+        </div>
+        <ul className="space-y-1">
+          {section.items.map((item) => renderNavigationItem(item))}
+        </ul>
+      </div>
     );
   };
 
@@ -240,10 +283,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             ? "w-64 translate-x-0" 
             : "w-0 -translate-x-full lg:w-64 lg:translate-x-0"
         )}>
-          <div className="px-4 py-6 flex flex-col h-full">
-            <ul className="space-y-2 flex-1">
-              {navigation.map((item) => renderNavigationItem(item))}
-            </ul>
+          <div className="px-4 py-6 flex flex-col h-full overflow-y-auto">
+            <div className="flex-1 space-y-1">
+              {navigationSections.map((section) => renderNavigationSection(section))}
+            </div>
           </div>
         </nav>
 
