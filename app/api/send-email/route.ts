@@ -1,39 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-// Temporary hardcoded API key for testing
-const resend = new Resend('re_YZfgVuqY_ECwJaa1cdiWJc6tU25cYSPBk');
+// Initialize Resend with environment variable
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 export async function POST(request: NextRequest) {
   try {
     const { to, subject, html, confirmationUrl } = await request.json();
 
-    console.log('=== EMAIL SEND REQUEST ===');
-    console.log('To:', to);
-    console.log('Subject:', subject);
-    console.log('Confirmation URL:', confirmationUrl);
-    console.log('HTML length:', html.length);
-    console.log('==========================');
-
     // En mode développement SANS clé API, on affiche juste l'email dans la console
-    if (process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY && !resend) {
-      console.log('=== EMAIL DE CONFIRMATION ===');
+    if (process.env.NODE_ENV === 'development' && !resend) {
+      console.log('=== EMAIL DE CONFIRMATION (DEV MODE) ===');
       console.log('À:', to);
       console.log('Sujet:', subject);
       console.log('Lien de confirmation:', confirmationUrl);
-      console.log('Contenu HTML:', html);
-      console.log('=============================');
-      
-      return NextResponse.json({ 
-        success: true, 
+      console.log('========================================');
+
+      return NextResponse.json({
+        success: true,
         message: 'Email logged to console (development mode)',
-        confirmationUrl 
+        confirmationUrl
       });
     }
 
-    // En production ou avec clé API, on utilise Resend
+    // En production, on utilise Resend
     if (!resend) {
-      console.error('Resend not initialized');
+      console.error('RESEND_API_KEY not configured');
       return NextResponse.json(
         { error: 'RESEND_API_KEY not configured' },
         { status: 500 }
@@ -42,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Sending email via Resend...');
     const { data, error } = await resend.emails.send({
-      from: 'PadelFlow <noreply@info.neyopadel.com>', // Votre domaine configuré
+      from: 'NeyoPadel <noreply@neyopadel.com>',
       to: [to], // Envoi à l'adresse réelle
       subject: subject,
       html: html,
