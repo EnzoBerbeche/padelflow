@@ -39,6 +39,25 @@ type TenupRow = {
   ranking_month: number;
 };
 
+// Shared utility to split full name into first/last name
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstName: '', lastName: '' };
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: '', lastName: parts[0] };
+  }
+  const lastName = parts.pop() as string;
+  return { firstName: parts.join(' '), lastName };
+}
+
+// Shared utility to format ranking date
+function formatRankingDate(year: number, month: number): string {
+  return new Date(Date.UTC(year, (month || 1) - 1, 1)).toISOString();
+}
+
+// Legacy mapping function - kept for backward compatibility
 export function mapRankingRowToNationalPlayer(row: {
   id_unique: string;
   licence: string;
@@ -55,25 +74,12 @@ export function mapRankingRowToNationalPlayer(row: {
   ranking_year: number;
   ranking_month: number;
 }): SupabaseNationalPlayer {
-  const fullName = (row.nom || '').trim();
-  let firstName = '';
-  let lastName = '';
-  if (fullName) {
-    const parts = fullName.split(/\s+/);
-    if (parts.length === 1) {
-      lastName = parts[0];
-    } else {
-      lastName = parts.pop() as string;
-      firstName = parts.join(' ');
-    }
-  }
-
-  const lastUpdated = new Date(Date.UTC(row.ranking_year, (row.ranking_month || 1) - 1, 1)).toISOString();
+  const { firstName, lastName } = splitFullName(row.nom || '');
 
   return {
     id: row.id_unique,
-    first_name: firstName || '',
-    last_name: lastName || '',
+    first_name: firstName,
+    last_name: lastName,
     license_number: row.licence,
     ranking: row.rang,
     best_ranking: row.meilleur_classement ?? row.rang,
@@ -83,41 +89,29 @@ export function mapRankingRowToNationalPlayer(row: {
     nationality: row.nationalite ?? '',
     gender: row.genre === 'Homme' ? 'men' : 'women',
     tournaments_count: row.nb_tournois ?? 0,
-    last_updated: lastUpdated,
+    last_updated: formatRankingDate(row.ranking_year, row.ranking_month),
   };
 }
 
+// Main mapping function for TenUp data
 export function mapTenupRowToNationalPlayer(row: TenupRow): SupabaseNationalPlayer {
-  // Utiliser nom_complet s'il existe, sinon combiner nom + prenom
-  const fullName = (row.nom_complet || `${row.prenom || ''} ${row.nom || ''}`).trim();
-  let firstName = '';
-  let lastName = '';
-  if (fullName) {
-    const parts = fullName.split(/\s+/);
-    if (parts.length === 1) {
-      lastName = parts[0];
-    } else {
-      lastName = parts.pop() as string;
-      firstName = parts.join(' ');
-    }
-  }
-
-  const lastUpdated = new Date(Date.UTC(row.ranking_year, (row.ranking_month || 1) - 1, 1)).toISOString();
+  const fullName = row.nom_complet || `${row.prenom || ''} ${row.nom || ''}`;
+  const { firstName, lastName } = splitFullName(fullName);
 
   return {
-    id: row.idcrm.toString(), // Convertir idcrm en string pour l'id
-    first_name: firstName || '',
-    last_name: lastName || '',
-    license_number: row.idcrm.toString(), // idcrm remplace licence
+    id: row.idcrm.toString(),
+    first_name: firstName,
+    last_name: lastName,
+    license_number: row.idcrm.toString(),
     ranking: row.classement,
     best_ranking: row.meilleur_classement ?? row.classement,
     points: row.points ?? 0,
     league: row.ligue ?? '',
-    birth_year: row.age_sportif ?? 0, // age_sportif remplace annee_naissance
+    birth_year: row.age_sportif ?? 0,
     nationality: row.nationalite ?? '',
-    gender: row.sexe === 'H' ? 'men' : 'women', // H -> men, F -> women
-    tournaments_count: row.nombre_tournois ?? 0, // nombre_tournois remplace nb_tournois
-    last_updated: lastUpdated,
+    gender: row.sexe === 'H' ? 'men' : 'women',
+    tournaments_count: row.nombre_tournois ?? 0,
+    last_updated: formatRankingDate(row.ranking_year, row.ranking_month),
   };
 }
 
