@@ -46,7 +46,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     first_name: '',
     last_name: '',
     license_number: '',
-    ranking: undefined as number | undefined,
+    ranking: undefined as number | 'NC' | undefined,
     phone: '',
     email: '',
   });
@@ -55,7 +55,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     first_name: '',
     last_name: '',
     license_number: '',
-    ranking: undefined as number | undefined,
+    ranking: undefined as number | 'NC' | undefined,
     phone: '',
     email: '',
   });
@@ -108,7 +108,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             first_name: existing.player1_first_name,
             last_name: existing.player1_last_name,
             license_number: existing.player1_license_number,
-            ranking: existing.player1_ranking,
+            ranking: existing.player1_ranking ?? ('NC' as 'NC'),
             phone: existing.player1_phone || '',
             email: existing.player1_email,
           });
@@ -116,7 +116,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             first_name: existing.player2_first_name,
             last_name: existing.player2_last_name,
             license_number: existing.player2_license_number,
-            ranking: existing.player2_ranking,
+            ranking: existing.player2_ranking ?? ('NC' as 'NC'),
             phone: existing.player2_phone || '',
             email: existing.player2_email,
           });
@@ -132,11 +132,12 @@ export default function RegisterPage({ params }: RegisterPageProps) {
           }
           
           // Initialize player1 with profile data, then override with link data if available
-          // Always use license and ranking from TenUp link if available
+          // Use license number from user profile (not idcrm from link)
+          // Always use ranking from TenUp link if available
           const initialPlayer1 = {
             first_name: profile?.first_name || '',
             last_name: profile?.last_name || '',
-            license_number: link?.licence || profile?.licence_number || '',
+            license_number: profile?.licence_number || '', // Use real license number, not idcrm
             ranking: link?.classement || undefined, // Always pre-fill from TenUp if available
             phone: profile?.phone || '',
             email: profile?.email || '',
@@ -181,10 +182,11 @@ export default function RegisterPage({ params }: RegisterPageProps) {
       return;
     }
     
-    if (isRankingMode && !player1.ranking) {
+    // Classement obligatoire pour tous les modes (peut être "NC" pour non classé)
+    if (player1.ranking === undefined || player1.ranking === null) {
       toast({
         title: "Erreur",
-        description: "Le classement du joueur 1 est obligatoire en mode ranking",
+        description: "Le classement du joueur 1 est obligatoire. Mettez 'NC' si vous n'êtes pas encore classé.",
         variant: "destructive",
       });
       return;
@@ -199,10 +201,11 @@ export default function RegisterPage({ params }: RegisterPageProps) {
       return;
     }
     
-    if (isRankingMode && !player2.ranking) {
+    // Classement obligatoire pour tous les modes (peut être "NC" pour non classé)
+    if (player2.ranking === undefined || player2.ranking === null) {
       toast({
         title: "Erreur",
-        description: "Le classement du joueur 2 est obligatoire en mode ranking",
+        description: "Le classement du joueur 2 est obligatoire. Mettez 'NC' si vous n'êtes pas encore classé.",
         variant: "destructive",
       });
       return;
@@ -231,13 +234,13 @@ export default function RegisterPage({ params }: RegisterPageProps) {
           player1_first_name: player1.first_name,
           player1_last_name: player1.last_name,
           player1_license_number: player1.license_number,
-          player1_ranking: player1.ranking,
+          player1_ranking: player1.ranking === 'NC' ? undefined : (player1.ranking as number | undefined),
           player1_phone: player1.phone || undefined,
           player1_email: player1.email,
           player2_first_name: player2.first_name,
           player2_last_name: player2.last_name,
           player2_license_number: player2.license_number,
-          player2_ranking: player2.ranking,
+          player2_ranking: player2.ranking === 'NC' ? undefined : (player2.ranking as number | undefined),
           player2_phone: player2.phone || undefined,
           player2_email: player2.email,
         });
@@ -254,13 +257,13 @@ export default function RegisterPage({ params }: RegisterPageProps) {
           player1_first_name: player1.first_name,
           player1_last_name: player1.last_name,
           player1_license_number: player1.license_number,
-          player1_ranking: player1.ranking,
+          player1_ranking: player1.ranking === 'NC' ? undefined : (player1.ranking as number | undefined),
           player1_phone: player1.phone || undefined,
           player1_email: player1.email,
           player2_first_name: player2.first_name,
           player2_last_name: player2.last_name,
           player2_license_number: player2.license_number,
-          player2_ranking: player2.ranking,
+          player2_ranking: player2.ranking === 'NC' ? undefined : (player2.ranking as number | undefined),
           player2_phone: player2.phone || undefined,
           player2_email: player2.email,
         });
@@ -525,7 +528,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
   }
 
   const isRankingMode = tournament.registration_selection_mode === 'ranking';
-  const needsPlayerLink = isRankingMode && !playerLink && !player1.ranking;
+  // Le classement est maintenant toujours obligatoire, mais on peut mettre "NC"
+  // Donc on ne bloque plus l'inscription si le joueur n'a pas de lien TenUp
+  const needsPlayerLink = false;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -620,22 +625,34 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="player1_ranking">
-                    Classement {isRankingMode ? '*' : '(optionnel)'}
+                    Classement *
                   </Label>
                   <Input
                     id="player1_ranking"
-                    type="number"
-                    value={player1.ranking || ''}
-                    onChange={(e) => setPlayer1({ ...player1, ranking: e.target.value ? parseInt(e.target.value) : undefined })}
-                    required={isRankingMode}
-                    disabled={isRankingMode && playerLink && playerLink.classement ? true : false}
+                    type="text"
+                    value={player1.ranking === 'NC' ? 'NC' : player1.ranking || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.trim().toUpperCase();
+                      if (value === 'NC' || value === '') {
+                        setPlayer1({ ...player1, ranking: value === 'NC' ? 'NC' : undefined });
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue)) {
+                          setPlayer1({ ...player1, ranking: numValue });
+                        }
+                      }
+                    }}
+                    required
+                    placeholder="Ex: 4110 ou NC si non classé"
                   />
                   {playerLink && playerLink.classement && (
                     <p className="text-xs text-gray-500">
                       Classement depuis TenUp: {playerLink.classement}
-                      {isRankingMode && ' (obligatoire en mode ranking)'}
                     </p>
                   )}
+                  <p className="text-xs text-gray-500">
+                    💡 Si vous n'êtes pas encore classé, vous pouvez mettre "NC" (Non Classé)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="player1_phone">Téléphone</Label>
@@ -763,15 +780,29 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="player2_ranking">
-                    Classement {isRankingMode ? '*' : '(optionnel)'}
+                    Classement *
                   </Label>
                   <Input
                     id="player2_ranking"
-                    type="number"
-                    value={player2.ranking || ''}
-                    onChange={(e) => setPlayer2({ ...player2, ranking: e.target.value ? parseInt(e.target.value) : undefined })}
-                    required={isRankingMode}
+                    type="text"
+                    value={player2.ranking === 'NC' ? 'NC' : player2.ranking || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.trim().toUpperCase();
+                      if (value === 'NC' || value === '') {
+                        setPlayer2({ ...player2, ranking: value === 'NC' ? 'NC' : undefined });
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue)) {
+                          setPlayer2({ ...player2, ranking: numValue });
+                        }
+                      }
+                    }}
+                    required
+                    placeholder="Ex: 4110 ou NC si non classé"
                   />
+                  <p className="text-xs text-gray-500">
+                    💡 Si le joueur n'est pas encore classé, vous pouvez mettre "NC" (Non Classé)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="player2_phone">Téléphone</Label>
