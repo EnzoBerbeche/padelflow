@@ -33,12 +33,25 @@ export interface PlayerStatistics {
 export const playerStatisticsAPI = {
   // Get detailed statistics for a specific player by licence
   getPlayerStatistics: async (licence: string): Promise<PlayerStatistics | null> => {
-    // Get all ranking data for this player
-    const { data, error } = await supabase
-      .from('tenup')
-      .select('*')
-      .eq('idcrm', parseInt(licence))
-      .order('date_classement', { ascending: false });
+    const idcrm = parseInt(licence);
+
+    // Run both queries in parallel to avoid N+1
+    const [rankingResult, latestResult] = await Promise.all([
+      // Get all ranking data for this player
+      supabase
+        .from('tenup')
+        .select('*')
+        .eq('idcrm', idcrm)
+        .order('date_classement', { ascending: false }),
+      // Get latest data to determine league for position query
+      supabase
+        .from('tenup_latest')
+        .select('ligue, classement')
+        .eq('idcrm', idcrm)
+        .single()
+    ]);
+
+    const { data, error } = rankingResult;
 
     if (error) {
       console.error('Error fetching player statistics:', error);
@@ -51,6 +64,24 @@ export const playerStatisticsAPI = {
 
     // Get the latest ranking (first row due to ordering)
     const latest = data[0];
+
+    // Get league position in parallel if we have league data
+    let leaguePositionPromise: Promise<number | null> = Promise.resolve(null);
+    const latestData = latestResult.data;
+    if (latestData?.ligue && latestData?.classement) {
+      leaguePositionPromise = supabase
+        .from('tenup_latest')
+        .select('*', { count: 'exact', head: true })
+        .eq('ligue', latestData.ligue)
+        .lt('classement', latestData.classement)
+        .then(({ count, error: countError }) => {
+          if (!countError && count !== null) {
+            return count + 1;
+          }
+          return null;
+        })
+        .catch(() => null);
+    }
 
     // Build ranking history
     const rankingHistory = data.map(row => ({
@@ -129,24 +160,8 @@ export const playerStatisticsAPI = {
       }
     }
 
-    // Calculate league position
-    let leaguePosition = null;
-    if (latest.ligue && latest.classement) {
-      try {
-        // Count how many players in the same league have a better ranking (lower number)
-        const { count, error: countError } = await supabase
-          .from('tenup_latest')
-          .select('*', { count: 'exact', head: true })
-          .eq('ligue', latest.ligue)
-          .lt('classement', latest.classement); // Better ranking = lower number
-
-        if (!countError && count !== null) {
-          leaguePosition = count + 1; // Position is count + 1 (1st place = 0 players better + 1)
-        }
-      } catch (err) {
-        console.error('Error calculating league position:', err);
-      }
-    }
+    // Await the league position that was calculated in parallel
+    const leaguePosition = await leaguePositionPromise;
 
     return {
       licence: latest.idcrm.toString(),
