@@ -4,16 +4,23 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
 
-// Check if environment variables are set
-const isConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+// Validate required environment variables at startup
+if (!supabaseUrl || !supabaseAnonKey) {
+  const missing = [];
+  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseAnonKey) missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-if (!isConfigured) {
-  console.error('Supabase not configured. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.');
-  console.error('Please create a .env.local file with your Supabase credentials');
+  throw new Error(
+    `Missing required environment variables: ${missing.join(', ')}. ` +
+      'Please create a .env.local file with your Supabase credentials.'
+  );
 }
 
 // Create client
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Flag for checking configuration status
+const isConfigured = true;
 
 // Sanitize input for ILIKE queries to prevent SQL injection
 // Escapes special LIKE pattern characters: %, _, and \
