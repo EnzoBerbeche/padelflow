@@ -15,6 +15,12 @@ if (!isConfigured) {
 // Create client
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
+// Sanitize input for ILIKE queries to prevent SQL injection
+// Escapes special LIKE pattern characters: %, _, and \
+function sanitizeForLike(input: string): string {
+  return input.replace(/[%_\\]/g, '\\$&');
+}
+
 // National Players table interface
 export interface SupabaseNationalPlayer {
   id: string;
@@ -121,14 +127,15 @@ export const nationalPlayersAPI = {
       const orConditions = [];
       
       for (const t of tokens) {
+        const sanitized = sanitizeForLike(t);
         const isNumber = !isNaN(Number(t));
         if (isNumber) {
           // For numeric tokens, search in both name and idcrm
-          orConditions.push(`nom_complet.ilike.*${t}*`);
+          orConditions.push(`nom_complet.ilike.*${sanitized}*`);
           orConditions.push(`idcrm.eq.${t}`);
         } else {
           // For text tokens, search only in name
-          orConditions.push(`nom_complet.ilike.*${t}*`);
+          orConditions.push(`nom_complet.ilike.*${sanitized}*`);
         }
       }
       
